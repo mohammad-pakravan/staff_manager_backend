@@ -1,0 +1,2418 @@
+{
+  "info": {
+    "name": "Staff Management System API",
+    "description": "Complete API collection for Staff Management System with Enhanced Access Control - System Admin Only Center Management, Bulk Announcements, Restricted User Access, Multi-Center Support, Persian Date Support, Complete Employee Management\n\n📅 **Persian Date Support**: All dates in the system are automatically converted to Persian (Jalali) format in the admin panel and API responses.\n\n🔐 **Access Control**:\n- System Admin: Full access to all features\n- Food Admin: Can manage meals and menus for any center, cannot manage centers\n- HR Admin: Can manage announcements for any center, can create bulk announcements, cannot manage centers\n- Employee: Can only see and manage data for their assigned center\n\n📊 **Features**:\n- Multi-center support\n- Guest reservations\n- Bulk announcements\n- Persian date display\n- Role-based access control\n- Complete employee workflow management\n- Personal and guest reservation management\n- Menu viewing and reservation system\n- Comprehensive API documentation",
+    "version": "7.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:14532",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "center_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "meal_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "reservation_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "announcement_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "weekly_menu_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login as System Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.access);",
+                  "    pm.collectionVariables.set('refresh_token', response.refresh);",
+                  "    console.log('Logged in as System Admin - Can manage all centers, only one who can create/update/delete centers');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login", ""]
+            }
+          }
+        },
+        {
+          "name": "Login as Food Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.access);",
+                  "    pm.collectionVariables.set('refresh_token', response.refresh);",
+                  "    console.log('Logged in as Food Admin - Can manage food for any center, cannot manage centers');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"food_admin\",\n    \"password\": \"food123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login", ""]
+            }
+          }
+        },
+        {
+          "name": "Login as HR Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.access);",
+                  "    pm.collectionVariables.set('refresh_token', response.refresh);",
+                  "    console.log('Logged in as HR Admin - Can manage announcements for any center, can create bulk announcements, cannot manage centers');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"hr_admin\",\n    \"password\": \"hr123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login", ""]
+            }
+          }
+        },
+        {
+          "name": "Login as Regular Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.access);",
+                  "    pm.collectionVariables.set('refresh_token', response.refresh);",
+                  "    console.log('Logged in as Employee - Can only see own center data, cannot see centers list, cannot create announcements');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"employee\",\n    \"password\": \"employee123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me", ""]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Centers",
+      "item": [
+        {
+          "name": "List Centers (Admins Only)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/centers/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "centers", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Center (System Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"مرکز مشهد\",\n    \"city\": \"مشهد\",\n    \"address\": \"خیابان امام رضا، پلاک 789\",\n    \"phone\": \"051-12345678\",\n    \"email\": \"mashhad@company.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/centers/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "centers", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Center Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/centers/{{center_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "centers", "{{center_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Center (System Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"مرکز مشهد - بروزرسانی شده\",\n    \"city\": \"مشهد\",\n    \"address\": \"خیابان امام رضا، پلاک 789\",\n    \"phone\": \"051-12345678\",\n    \"email\": \"mashhad@company.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/centers/{{center_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "centers", "{{center_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Center (System Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/centers/{{center_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "centers", "{{center_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Center Employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/centers/{{center_id}}/employees/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "centers", "{{center_id}}", "employees", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Food Management",
+      "item": [
+        {
+          "name": "Meals",
+          "item": [
+            {
+              "name": "List Meals (All Centers for Admins)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/?page=1&page_size=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Meal for Center 1 (Food Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"قورمه سبزی - مرکز 1\",\n    \"description\": \"غذای سنتی ایرانی برای مرکز 1\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران سنتی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""]
+                }
+              }
+            },
+            {
+              "name": "Create Meal for Center 2 (Food Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"قورمه سبزی - مرکز 2\",\n    \"description\": \"غذای سنتی ایرانی برای مرکز 2\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران سنتی\",\n    \"center\": 2,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""]
+                }
+              }
+            },
+            {
+              "name": "Get Meal Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/{{meal_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", "{{meal_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update Meal (Food Admin - Any Center)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"قورمه سبزی - بروزرسانی شده\",\n    \"description\": \"غذای سنتی ایرانی بروزرسانی شده\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران سنتی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/{{meal_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", "{{meal_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Delete Meal (Food Admin - Any Center)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/{{meal_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", "{{meal_id}}", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Meal Types",
+          "item": [
+            {
+              "name": "List Meal Types",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-types/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-types", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Weekly Menus",
+          "item": [
+            {
+              "name": "List Weekly Menus (All Centers for Admins)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/weekly-menus/?page=1&page_size=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "weekly-menus", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Weekly Menu for Center 1 (Food Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"center\": 1,\n    \"week_start_date\": \"2025-10-20\",\n    \"week_end_date\": \"2025-10-26\",\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/weekly-menus/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "weekly-menus", ""]
+                }
+              }
+            },
+            {
+              "name": "Create Weekly Menu for Center 2 (Food Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"center\": 2,\n    \"week_start_date\": \"2025-10-20\",\n    \"week_end_date\": \"2025-10-26\",\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/weekly-menus/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "weekly-menus", ""]
+                }
+              }
+            },
+            {
+              "name": "Get Weekly Menu Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/weekly-menus/{{weekly_menu_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "weekly-menus", "{{weekly_menu_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update Weekly Menu (Food Admin - Any Center)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"center\": 1,\n    \"week_start_date\": \"2025-10-20\",\n    \"week_end_date\": \"2025-10-26\",\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/weekly-menus/{{weekly_menu_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "weekly-menus", "{{weekly_menu_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Delete Weekly Menu (Food Admin - Any Center)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/weekly-menus/{{weekly_menu_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "weekly-menus", "{{weekly_menu_id}}", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Daily Menus",
+          "item": [
+            {
+              "name": "List Daily Menus (Center-based)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/daily-menus/?center={{center_id}}&date=2025-10-23",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "daily-menus", ""],
+                  "query": [
+                    {
+                      "key": "center",
+                      "value": "{{center_id}}"
+                    },
+                    {
+                      "key": "date",
+                      "value": "2025-10-23"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservations",
+          "item": [
+            {
+              "name": "List My Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/reservations/?page=1&page_size=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "reservations", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Food Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"center\": 1,\n    \"quantity\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "reservations", ""]
+                }
+              }
+            },
+            {
+              "name": "Check Reservation Limits",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/reservations/limits/?date=2025-10-23",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "reservations", "limits", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-10-23"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Reservation Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/reservations/{{reservation_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "reservations", "{{reservation_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Cancel Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/reservations/{{reservation_id}}/cancel/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "reservations", "{{reservation_id}}", "cancel", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Guest Reservations",
+          "item": [
+            {
+              "name": "List My Guest Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/guest-reservations/?page=1&page_size=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "guest-reservations", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Guest Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"guest_first_name\": \"احمد\",\n    \"guest_last_name\": \"محمدی\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"center\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/guest-reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "guest-reservations", ""]
+                }
+              }
+            },
+            {
+              "name": "Check Guest Reservation Limits",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/guest-reservations/limits/?date=2025-10-23",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "guest-reservations", "limits", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-10-23"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Guest Reservation Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/guest-reservations/{{reservation_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "guest-reservations", "{{reservation_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Cancel Guest Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/guest-reservations/{{reservation_id}}/cancel/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "guest-reservations", "{{reservation_id}}", "cancel", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Statistics",
+          "item": [
+            {
+              "name": "Get Meal Statistics (Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", ""]
+                }
+              }
+            },
+            {
+              "name": "Get Center Reservations (Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/centers/{{center_id}}/reservations/?date=2025-10-23",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "centers", "{{center_id}}", "reservations", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-10-23"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Export Excel Report (Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/centers/{{center_id}}/export/excel/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "centers", "{{center_id}}", "export", "excel", ""]
+                }
+              }
+            },
+            {
+              "name": "Export PDF Report (Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/centers/{{center_id}}/export/pdf/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "centers", "{{center_id}}", "export", "pdf", ""]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HR Management",
+      "item": [
+        {
+          "name": "Announcements",
+          "item": [
+            {
+              "name": "List Announcements (All Centers for HR/System Admin)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/?page=1&page_size=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create Announcement for Center 1 (HR Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه مهم - مرکز 1\",\n    \"content\": \"این یک اطلاعیه مهم برای مرکز 1 است\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            },
+            {
+              "name": "Create Announcement for Center 2 (HR Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه مهم - مرکز 2\",\n    \"content\": \"این یک اطلاعیه مهم برای مرکز 2 است\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"center\": 2,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            },
+            {
+              "name": "Create Bulk Announcement for All Centers (HR Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه دسته‌جمعی - همه مراکز\",\n    \"content\": \"این اطلاعیه برای همه مراکز ارسال می‌شود\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/bulk/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "bulk", ""]
+                }
+              }
+            },
+            {
+              "name": "Get Announcement Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "{{announcement_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update Announcement (HR Admin - Any Center)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه مهم - بروزرسانی شده\",\n    \"content\": \"این یک اطلاعیه مهم بروزرسانی شده است\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "{{announcement_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Delete Announcement (HR Admin - Any Center)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "{{announcement_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Get Announcement Statistics (HR/System Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/statistics/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "statistics", ""]
+                }
+              }
+            },
+            {
+              "name": "Publish Announcement (HR/System Admin Only)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/publish/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "{{announcement_id}}", "publish", ""]
+                }
+              }
+            },
+            {
+              "name": "Unpublish Announcement (HR/System Admin Only)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/unpublish/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "{{announcement_id}}", "unpublish", ""]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "API Documentation",
+      "item": [
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/docs/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "docs", ""]
+            }
+          }
+        },
+        {
+          "name": "ReDoc",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/redoc/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "redoc", ""]
+            }
+          }
+        },
+        {
+          "name": "OpenAPI Schema",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/schema/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "schema", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee User",
+      "description": "Complete employee management endpoints for food reservations, guest reservations, and daily menu management",
+      "item": [
+        {
+          "name": "Daily Menus",
+          "item": [
+            {
+              "name": "Get Daily Menus for Date",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/daily-menus/?date=2025-01-01",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "daily-menus", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-01-01"
+                    }
+                  ]
+                },
+                "description": "Get daily menus for employee's center on specific date"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Daily menus retrieved:', response.length);",
+                      "    response.forEach((menu, index) => {",
+                      "        console.log(`Menu ${index + 1}:`, {",
+                      "            id: menu.id,",
+                      "            date: menu.date,",
+                      "            meal_type: menu.meal_type?.name,",
+                      "            meals_count: menu.meals_count,",
+                      "            center: menu.center_name",
+                      "        });",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Personal Reservations",
+          "item": [
+            {
+              "name": "Create Personal Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal\": 1,\n  \"quantity\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "reservations", ""]
+                },
+                "description": "Create a personal food reservation"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Personal reservation created:', response);",
+                      "    pm.collectionVariables.set('reservation_id', response.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Personal Reservation",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal\": 2,\n  \"quantity\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/reservations/{{reservation_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "reservations", "{{reservation_id}}", ""]
+                },
+                "description": "Update a personal food reservation"
+              }
+            },
+            {
+              "name": "Cancel Personal Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/reservations/{{reservation_id}}/cancel/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "reservations", "{{reservation_id}}", "cancel", ""]
+                },
+                "description": "Cancel a personal food reservation"
+              }
+            },
+            {
+              "name": "Get My Personal Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "reservations", ""]
+                },
+                "description": "Get all personal reservations for the authenticated user"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Personal reservations retrieved:', response.length);",
+                      "    response.forEach((reservation, index) => {",
+                      "        console.log(`Reservation ${index + 1}:`, {",
+                      "            id: reservation.id,",
+                      "            meal: reservation.meal?.title,",
+                      "            date: reservation.daily_menu?.date,",
+                      "            status: reservation.status,",
+                      "            quantity: reservation.quantity",
+                      "        });",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get My Personal Reservations - Filter by Date",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/reservations/?date=2025-01-01",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "reservations", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-01-01"
+                    }
+                  ]
+                },
+                "description": "Get personal reservations filtered by specific date"
+              }
+            },
+            {
+              "name": "Get My Personal Reservations - Filter by Status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/reservations/?status=reserved",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "reservations", ""],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "reserved"
+                    }
+                  ]
+                },
+                "description": "Get personal reservations filtered by status (reserved, cancelled, served)"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Guest Reservations",
+          "item": [
+            {
+              "name": "Create Guest Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"guest_first_name\": \"علی\",\n  \"guest_last_name\": \"احمدی\",\n  \"daily_menu\": 1,\n  \"meal\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/guest-reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "guest-reservations", ""]
+                },
+                "description": "Create a guest food reservation"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Guest reservation created:', response);",
+                      "    pm.collectionVariables.set('guest_reservation_id', response.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Guest Reservation",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"guest_first_name\": \"علی\",\n  \"guest_last_name\": \"احمدی\",\n  \"daily_menu\": 1,\n  \"meal\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/guest-reservations/{{guest_reservation_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "guest-reservations", "{{guest_reservation_id}}", ""]
+                },
+                "description": "Update a guest food reservation"
+              }
+            },
+            {
+              "name": "Cancel Guest Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/guest-reservations/{{guest_reservation_id}}/cancel/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "guest-reservations", "{{guest_reservation_id}}", "cancel", ""]
+                },
+                "description": "Cancel a guest food reservation"
+              }
+            },
+            {
+              "name": "Get My Guest Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/guest-reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "guest-reservations", ""]
+                },
+                "description": "Get all guest reservations made by the authenticated user"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Guest reservations retrieved:', response.length);",
+                      "    response.forEach((reservation, index) => {",
+                      "        console.log(`Guest Reservation ${index + 1}:`, {",
+                      "            id: reservation.id,",
+                      "            guest_name: `${reservation.guest_first_name} ${reservation.guest_last_name}`,",
+                      "            meal: reservation.meal?.title,",
+                      "            date: reservation.daily_menu?.date,",
+                      "            status: reservation.status",
+                      "        });",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get My Guest Reservations - Filter by Date",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/guest-reservations/?date=2025-01-01",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "guest-reservations", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-01-01"
+                    }
+                  ]
+                },
+                "description": "Get guest reservations filtered by specific date"
+              }
+            },
+            {
+              "name": "Get My Guest Reservations - Filter by Status",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/guest-reservations/?status=reserved",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "guest-reservations", ""],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "reserved"
+                    }
+                  ]
+                },
+                "description": "Get guest reservations filtered by status (reserved, cancelled, served)"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reservations Summary",
+          "item": [
+            {
+              "name": "Get My Reservations Summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/reservations/summary/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "reservations", "summary", ""]
+                },
+                "description": "Get summary statistics of all user reservations (personal + guest)"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Reservations Summary:');",
+                      "    console.log('Personal Reservations:', response.personal_reservations);",
+                      "    console.log('Guest Reservations:', response.guest_reservations);",
+                      "    console.log('Total Today:', response.total_today);",
+                      "    console.log('Total All:', response.total_all);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Complete Employee Workflow",
+          "item": [
+            {
+              "name": "1. Login as Employee",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"employee1\",\n  \"password\": \"password123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                },
+                "description": "Login as regular employee to test complete workflow"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    pm.collectionVariables.set('jwt_token', response.access);",
+                      "    pm.collectionVariables.set('refresh_token', response.refresh);",
+                      "    console.log('Logged in as Employee - Ready for complete workflow');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Get Daily Menus for Today",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/daily-menus/?date=2025-01-01",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "daily-menus", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-01-01"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "3. Create Personal Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal\": 1,\n  \"quantity\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "reservations", ""]
+                }
+              }
+            },
+            {
+              "name": "4. Create Guest Reservation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"guest_first_name\": \"مهمان\",\n  \"guest_last_name\": \"تست\",\n  \"daily_menu\": 1,\n  \"meal\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/employee/guest-reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "employee", "guest-reservations", ""]
+                }
+              }
+            },
+            {
+              "name": "5. View My Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "reservations", ""]
+                }
+              }
+            },
+            {
+              "name": "6. View My Guest Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/guest-reservations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "guest-reservations", ""]
+                }
+              }
+            },
+            {
+              "name": "7. Get Reservations Summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/user/reservations/summary/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "user", "reservations", "summary", ""]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Test Scenarios - New Logic",
+      "item": [
+        {
+          "name": "Test HR Admin - Multi Center Management",
+          "item": [
+            {
+              "name": "1. Login as HR Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"hr_admin\",\n    \"password\": \"hr123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                }
+              }
+            },
+            {
+              "name": "2. Check User Info",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/auth/me/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "me", ""]
+                }
+              }
+            },
+            {
+              "name": "3. List All Announcements (Should show all centers)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            },
+            {
+              "name": "4. Create Announcement for Center 1",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه تست - مرکز 1\",\n    \"content\": \"این اطلاعیه برای مرکز 1 ایجاد شده\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            },
+            {
+              "name": "5. Create Announcement for Center 2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه تست - مرکز 2\",\n    \"content\": \"این اطلاعیه برای مرکز 2 ایجاد شده\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"center\": 2,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Test Food Admin - Multi Center Management",
+          "item": [
+            {
+              "name": "1. Login as Food Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"food_admin\",\n    \"password\": \"food123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                }
+              }
+            },
+            {
+              "name": "2. Check User Info",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/auth/me/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "me", ""]
+                }
+              }
+            },
+            {
+              "name": "3. List All Meals (Should show all centers)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""]
+                }
+              }
+            },
+            {
+              "name": "4. Create Meal for Center 1",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"غذای تست - مرکز 1\",\n    \"description\": \"این غذا برای مرکز 1 ایجاد شده\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران تست\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""]
+                }
+              }
+            },
+            {
+              "name": "5. Create Meal for Center 2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"غذای تست - مرکز 2\",\n    \"description\": \"این غذا برای مرکز 2 ایجاد شده\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n                    \"restaurant\": \"رستوران تست\",\n    \"center\": 2,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Test Employee - Own Center Only",
+          "item": [
+            {
+              "name": "1. Login as Employee",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"employee\",\n    \"password\": \"employee123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                }
+              }
+            },
+            {
+              "name": "2. Check User Info",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/auth/me/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "me", ""]
+                }
+              }
+            },
+            {
+              "name": "3. Try to List Centers (Should return empty - No Access)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/centers/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "centers", ""]
+                }
+              }
+            },
+            {
+              "name": "4. List Announcements (Should show only own center)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            },
+            {
+              "name": "5. List Meals (Should show only own center)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meals", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Test Bulk Announcement Feature",
+          "item": [
+            {
+              "name": "1. Login as HR Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"hr_admin\",\n    \"password\": \"hr123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                }
+              }
+            },
+            {
+              "name": "2. Create Bulk Announcement for All Centers",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"اطلاعیه دسته‌جمعی - تست سیستم\",\n    \"content\": \"این اطلاعیه برای تست قابلیت اطلاعیه دسته‌جمعی ایجاد شده است\",\n    \"publish_date\": \"2025-10-23T08:00:00Z\",\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/bulk/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "bulk", ""]
+                }
+              }
+            },
+            {
+              "name": "3. Verify All Centers Received Announcement",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Test Access Control Restrictions",
+          "item": [
+            {
+              "name": "1. Login as Food Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"food_admin\",\n    \"password\": \"food123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                }
+              }
+            },
+            {
+              "name": "2. Try to Create Center (Should Fail - Not System Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"مرکز تست\",\n    \"city\": \"تهران\",\n    \"address\": \"خیابان تست\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"test@example.com\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/centers/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "centers", ""]
+                }
+              }
+            },
+            {
+              "name": "3. Try to Create Bulk Announcement (Should Fail - Not HR Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"تست دسترسی\",\n    \"content\": \"این باید رد شود\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/bulk/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", "bulk", ""]
+                }
+              }
+            },
+            {
+              "name": "4. Login as Regular Employee",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"username\": \"employee\",\n    \"password\": \"employee123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/auth/login/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "auth", "login", ""]
+                }
+              }
+            },
+            {
+              "name": "5. Try to List Centers (Should Return Empty)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/centers/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "centers", ""]
+                }
+              }
+            },
+            {
+              "name": "6. Try to Create Announcement (Should Fail - Not HR Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"title\": \"تست دسترسی\",\n    \"content\": \"این باید رد شود\",\n    \"center\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/hr/announcements/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "hr", "announcements", ""]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

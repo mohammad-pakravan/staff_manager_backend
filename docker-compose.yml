@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: compose/dev/Dockerfile
+    command: sh /app/compose/dev/django-entrypoint.sh
+    volumes:
+      - .:/app
+    ports:
+      - "14532:8000"
+    env_file: .env
+    depends_on:
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings.dev
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: staff_db
+      POSTGRES_USER: staff_user
+      POSTGRES_PASSWORD: staff_pass
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

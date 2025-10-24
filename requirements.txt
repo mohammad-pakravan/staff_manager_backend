@@ -1,0 +1,17 @@
+Django>=5.0
+djangorestframework
+django-cors-headers
+djangorestframework-simplejwt
+psycopg2-binary
+gunicorn
+python-decouple
+Pillow
+openpyxl
+reportlab
+
+# Persian Date Support
+jdatetime
+django-jalali-date
+
+# API Documentation
+drf-spectacular
