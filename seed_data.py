@@ -7,6 +7,7 @@
 import os
 import django
 from django.conf import settings
+from decimal import Decimal
 
 # تنظیم Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.dev')
@@ -14,7 +15,10 @@ django.setup()
 
 from apps.accounts.models import User
 from apps.centers.models import Center
-from apps.food_management.models import MealType, Meal, WeeklyMenu, DailyMenu
+from apps.food_management.models import (
+    MealType, BaseMeal, MealOption, Restaurant,
+    DailyMenu, FoodReservation, GuestReservation
+)
 from apps.hr.models import Announcement
 from django.utils import timezone
 from datetime import datetime, timedelta, date
@@ -182,6 +186,15 @@ def create_users(centers):
             'employee_number': 'EMP005',
             'role': User.Role.EMPLOYEE,
             'center': centers[2]
+        },
+        {
+            'username': 'test',
+            'email': 'test@company.com',
+            'first_name': 'محمد',
+            'last_name': 'پاکروان',
+            'employee_number': 'TEST001',
+            'role': User.Role.EMPLOYEE,
+            'center': centers[0]
         }
     ]
     
@@ -219,61 +232,131 @@ def create_users(centers):
 
 
 def create_meal_types():
-    """ایجاد انواع وعده‌های غذایی"""
-    print("\n🍽️ ایجاد انواع وعده‌های غذایی...")
+    """ایجاد نوع وعده غذایی - فقط ناهار"""
+    print("\n🍽️ ایجاد نوع وعده غذایی...")
     
-    meal_types_data = [
-        {'name': 'صبحانه', 'start_time': '07:00', 'end_time': '09:00'},
-        {'name': 'ناهار', 'start_time': '12:00', 'end_time': '14:00'},
-        {'name': 'شام', 'start_time': '19:00', 'end_time': '21:00'},
-        {'name': 'میان‌وعده', 'start_time': '15:00', 'end_time': '16:00'}
-    ]
+    from datetime import time as dt_time
     
-    meal_types = []
-    for meal_type_data in meal_types_data:
+    # فقط ناهار
+    meal_type_data = {
+        'name': 'ناهار',
+        'start_time': dt_time(12, 0, 0),
+        'end_time': dt_time(14, 0, 0)
+    }
+    
         meal_type, created = MealType.objects.get_or_create(
             name=meal_type_data['name'],
             defaults=meal_type_data
         )
-        meal_types.append(meal_type)
+    
         if created:
             print(f"✅ نوع وعده '{meal_type.name}' ایجاد شد")
         else:
             print(f"ℹ️ نوع وعده '{meal_type.name}' قبلاً وجود دارد")
     
-    return meal_types
-
-
-def create_meals(centers, meal_types):
-    """ایجاد غذاهای نمونه"""
-    print("\n🍲 ایجاد غذاهای نمونه...")
+    # حذف سایر MealType ها
+    other_meal_types = MealType.objects.exclude(name='ناهار')
+    if other_meal_types.exists():
+        count = other_meal_types.count()
+        other_meal_types.delete()
+        print(f"🗑️ {count} نوع وعده دیگر حذف شد")
     
-    meals_data = [
+    return [meal_type]
+
+
+def create_restaurants(centers):
+    """ایجاد رستوران‌های نمونه"""
+    print("\n🍴 ایجاد رستوران‌های نمونه...")
+    
+    restaurants_data = [
+        # اصفهان
+        {
+            'name': 'رستوران سنتی اصفهان',
+            'center': centers[0],
+            'address': 'خیابان چهارباغ، رستوران سنتی',
+            'phone': '031-11111111',
+            'email': 'restaurant1_isfahan@company.com',
+            'description': 'رستوران سنتی اصفهان با غذاهای محلی'
+        },
+        {
+            'name': 'رستوران مدرن اصفهان',
+            'center': centers[0],
+            'address': 'خیابان چهارباغ، رستوران مدرن',
+            'phone': '031-22222222',
+            'email': 'restaurant2_isfahan@company.com',
+            'description': 'رستوران مدرن اصفهان'
+        },
+        # تهران
+        {
+            'name': 'رستوران تهران',
+            'center': centers[1],
+            'address': 'خیابان ولیعصر، رستوران تهران',
+            'phone': '021-11111111',
+            'email': 'restaurant1_tehran@company.com',
+            'description': 'رستوران تهران'
+        },
+        # مشهد
+        {
+            'name': 'رستوران مشهد',
+            'center': centers[2],
+            'address': 'خیابان امام رضا، رستوران مشهد',
+            'phone': '051-11111111',
+            'email': 'restaurant1_mashhad@company.com',
+            'description': 'رستوران مشهد'
+        },
+        # شیراز
+        {
+            'name': 'رستوران شیراز',
+            'center': centers[3],
+            'address': 'خیابان زند، رستوران شیراز',
+            'phone': '071-11111111',
+            'email': 'restaurant1_shiraz@company.com',
+            'description': 'رستوران شیراز'
+        },
+        # تبریز
+        {
+            'name': 'رستوران تبریز',
+            'center': centers[4],
+            'address': 'خیابان آزادی، رستوران تبریز',
+            'phone': '041-11111111',
+            'email': 'restaurant1_tabriz@company.com',
+            'description': 'رستوران تبریز'
+        }
+    ]
+    
+    restaurants = []
+    for restaurant_data in restaurants_data:
+        restaurant, created = Restaurant.objects.get_or_create(
+            name=restaurant_data['name'],
+            center=restaurant_data['center'],
+            defaults=restaurant_data
+        )
+        restaurants.append(restaurant)
+        if created:
+            print(f"✅ رستوران '{restaurant.name}' برای مرکز '{restaurant.center.name}' ایجاد شد")
+        else:
+            print(f"ℹ️ رستوران '{restaurant.name}' برای مرکز '{restaurant.center.name}' قبلاً وجود دارد")
+    
+    return restaurants
+
+
+def create_base_meals(centers, meal_types):
+    """ایجاد غذاهای پایه نمونه"""
+    print("\n🍲 ایجاد غذاهای پایه نمونه...")
+    
+    base_meals_data = [
         # اصفهان
         {
             'title': 'قورمه سبزی',
             'description': 'غذای سنتی ایرانی با گوشت و سبزیجات',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران سنتی اصفهان',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[0],
             'is_active': True
         },
         {
             'title': 'کباب کوبیده',
             'description': 'کباب کوبیده با برنج و سبزی',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران سنتی اصفهان',
-            'center': centers[0],
-            'is_active': True
-        },
-        {
-            'title': 'آش رشته',
-            'description': 'آش رشته سنتی',
-            'date': '2025-10-23',
-            'meal_type': meal_types[2],  # شام
-            'restaurant': 'رستوران سنتی اصفهان',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[0],
             'is_active': True
         },
@@ -281,18 +364,14 @@ def create_meals(centers, meal_types):
         {
             'title': 'قیمه نثار',
             'description': 'غذای سنتی ایرانی',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران تهران',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[1],
             'is_active': True
         },
         {
             'title': 'جوجه کباب',
             'description': 'جوجه کباب با برنج',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران تهران',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[1],
             'is_active': True
         },
@@ -300,9 +379,7 @@ def create_meals(centers, meal_types):
         {
             'title': 'زرشک پلو',
             'description': 'زرشک پلو با مرغ',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران مشهد',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[2],
             'is_active': True
         },
@@ -310,9 +387,7 @@ def create_meals(centers, meal_types):
         {
             'title': 'کوفته تبریزی',
             'description': 'کوفته تبریزی با برنج',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران شیراز',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[3],
             'is_active': True
         },
@@ -320,96 +395,253 @@ def create_meals(centers, meal_types):
         {
             'title': 'کباب بختیاری',
             'description': 'کباب بختیاری با برنج',
-            'date': '2025-10-23',
-            'meal_type': meal_types[1],  # ناهار
-            'restaurant': 'رستوران تبریز',
+            'meal_type': meal_types[0],  # ناهار
             'center': centers[4],
             'is_active': True
         }
     ]
     
-    meals = []
-    for meal_data in meals_data:
-        meal, created = Meal.objects.get_or_create(
-            title=meal_data['title'],
-            center=meal_data['center'],
-            date=meal_data['date'],
-            defaults=meal_data
+    base_meals = []
+    for base_meal_data in base_meals_data:
+        base_meal, created = BaseMeal.objects.get_or_create(
+            title=base_meal_data['title'],
+            center=base_meal_data['center'],
+            defaults=base_meal_data
         )
-        meals.append(meal)
+        base_meals.append(base_meal)
         if created:
-            print(f"✅ غذا '{meal.title}' برای مرکز '{meal.center.name}' ایجاد شد")
+            print(f"✅ غذای پایه '{base_meal.title}' برای مرکز '{base_meal.center.name}' ایجاد شد")
         else:
-            print(f"ℹ️ غذا '{meal.title}' برای مرکز '{meal.center.name}' قبلاً وجود دارد")
+            print(f"ℹ️ غذای پایه '{base_meal.title}' برای مرکز '{base_meal.center.name}' قبلاً وجود دارد")
     
-    return meals
+    return base_meals
 
 
-def create_weekly_menus(centers, users):
-    """ایجاد برنامه‌های هفتگی"""
-    print("\n📅 ایجاد برنامه‌های هفتگی...")
+def create_meal_options(restaurants, base_meals):
+    """ایجاد گزینه‌های غذا (MealOption) - این غذاهای اصلی هستند که رزرو می‌شوند"""
+    print("\n🍽️ ایجاد گزینه‌های غذا...")
     
-    # تاریخ شروع هفته جاری
-    today = jdatetime.date.today()
-    week_start = today - jdatetime.timedelta(days=today.weekday())
-    week_end = week_start + jdatetime.timedelta(days=6)
+    # نگاشت مرکز به رستوران
+    center_restaurants = {}
+    for restaurant in restaurants:
+        if restaurant.center not in center_restaurants:
+            center_restaurants[restaurant.center] = []
+        center_restaurants[restaurant.center].append(restaurant)
     
-    # تبدیل به تاریخ میلادی
-    week_start_gregorian = week_start.togregorian()
-    week_end_gregorian = week_end.togregorian()
+    meal_options_data = []
     
-    weekly_menus = []
-    for center in centers:
-        weekly_menu, created = WeeklyMenu.objects.get_or_create(
-            center=center,
-            week_start_date=week_start_gregorian,
-            defaults={
-                'week_end_date': week_end_gregorian,
-                'is_active': True,
-                'created_by': users[0]  # System Admin
-            }
+    for base_meal in base_meals:
+        # پیدا کردن رستوران‌های مرکز این غذای پایه
+        center_rests = center_restaurants.get(base_meal.center, [])
+        if not center_rests:
+            continue
+        
+        # برای هر غذای پایه، چند گزینه غذا ایجاد می‌کنیم
+        restaurant = center_rests[0]  # رستوران اول مرکز
+        
+        if base_meal.title == 'قورمه سبزی':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'قورمه سبزی - با برنج ایرانی',
+                    'description': 'قورمه سبزی با برنج ایرانی مرغوب',
+                    'price': Decimal('25000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                },
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'قورمه سبزی - با برنج خارجی',
+                    'description': 'قورمه سبزی با برنج خارجی',
+                    'price': Decimal('28000.00'),
+                    'is_default': False,
+                    'sort_order': 2
+                },
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'قورمه سبزی - با گوشت گوسفندی',
+                    'description': 'قورمه سبزی با گوشت گوسفندی تازه',
+                    'price': Decimal('35000.00'),
+                    'is_default': False,
+                    'sort_order': 3
+                }
+            ])
+        elif base_meal.title == 'کباب کوبیده':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'کباب کوبیده - با برنج',
+                    'description': 'کباب کوبیده با برنج و سبزی',
+                    'price': Decimal('30000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                },
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'کباب کوبیده - با نان',
+                    'description': 'کباب کوبیده با نان سنتی',
+                    'price': Decimal('28000.00'),
+                    'is_default': False,
+                    'sort_order': 2
+                }
+            ])
+        elif base_meal.title == 'آش رشته':
+            meal_options_data.append({
+                'base_meal': base_meal,
+                'restaurant': restaurant,
+                'title': 'آش رشته سنتی',
+                'description': 'آش رشته سنتی با نعنا و پیازداغ',
+                'price': Decimal('20000.00'),
+                'is_default': True,
+                'sort_order': 1
+            })
+        elif base_meal.title == 'قیمه نثار':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'قیمه نثار - با برنج',
+                    'description': 'قیمه نثار با برنج',
+                    'price': Decimal('22000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                }
+            ])
+        elif base_meal.title == 'جوجه کباب':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'جوجه کباب - با برنج',
+                    'description': 'جوجه کباب با برنج',
+                    'price': Decimal('27000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                }
+            ])
+        elif base_meal.title == 'زرشک پلو':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'زرشک پلو - با مرغ',
+                    'description': 'زرشک پلو با مرغ',
+                    'price': Decimal('26000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                }
+            ])
+        elif base_meal.title == 'کوفته تبریزی':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'کوفته تبریزی - با برنج',
+                    'description': 'کوفته تبریزی با برنج',
+                    'price': Decimal('24000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                }
+            ])
+        elif base_meal.title == 'کباب بختیاری':
+            meal_options_data.extend([
+                {
+                    'base_meal': base_meal,
+                    'restaurant': restaurant,
+                    'title': 'کباب بختیاری - با برنج',
+                    'description': 'کباب بختیاری با برنج',
+                    'price': Decimal('32000.00'),
+                    'is_default': True,
+                    'sort_order': 1
+                }
+            ])
+        else:
+            # برای سایر غذاها یک گزینه پیش‌فرض ایجاد می‌کنیم
+            meal_options_data.append({
+                'base_meal': base_meal,
+                'restaurant': restaurant,
+                'title': f'{base_meal.title} - پیش‌فرض',
+                'description': base_meal.description or '',
+                'price': Decimal('25000.00'),
+                'is_default': True,
+                'sort_order': 1
+            })
+    
+    meal_options = []
+    for meal_option_data in meal_options_data:
+        meal_option, created = MealOption.objects.get_or_create(
+            title=meal_option_data['title'],
+            restaurant=meal_option_data['restaurant'],
+            base_meal=meal_option_data['base_meal'],
+            defaults=meal_option_data
         )
-        weekly_menus.append(weekly_menu)
+        meal_options.append(meal_option)
         if created:
-            print(f"✅ برنامه هفتگی برای مرکز '{center.name}' ایجاد شد")
+            print(f"✅ گزینه غذا '{meal_option.title}' برای رستوران '{meal_option.restaurant.name}' ایجاد شد")
         else:
-            print(f"ℹ️ برنامه هفتگی برای مرکز '{center.name}' قبلاً وجود دارد")
+            print(f"ℹ️ گزینه غذا '{meal_option.title}' برای رستوران '{meal_option.restaurant.name}' قبلاً وجود دارد")
     
-    return weekly_menus
+    return meal_options
 
 
-def create_daily_menus(weekly_menus, meals):
-    """ایجاد منوهای روزانه"""
+def create_daily_menus(centers, meal_types, meal_options):
+    """ایجاد منوهای روزانه - فقط ناهار"""
     print("\n📋 ایجاد منوهای روزانه...")
     
+    # نگاشت مرکز به meal_options
+    center_meal_options = {}
+    for meal_option in meal_options:
+        center = meal_option.restaurant.center
+        if center not in center_meal_options:
+            center_meal_options[center] = []
+        center_meal_options[center].append(meal_option)
+    
     daily_menus = []
-    for weekly_menu in weekly_menus:
-        # ایجاد منو برای هر روز هفته
-        for day_offset in range(7):
-            menu_date = weekly_menu.week_start_date + timedelta(days=day_offset)
+    meal_type = meal_types[0]  # فقط ناهار
+    
+    # ایجاد منو برای هر مرکز
+    for center in centers:
+        # ایجاد منو برای امروز و فردا
+        today_date = date.today()
+        for day_offset in range(2):  # فقط امروز و فردا
+            menu_date = today_date + timedelta(days=day_offset)
             
-            # پیدا کردن غذاهای مربوط به این مرکز و تاریخ
-            center_meals = [meal for meal in meals if meal.center == weekly_menu.center and meal.date == menu_date]
+            # پیدا کردن meal_options مربوط به این مرکز
+            center_meal_opts = center_meal_options.get(center, [])
             
-            # ایجاد منوی روزانه برای هر غذا
-            for meal in center_meals:
+            # فیلتر کردن meal_options بر اساس meal_type
+            filtered_meal_options = [
+                opt for opt in center_meal_opts 
+                if opt.base_meal.meal_type == meal_type
+            ]
+            
+            if filtered_meal_options:
                 daily_menu, created = DailyMenu.objects.get_or_create(
-                    weekly_menu=weekly_menu,
+                    center=center,
                     date=menu_date,
-                    meal_type=meal.meal_type,
+                    meal_type=meal_type,
                     defaults={
-                        'meal': meal,
-                        'max_reservations': 100,
-                        'current_reservations': 0,
+                        'max_reservations_per_meal': 100,
                         'is_available': True
                     }
                 )
+                
+                # اضافه کردن meal_options به daily_menu
+                for meal_option in filtered_meal_options:
+                    if meal_option not in daily_menu.meal_options.all():
+                        daily_menu.meal_options.add(meal_option)
+                
                 daily_menus.append(daily_menu)
                 
                 if created:
-                    print(f"✅ منوی روزانه برای مرکز '{weekly_menu.center.name}' در تاریخ {menu_date} و وعده '{meal.meal_type.name}' ایجاد شد")
+                    print(f"✅ منوی روزانه برای مرکز '{center.name}' در تاریخ {menu_date} و وعده '{meal_type.name}' ایجاد شد")
                 else:
-                    print(f"ℹ️ منوی روزانه برای مرکز '{weekly_menu.center.name}' در تاریخ {menu_date} و وعده '{meal.meal_type.name}' قبلاً وجود دارد")
+                    print(f"ℹ️ منوی روزانه برای مرکز '{center.name}' در تاریخ {menu_date} و وعده '{meal_type.name}' به‌روزرسانی شد")
     
     return daily_menus
 
@@ -444,41 +676,6 @@ def create_announcements(centers, users):
             'center': centers[1],
             'is_active': True,
             'created_by': users[4]  # HR Admin تهران
-        },
-        {
-            'title': 'برنامه تعطیلات',
-            'content': 'مرکز تهران در روزهای 25 و 26 مهر تعطیل خواهد بود.',
-            'publish_date': timezone.now() - timedelta(days=2),
-            'center': centers[1],
-            'is_active': True,
-            'created_by': users[4]
-        },
-        # مشهد
-        {
-            'title': 'اطلاعیه مهم - مرکز مشهد',
-            'content': 'جلسه بررسی عملکرد فصلی در روز چهارشنبه ساعت 9 صبح برگزار می‌شود.',
-            'publish_date': timezone.now(),
-            'center': centers[2],
-            'is_active': True,
-            'created_by': users[0]  # System Admin
-        },
-        # شیراز
-        {
-            'title': 'اطلاعیه مهم - مرکز شیراز',
-            'content': 'برنامه بازدید از مرکز شیراز در روز شنبه ساعت 3 بعدازظهر.',
-            'publish_date': timezone.now(),
-            'center': centers[3],
-            'is_active': True,
-            'created_by': users[0]  # System Admin
-        },
-        # تبریز
-        {
-            'title': 'اطلاعیه مهم - مرکز تبریز',
-            'content': 'کارگاه آموزشی امنیت اطلاعات در روز یکشنبه ساعت 10 صبح.',
-            'publish_date': timezone.now(),
-            'center': centers[4],
-            'is_active': True,
-            'created_by': users[0]  # System Admin
         }
     ]
     
@@ -498,59 +695,37 @@ def create_announcements(centers, users):
     return announcements
 
 
-def create_food_reservations(users, meals):
+def create_food_reservations(users, daily_menus, meal_options):
     """ایجاد رزروهای نمونه"""
     print("\n🍽️ ایجاد رزروهای نمونه...")
     
-    from apps.food_management.models import FoodReservation
+    reservations = []
     
-    reservations_data = [
-        {
-            'user': users[5],  # employee_isfahan_1
-            'date': date(2025, 10, 23),
-            'meal_type': meals[0].meal_type,
-            'center': meals[0].center,
-            'quantity': 1,
-            'status': 'confirmed',
-            'cancellation_deadline': timezone.now() + timedelta(hours=2)
-        },
-        {
-            'user': users[6],  # employee_isfahan_2
-            'date': date(2025, 10, 23),
-            'meal_type': meals[0].meal_type,
-            'center': meals[0].center,
-            'quantity': 2,
-            'status': 'confirmed',
-            'cancellation_deadline': timezone.now() + timedelta(hours=2)
-        },
-        {
-            'user': users[7],  # employee_tehran_1
-            'date': date(2025, 10, 23),
-            'meal_type': meals[3].meal_type,
-            'center': meals[3].center,
-            'quantity': 1,
-            'status': 'confirmed',
-            'cancellation_deadline': timezone.now() + timedelta(hours=2)
-        },
-        {
-            'user': users[8],  # employee_tehran_2
-            'date': date(2025, 10, 23),
-            'meal_type': meals[3].meal_type,
-            'center': meals[3].center,
-            'quantity': 1,
-            'status': 'pending',
-            'cancellation_deadline': timezone.now() + timedelta(hours=2)
-        }
+    # پیدا کردن daily_menu مربوط به امروز و ناهار
+    today_date = date.today()
+    today_daily_menus = [
+        dm for dm in daily_menus 
+        if dm.date == today_date and dm.meal_type.name == 'ناهار'
     ]
     
-    reservations = []
-    for reservation_data in reservations_data:
+    if today_daily_menus and meal_options:
+        # برای اولین daily_menu و اولین meal_option
+        daily_menu = today_daily_menus[0]
+        meal_option = meal_options[0]
+        
+        # بررسی اینکه این meal_option در daily_menu موجود است
+        if meal_option in daily_menu.meal_options.all():
+            # ایجاد رزرو برای کاربر test
+            test_user = User.objects.filter(username='test').first()
+            if test_user:
         reservation, created = FoodReservation.objects.get_or_create(
-            user=reservation_data['user'],
-            date=reservation_data['date'],
-            meal_type=reservation_data['meal_type'],
-            center=reservation_data['center'],
-            defaults=reservation_data
+                    user=test_user,
+                    daily_menu=daily_menu,
+                    meal_option=meal_option,
+                    defaults={
+                        'quantity': 2,
+                        'status': 'reserved'
+                    }
         )
         reservations.append(reservation)
         if created:
@@ -561,45 +736,35 @@ def create_food_reservations(users, meals):
     return reservations
 
 
-def create_guest_reservations(users, meals):
+def create_guest_reservations(users, daily_menus, meal_options):
     """ایجاد رزروهای مهمان نمونه"""
     print("\n👥 ایجاد رزروهای مهمان نمونه...")
     
-    from apps.food_management.models import GuestReservation
+    guest_reservations = []
     
-    guest_reservations_data = [
-        {
-            'host_user': users[5],  # employee_isfahan_1
-            'guest_first_name': 'محمد',
-            'guest_last_name': 'احمدی',
-            'date': date(2025, 10, 23),
-            'meal_type': meals[0].meal_type,
-            'center': meals[0].center,
-            'status': 'confirmed',
-            'cancellation_deadline': timezone.now() + timedelta(hours=2)
-        },
-        {
-            'host_user': users[7],  # employee_tehran_1
-            'guest_first_name': 'علی',
-            'guest_last_name': 'رضایی',
-            'date': date(2025, 10, 23),
-            'meal_type': meals[3].meal_type,
-            'center': meals[3].center,
-            'status': 'confirmed',
-            'cancellation_deadline': timezone.now() + timedelta(hours=2)
-        }
+    # پیدا کردن daily_menu مربوط به امروز و ناهار
+    today_date = date.today()
+    today_daily_menus = [
+        dm for dm in daily_menus 
+        if dm.date == today_date and dm.meal_type.name == 'ناهار'
     ]
     
-    guest_reservations = []
-    for guest_reservation_data in guest_reservations_data:
+    if today_daily_menus and meal_options:
+        daily_menu = today_daily_menus[0]
+        meal_option = meal_options[0]
+        
+        if meal_option in daily_menu.meal_options.all():
+            test_user = User.objects.filter(username='test').first()
+            if test_user:
         guest_reservation, created = GuestReservation.objects.get_or_create(
-            host_user=guest_reservation_data['host_user'],
-            guest_first_name=guest_reservation_data['guest_first_name'],
-            guest_last_name=guest_reservation_data['guest_last_name'],
-            date=guest_reservation_data['date'],
-            meal_type=guest_reservation_data['meal_type'],
-            center=guest_reservation_data['center'],
-            defaults=guest_reservation_data
+                    host_user=test_user,
+                    daily_menu=daily_menu,
+                    meal_option=meal_option,
+                    guest_first_name='علی',
+                    guest_last_name='رضایی',
+                    defaults={
+                        'status': 'reserved'
+                    }
         )
         guest_reservations.append(guest_reservation)
         if created:
@@ -625,23 +790,26 @@ def main():
         # 3. ایجاد انواع وعده‌های غذایی
         meal_types = create_meal_types()
         
-        # 4. ایجاد غذاها
-        meals = create_meals(centers, meal_types)
+        # 4. ایجاد رستوران‌ها
+        restaurants = create_restaurants(centers)
         
-        # 5. ایجاد برنامه‌های هفتگی
-        weekly_menus = create_weekly_menus(centers, users)
+        # 5. ایجاد غذاهای پایه
+        base_meals = create_base_meals(centers, meal_types)
         
-        # 6. ایجاد منوهای روزانه
-        daily_menus = create_daily_menus(weekly_menus, meals)
+        # 6. ایجاد گزینه‌های غذا
+        meal_options = create_meal_options(restaurants, base_meals)
         
-        # 7. ایجاد اطلاعیه‌ها
+        # 7. ایجاد منوهای روزانه
+        daily_menus = create_daily_menus(centers, meal_types, meal_options)
+        
+        # 9. ایجاد اطلاعیه‌ها
         announcements = create_announcements(centers, users)
         
-        # 8. ایجاد رزروهای غذا
-        reservations = create_food_reservations(users, meals)
+        # 10. ایجاد رزروهای غذا
+        reservations = create_food_reservations(users, daily_menus, meal_options)
         
-        # 9. ایجاد رزروهای مهمان
-        guest_reservations = create_guest_reservations(users, meals)
+        # 11. ایجاد رزروهای مهمان
+        guest_reservations = create_guest_reservations(users, daily_menus, meal_options)
         
         print("\n" + "=" * 50)
         print("✅ دیتابیس با موفقیت پر شد!")
@@ -649,8 +817,9 @@ def main():
         print(f"   - مراکز: {len(centers)}")
         print(f"   - کاربران: {len(users)}")
         print(f"   - انواع وعده: {len(meal_types)}")
-        print(f"   - غذاها: {len(meals)}")
-        print(f"   - برنامه‌های هفتگی: {len(weekly_menus)}")
+        print(f"   - رستوران‌ها: {len(restaurants)}")
+        print(f"   - غذاهای پایه: {len(base_meals)}")
+        print(f"   - گزینه‌های غذا: {len(meal_options)}")
         print(f"   - منوهای روزانه: {len(daily_menus)}")
         print(f"   - اطلاعیه‌ها: {len(announcements)}")
         print(f"   - رزروهای غذا: {len(reservations)}")
@@ -666,6 +835,7 @@ def main():
         print("   - Employee تهران 1: employee_tehran_1 / password123")
         print("   - Employee تهران 2: employee_tehran_2 / password123")
         print("   - Employee مشهد 1: employee_mashhad_1 / password123")
+        print("   - Test User: test / password123")
         
     except Exception as e:
         print(f"❌ خطا در پر کردن دیتابیس: {e}")

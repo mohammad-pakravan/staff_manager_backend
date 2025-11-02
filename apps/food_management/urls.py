@@ -9,9 +9,13 @@ urlpatterns = [
     # Meal Types
     path('meal-types/', views.MealTypeListView.as_view(), name='meal-type-list'),
     
-    # Weekly Menus
-    path('weekly-menus/', views.WeeklyMenuListCreateView.as_view(), name='weekly-menu-list-create'),
-    path('weekly-menus/<int:pk>/', views.WeeklyMenuDetailView.as_view(), name='weekly-menu-detail'),
+    # Meal Options
+    path('meal-options/', views.MealOptionListCreateView.as_view(), name='meal-option-list-create'),
+    path('meal-options/<int:pk>/', views.MealOptionDetailView.as_view(), name='meal-option-detail'),
+    
+    # Restaurants
+    path('restaurants/', views.RestaurantListCreateView.as_view(), name='restaurant-list-create'),
+    path('restaurants/<int:pk>/', views.RestaurantDetailView.as_view(), name='restaurant-detail'),
     
     # Daily Menus
     path('daily-menus/', views.DailyMenuListView.as_view(), name='daily-menu-list'),
@@ -29,10 +33,19 @@ urlpatterns = [
     path('guest-reservations/limits/', views.user_guest_reservation_limits, name='user-guest-reservation-limits'),
     
     # Statistics and Reports
-    path('statistics/', views.meal_statistics, name='meal-statistics'),
+    path('statistics/', views.comprehensive_statistics, name='comprehensive-statistics'),
+    path('statistics/simple/', views.meal_statistics, name='meal-statistics'),  # برای سازگاری با کدهای قبلی
     path('centers/<int:center_id>/reservations/', views.center_reservations, name='center-reservations'),
     path('centers/<int:center_id>/export/excel/', views.export_reservations_excel, name='export-excel'),
     path('centers/<int:center_id>/export/pdf/', views.export_reservations_pdf, name='export-pdf'),
+    
+    # Detailed Reports
+    path('reports/by-meal-option/', views.report_by_meal_option, name='report-by-meal-option'),
+    path('reports/by-base-meal/', views.report_by_base_meal, name='report-by-base-meal'),
+    path('reports/by-user/', views.report_by_user, name='report-by-user'),
+    path('reports/by-date/', views.report_by_date, name='report-by-date'),
+    path('reports/comprehensive/', views.comprehensive_report, name='comprehensive-report'),
+    path('reports/detailed-reservations/', views.detailed_reservations_report, name='detailed-reservations-report'),
     
     # User Reservations
     path('user/reservations/', views.user_reservations, name='user-reservations'),

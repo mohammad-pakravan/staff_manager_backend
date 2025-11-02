@@ -13,13 +13,20 @@ from .serializers import CenterSerializer, CenterListSerializer
         operation_id='center_list',
         summary='List Centers',
         description='Get list of centers (admins: all, users: own center)',
-        tags=['Centers']
+        tags=['Centers'],
+        responses={200: CenterListSerializer(many=True)}
     ),
     post=extend_schema(
         operation_id='center_create',
         summary='Create Center',
         description='Create new center (only for System Admin and Food Admin)',
-        tags=['Centers']
+        tags=['Centers'],
+        request=CenterSerializer,
+        responses={
+            201: CenterSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'}
+        }
     )
 )
 class CenterListCreateView(generics.ListCreateAPIView):
@@ -51,25 +58,48 @@ class CenterListCreateView(generics.ListCreateAPIView):
         operation_id='center_detail',
         summary='Get Center Details',
         description='Get details of a specific center',
-        tags=['Centers']
+        tags=['Centers'],
+        responses={
+            200: CenterSerializer,
+            404: {'description': 'Center not found'}
+        }
     ),
     put=extend_schema(
         operation_id='center_update',
         summary='Update Center',
         description='Update center completely (only for System Admin and Food Admin)',
-        tags=['Centers']
+        tags=['Centers'],
+        request=CenterSerializer,
+        responses={
+            200: CenterSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Center not found'}
+        }
     ),
     patch=extend_schema(
         operation_id='center_partial_update',
         summary='Partial Update Center',
         description='Partially update center (only for System Admin and Food Admin)',
-        tags=['Centers']
+        tags=['Centers'],
+        request=CenterSerializer,
+        responses={
+            200: CenterSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Center not found'}
+        }
     ),
     delete=extend_schema(
         operation_id='center_delete',
         summary='Delete Center',
         description='Delete center (only for System Admin and Food Admin)',
-        tags=['Centers']
+        tags=['Centers'],
+        responses={
+            204: {'description': 'Center deleted'},
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Center not found'}
+        }
     )
 )
 class CenterDetailView(generics.RetrieveUpdateDestroyAPIView):

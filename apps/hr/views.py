@@ -27,7 +27,13 @@ from apps.core.pagination import CustomPageNumberPagination
         operation_id='announcement_create',
         summary='Create Announcement',
         description='Create new announcement (only for HR and System Admin)',
-        tags=['HR']
+        tags=['HR'],
+        request=AnnouncementCreateSerializer,
+        responses={
+            201: AnnouncementSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'}
+        }
     )
 )
 class AnnouncementListView(generics.ListCreateAPIView):
@@ -72,6 +78,55 @@ class AnnouncementListView(generics.ListCreateAPIView):
         serializer.save(created_by=user)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        operation_id='announcement_detail',
+        summary='Get Announcement Details',
+        description='Get details of a specific announcement',
+        tags=['HR'],
+        responses={
+            200: AnnouncementSerializer,
+            404: {'description': 'Announcement not found'}
+        }
+    ),
+    put=extend_schema(
+        operation_id='announcement_update',
+        summary='Update Announcement',
+        description='Update announcement completely (only for HR and System Admin)',
+        tags=['HR'],
+        request=AnnouncementCreateSerializer,
+        responses={
+            200: AnnouncementSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Announcement not found'}
+        }
+    ),
+    patch=extend_schema(
+        operation_id='announcement_partial_update',
+        summary='Partial Update Announcement',
+        description='Partially update announcement (only for HR and System Admin)',
+        tags=['HR'],
+        request=AnnouncementCreateSerializer,
+        responses={
+            200: AnnouncementSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Announcement not found'}
+        }
+    ),
+    delete=extend_schema(
+        operation_id='announcement_delete',
+        summary='Delete Announcement',
+        description='Delete announcement (only for HR and System Admin)',
+        tags=['HR'],
+        responses={
+            204: {'description': 'Announcement deleted'},
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Announcement not found'}
+        }
+    )
+)
 class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
     """جزئیات، ویرایش و حذف اطلاعیه"""
     serializer_class = AnnouncementSerializer
@@ -226,6 +281,18 @@ def create_bulk_announcement(request):
     }, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    operation_id='publish_announcement',
+    summary='Publish Announcement',
+    description='Publish an announcement (only for HR and System Admin)',
+    tags=['HR'],
+    request=None,
+    responses={
+        200: AnnouncementSerializer,
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Announcement not found'}
+    }
+)
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def publish_announcement(request, announcement_id):
@@ -246,6 +313,18 @@ def publish_announcement(request, announcement_id):
     })
 
 
+@extend_schema(
+    operation_id='unpublish_announcement',
+    summary='Unpublish Announcement',
+    description='Unpublish an announcement (only for HR and System Admin)',
+    tags=['HR'],
+    request=None,
+    responses={
+        200: AnnouncementSerializer,
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Announcement not found'}
+    }
+)
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def unpublish_announcement(request, announcement_id):

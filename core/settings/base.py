@@ -123,7 +123,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.accounts.authentication.CookieJWTAuthentication',
+        # JWTAuthentication حذف شد چون CookieJWTAuthentication هم از header و هم از cookie پشتیبانی می‌کند
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -138,33 +139,34 @@ REST_FRAMEWORK = {
 # Spectacular settings for API documentation
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Staff Management System API',
-    'DESCRIPTION': 'Complete API documentation for Staff Management System including User Management, Food Management, and HR Management',
-    'VERSION': '1.0.0',
+    'DESCRIPTION': "Complete API documentation for Staff Management System including User Management, Food Management, and HR Management",
+    'VERSION': '1.1.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/',
     'TAGS': [
         {'name': 'Authentication', 'description': 'User authentication and authorization'},
-        {'name': 'Centers', 'description': 'Center management operations'},
-        {'name': 'Meals', 'description': 'Meal management operations'},
+        {'name': 'Centers', 'description': 'Center management operations (System Admin only)'},
+        {'name': 'Meals', 'description': 'Base meal management operations (Food Admin & System Admin)'},
+        {'name': 'Food Management', 'description': 'Food management endpoints including restaurants, meal options, and daily menus (Food Admin & System Admin)'},
         {'name': 'Reservations', 'description': 'Food reservation operations'},
         {'name': 'Guest Reservations', 'description': 'Guest reservation operations'},
         {'name': 'User Reservations', 'description': 'User personal and guest reservations'},
-        {'name': 'Employee Management', 'description': 'Employee food and guest reservation management'},
-        {'name': 'HR', 'description': 'Human Resources and announcements'},
-        {'name': 'Statistics', 'description': 'Statistics and reports'},
+        {'name': 'Employee Management', 'description': 'Employee food and guest reservation management (Employee only)'},
+        {'name': 'HR', 'description': 'Human Resources and announcements (HR Admin & System Admin only)'},
+        {'name': 'Statistics', 'description': 'Comprehensive statistics with filters by date, center, and user (Food Admin, System Admin, HR Admin - read-only)'},
+        {'name': 'Reports', 'description': 'Detailed food reservation reports (Food Admin & System Admin only)'},
+        {'name': 'Server', 'description': 'Server information and time'},
     ],
     'SERVERS': [
-        {'url': 'http://localhost:8000', 'description': 'Development server'},
-        {'url': 'https://api.example.com', 'description': 'Production server'},
+        {'url': 'http://localhost:14532', 'description': 'Development server'},
+        {'url': 'https://example.com', 'description': 'Production server'},
     ],
     'CONTACT': {
         'name': 'Development Team',
-        'email': 'dev@company.com',
+        'email': 'https://t.me/mpakffs',
     },
-    'LICENSE': {
-        'name': 'MIT License',
-    },
+ 
 }
 
 # Jalali Date Settings

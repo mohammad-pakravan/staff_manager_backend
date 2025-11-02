@@ -20,6 +20,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from . import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -27,6 +28,9 @@ urlpatterns = [
     path("api/centers/", include("apps.centers.urls")),
     path("api/food/", include("apps.food_management.urls")),
     path("api/hr/", include("apps.hr.urls")),
+    
+    # Server Time
+    path('api/server-time/', views.server_time, name='server-time'),
     
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

@@ -1,8 +1,8 @@
 {
   "info": {
     "name": "Staff Management System API",
-    "description": "Complete API collection for Staff Management System with Enhanced Access Control - System Admin Only Center Management, Bulk Announcements, Restricted User Access, Multi-Center Support, Persian Date Support, Complete Employee Management\n\n📅 **Persian Date Support**: All dates in the system are automatically converted to Persian (Jalali) format in the admin panel and API responses.\n\n🔐 **Access Control**:\n- System Admin: Full access to all features\n- Food Admin: Can manage meals and menus for any center, cannot manage centers\n- HR Admin: Can manage announcements for any center, can create bulk announcements, cannot manage centers\n- Employee: Can only see and manage data for their assigned center\n\n📊 **Features**:\n- Multi-center support\n- Guest reservations\n- Bulk announcements\n- Persian date display\n- Role-based access control\n- Complete employee workflow management\n- Personal and guest reservation management\n- Menu viewing and reservation system\n- Comprehensive API documentation",
-    "version": "7.0.0",
+    "description": "Complete API collection for Staff Management System with Enhanced Access Control - System Admin Only Center Management, Bulk Announcements, Restricted User Access, Multi-Center Support, Persian Date Support, Complete Employee Management\n\n🍽️ **Meal Structure**:\n- BaseMeal: Food groups (e.g., \"چلو خورشت سبزی\") - created via /api/food/meals/\n- MealOption: Actual meals with prices, quantities, etc. (e.g., \"با برنج خارجی\", \"با برنج ایرانی\") - managed via admin panel under BaseMeal\n- Restaurant: Restaurant model with center association - managed via /api/food/restaurants/\n- Reservations use meal_option (not base_meal directly)\n- All prices, costs, and reports are based on meal_option\n- BaseMeal has optional cancellation_deadline - if null, reservation can always be cancelled\n\n📅 **Persian Date Support**: All dates in the system are automatically converted to Persian (Jalali) format in the admin panel and API responses.\n\n🔐 **Access Control**:\n- System Admin: Full access to all features\n- Food Admin: Can manage meals and menus for any center, cannot manage centers\n- HR Admin: Can manage announcements for any center, can create bulk announcements, cannot manage centers\n- Employee: Can only see and manage data for their assigned center\n\n📊 **Features**:\n- Multi-center support\n- Guest reservations\n- Bulk announcements\n- Persian date display\n- Role-based access control\n- Complete employee workflow management\n- Personal and guest reservation management\n- Menu viewing and reservation system\n- Meal options with prices\n- Comprehensive API documentation",
+    "version": "8.0.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -37,6 +37,16 @@
       "type": "string"
     },
     {
+      "key": "meal_option_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "base_meal_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
       "key": "reservation_id",
       "value": "1",
       "type": "string"
@@ -47,7 +57,7 @@
       "type": "string"
     },
     {
-      "key": "weekly_menu_id",
+      "key": "restaurant_id",
       "value": "1",
       "type": "string"
     }
@@ -367,10 +377,118 @@
       "name": "Food Management",
       "item": [
         {
-          "name": "Meals",
+          "name": "Restaurants",
           "item": [
             {
-              "name": "List Meals (All Centers for Admins)",
+              "name": "List Restaurants (All Centers for Admins)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", ""]
+                },
+                "description": "Get list of restaurants. Admins see all restaurants, employees see only their center restaurants."
+              }
+            },
+            {
+              "name": "Create Restaurant (Admin Only)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"رستوران سنتی\",\n    \"address\": \"خیابان اصلی، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", ""]
+                },
+                "description": "Create a new restaurant for a center (Admin only)"
+              }
+            },
+            {
+              "name": "Get Restaurant Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update Restaurant (Admin Only)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"رستوران سنتی - بروزرسانی شده\",\n    \"address\": \"خیابان اصلی، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Delete Restaurant (Admin Only)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Base Meals",
+          "item": [
+            {
+              "name": "List Base Meals (All Centers for Admins)",
               "request": {
                 "method": "GET",
                 "header": [
@@ -393,11 +511,12 @@
                       "value": "10"
                     }
                   ]
-                }
+                },
+                "description": "Get list of base meals (food groups). Each base meal can have multiple meal options with different prices."
               }
             },
             {
-              "name": "Create Meal for Center 1 (Food Admin)",
+              "name": "Create Base Meal for Center 1 (Food Admin)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -412,17 +531,18 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"title\": \"قورمه سبزی - مرکز 1\",\n    \"description\": \"غذای سنتی ایرانی برای مرکز 1\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران سنتی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"title\": \"چلو خورشت سبزی\",\n    \"description\": \"غذای سنتی ایرانی\",\n    \"meal_type\": 1,\n    \"restaurant\": 1,\n    \"center\": 1,\n    \"cancellation_deadline\": null,\n    \"is_active\": true\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/meals/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "meals", ""]
-                }
+                },
+                "description": "Create a base meal (food group). After creation, you need to add meal options (actual meals with prices, quantities, etc.) via admin panel. The 'restaurant' field should be the ID of a Restaurant object, not a string. 'cancellation_deadline' is optional - if null, reservation can always be cancelled."
               }
             },
             {
-              "name": "Create Meal for Center 2 (Food Admin)",
+              "name": "Create Base Meal for Center 2 (Food Admin)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -437,17 +557,18 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"title\": \"قورمه سبزی - مرکز 2\",\n    \"description\": \"غذای سنتی ایرانی برای مرکز 2\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران سنتی\",\n    \"center\": 2,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"title\": \"چلو خورشت سبزی\",\n    \"description\": \"غذای سنتی ایرانی\",\n    \"meal_type\": 1,\n    \"restaurant\": 1,\n    \"center\": 2,\n    \"cancellation_deadline\": null,\n    \"is_active\": true\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/meals/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "meals", ""]
-                }
+                },
+                "description": "Create a base meal (food group). After creation, add meal options via admin panel."
               }
             },
             {
-              "name": "Get Meal Details",
+              "name": "Get Base Meal Details",
               "request": {
                 "method": "GET",
                 "header": [
@@ -457,14 +578,15 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{base_url}}/api/food/meals/{{meal_id}}/",
+                  "raw": "{{base_url}}/api/food/meals/{{base_meal_id}}/",
                   "host": ["{{base_url}}"],
-                  "path": ["api", "food", "meals", "{{meal_id}}", ""]
-                }
+                  "path": ["api", "food", "meals", "{{base_meal_id}}", ""]
+                },
+                "description": "Get details of a base meal including its meal options."
               }
             },
             {
-              "name": "Update Meal (Food Admin - Any Center)",
+              "name": "Update Base Meal (Food Admin - Any Center)",
               "request": {
                 "method": "PUT",
                 "header": [
@@ -479,17 +601,18 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"title\": \"قورمه سبزی - بروزرسانی شده\",\n    \"description\": \"غذای سنتی ایرانی بروزرسانی شده\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران سنتی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"title\": \"چلو خورشت سبزی - بروزرسانی شده\",\n    \"description\": \"غذای سنتی ایرانی بروزرسانی شده\",\n    \"meal_type\": 1,\n    \"restaurant\": 1,\n    \"center\": 1,\n    \"cancellation_deadline\": null,\n    \"is_active\": true\n}"
                 },
                 "url": {
-                  "raw": "{{base_url}}/api/food/meals/{{meal_id}}/",
+                  "raw": "{{base_url}}/api/food/meals/{{base_meal_id}}/",
                   "host": ["{{base_url}}"],
-                  "path": ["api", "food", "meals", "{{meal_id}}", ""]
-                }
+                  "path": ["api", "food", "meals", "{{base_meal_id}}", ""]
+                },
+                "description": "Update a base meal. Note: Meal options (actual meals with prices, quantities) should be managed via admin panel."
               }
             },
             {
-              "name": "Delete Meal (Food Admin - Any Center)",
+              "name": "Delete Base Meal (Food Admin - Any Center)",
               "request": {
                 "method": "DELETE",
                 "header": [
@@ -499,9 +622,179 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{base_url}}/api/food/meals/{{meal_id}}/",
+                  "raw": "{{base_url}}/api/food/meals/{{base_meal_id}}/",
                   "host": ["{{base_url}}"],
-                  "path": ["api", "food", "meals", "{{meal_id}}", ""]
+                  "path": ["api", "food", "meals", "{{base_meal_id}}", ""]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Meal Options",
+          "item": [
+            {
+              "name": "List Meal Options (All Centers for Admins)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/?page=1&page_size=10",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "page_size",
+                      "value": "10"
+                    }
+                  ]
+                },
+                "description": "Get list of meal options (actual meals with prices, quantities). Admins see all, employees see only their center meal options. Use 'base_meal' query parameter to filter by base meal ID."
+              }
+            },
+            {
+              "name": "List Meal Options by Base Meal",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/?base_meal={{base_meal_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", ""],
+                  "query": [
+                    {
+                      "key": "base_meal",
+                      "value": "{{base_meal_id}}"
+                    }
+                  ]
+                },
+                "description": "Get all meal options for a specific base meal"
+              }
+            },
+            {
+              "name": "Create Meal Option for Base Meal (Food Admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"base_meal\": {{base_meal_id}},\n    \"title\": \"با برنج خارجی\",\n    \"description\": \"چلو خورشت سبزی با برنج خارجی\",\n    \"price\": \"25000.00\",\n    \"quantity\": 100,\n    \"is_active\": true,\n    \"is_default\": true,\n    \"sort_order\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", ""]
+                },
+                "description": "Create a meal option (actual meal with price, quantity) for a base meal. 'reserved_quantity' is automatically managed and cannot be set manually."
+              }
+            },
+            {
+              "name": "Get Meal Option Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/{{meal_option_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", "{{meal_option_id}}", ""]
+                },
+                "description": "Get details of a specific meal option including base meal information"
+              }
+            },
+            {
+              "name": "Update Meal Option (Food Admin - Any Center)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"base_meal\": {{base_meal_id}},\n    \"title\": \"با برنج خارجی - بروزرسانی شده\",\n    \"description\": \"چلو خورشت سبزی با برنج خارجی بروزرسانی شده\",\n    \"price\": \"27000.00\",\n    \"quantity\": 120,\n    \"is_active\": true,\n    \"is_default\": true,\n    \"sort_order\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/{{meal_option_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", "{{meal_option_id}}", ""]
+                },
+                "description": "Update a meal option. 'reserved_quantity' is read-only and automatically managed."
+              }
+            },
+            {
+              "name": "Partial Update Meal Option (Food Admin)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"price\": \"28000.00\",\n    \"quantity\": 150\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/{{meal_option_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", "{{meal_option_id}}", ""]
+                },
+                "description": "Partially update a meal option (only specified fields will be updated)"
+              }
+            },
+            {
+              "name": "Delete Meal Option (Food Admin - Any Center)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/meal-options/{{meal_option_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "meal-options", "{{meal_option_id}}", ""]
                 }
               }
             }
@@ -529,412 +822,12 @@
             }
           ]
         },
-        {
-          "name": "Weekly Menus",
-          "item": [
-            {
-              "name": "List Weekly Menus (All Centers for Admins)",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/weekly-menus/?page=1&page_size=10",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "weekly-menus", ""],
-                  "query": [
-                    {
-                      "key": "page",
-                      "value": "1"
-                    },
-                    {
-                      "key": "page_size",
-                      "value": "10"
-                    }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Weekly Menu for Center 1 (Food Admin)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"center\": 1,\n    \"week_start_date\": \"2025-10-20\",\n    \"week_end_date\": \"2025-10-26\",\n    \"is_active\": true\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/api/food/weekly-menus/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "weekly-menus", ""]
-                }
-              }
-            },
-            {
-              "name": "Create Weekly Menu for Center 2 (Food Admin)",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"center\": 2,\n    \"week_start_date\": \"2025-10-20\",\n    \"week_end_date\": \"2025-10-26\",\n    \"is_active\": true\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/api/food/weekly-menus/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "weekly-menus", ""]
-                }
-              }
-            },
-            {
-              "name": "Get Weekly Menu Details",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/weekly-menus/{{weekly_menu_id}}/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "weekly-menus", "{{weekly_menu_id}}", ""]
-                }
-              }
-            },
-            {
-              "name": "Update Weekly Menu (Food Admin - Any Center)",
-              "request": {
-                "method": "PUT",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"center\": 1,\n    \"week_start_date\": \"2025-10-20\",\n    \"week_end_date\": \"2025-10-26\",\n    \"is_active\": true\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/api/food/weekly-menus/{{weekly_menu_id}}/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "weekly-menus", "{{weekly_menu_id}}", ""]
-                }
-              }
-            },
-            {
-              "name": "Delete Weekly Menu (Food Admin - Any Center)",
-              "request": {
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/weekly-menus/{{weekly_menu_id}}/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "weekly-menus", "{{weekly_menu_id}}", ""]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "Daily Menus",
-          "item": [
-            {
-              "name": "List Daily Menus (Center-based)",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/daily-menus/?center={{center_id}}&date=2025-10-23",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "daily-menus", ""],
-                  "query": [
-                    {
-                      "key": "center",
-                      "value": "{{center_id}}"
-                    },
-                    {
-                      "key": "date",
-                      "value": "2025-10-23"
-                    }
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "Reservations",
-          "item": [
-            {
-              "name": "List My Reservations",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/reservations/?page=1&page_size=10",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "reservations", ""],
-                  "query": [
-                    {
-                      "key": "page",
-                      "value": "1"
-                    },
-                    {
-                      "key": "page_size",
-                      "value": "10"
-                    }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Food Reservation",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"center\": 1,\n    \"quantity\": 2\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/api/food/reservations/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "reservations", ""]
-                }
-              }
-            },
-            {
-              "name": "Check Reservation Limits",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/reservations/limits/?date=2025-10-23",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "reservations", "limits", ""],
-                  "query": [
-                    {
-                      "key": "date",
-                      "value": "2025-10-23"
-                    }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Get Reservation Details",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/reservations/{{reservation_id}}/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "reservations", "{{reservation_id}}", ""]
-                }
-              }
-            },
-            {
-              "name": "Cancel Reservation",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/reservations/{{reservation_id}}/cancel/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "reservations", "{{reservation_id}}", "cancel", ""]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "Guest Reservations",
-          "item": [
-            {
-              "name": "List My Guest Reservations",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/guest-reservations/?page=1&page_size=10",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "guest-reservations", ""],
-                  "query": [
-                    {
-                      "key": "page",
-                      "value": "1"
-                    },
-                    {
-                      "key": "page_size",
-                      "value": "10"
-                    }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Guest Reservation",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n    \"guest_first_name\": \"احمد\",\n    \"guest_last_name\": \"محمدی\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"center\": 1\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/api/food/guest-reservations/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "guest-reservations", ""]
-                }
-              }
-            },
-            {
-              "name": "Check Guest Reservation Limits",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/guest-reservations/limits/?date=2025-10-23",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "guest-reservations", "limits", ""],
-                  "query": [
-                    {
-                      "key": "date",
-                      "value": "2025-10-23"
-                    }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Get Guest Reservation Details",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/guest-reservations/{{reservation_id}}/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "guest-reservations", "{{reservation_id}}", ""]
-                }
-              }
-            },
-            {
-              "name": "Cancel Guest Reservation",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/api/food/guest-reservations/{{reservation_id}}/cancel/",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "food", "guest-reservations", "{{reservation_id}}", "cancel", ""]
-                }
-              }
-            }
-          ]
-        },
+  
         {
           "name": "Statistics",
           "item": [
             {
-              "name": "Get Meal Statistics (Admin Only)",
+              "name": "Get Comprehensive Statistics (All Filters)",
               "request": {
                 "method": "GET",
                 "header": [
@@ -947,7 +840,138 @@
                   "raw": "{{base_url}}/api/food/statistics/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "statistics", ""]
-                }
+                },
+                "description": "Get comprehensive statistics including: base meals, meal types, meal options, restaurants, users, daily menus, reservations, and guest reservations. Supports filters by center_id, user_id, start_date, and end_date. Employees see only their center's statistics."
+              }
+            },
+            {
+              "name": "Get Statistics by Center",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/?center_id={{center_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", ""],
+                  "query": [
+                    {
+                      "key": "center_id",
+                      "value": "{{center_id}}"
+                    }
+                  ]
+                },
+                "description": "Get statistics filtered by center"
+              }
+            },
+            {
+              "name": "Get Statistics by User",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/?user_id={{user_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", ""],
+                  "query": [
+                    {
+                      "key": "user_id",
+                      "value": "{{user_id}}"
+                    }
+                  ]
+                },
+                "description": "Get statistics filtered by user (reservations and guest reservations)"
+              }
+            },
+            {
+              "name": "Get Statistics by Date Range",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/?start_date=2025-10-01&end_date=2025-10-31",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", ""],
+                  "query": [
+                    {
+                      "key": "start_date",
+                      "value": "2025-10-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2025-10-31"
+                    }
+                  ]
+                },
+                "description": "Get statistics filtered by date range (format: YYYY-MM-DD or YYYY/MM/DD)"
+              }
+            },
+            {
+              "name": "Get Statistics with All Filters",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/?center_id={{center_id}}&user_id={{user_id}}&start_date=2025-10-01&end_date=2025-10-31",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", ""],
+                  "query": [
+                    {
+                      "key": "center_id",
+                      "value": "{{center_id}}"
+                    },
+                    {
+                      "key": "user_id",
+                      "value": "{{user_id}}"
+                    },
+                    {
+                      "key": "start_date",
+                      "value": "2025-10-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2025-10-31"
+                    }
+                  ]
+                },
+                "description": "Get statistics with all filters applied: center, user, and date range"
+              }
+            },
+            {
+              "name": "Get Simple Meal Statistics (Legacy)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/simple/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", "simple", ""]
+                },
+                "description": "Get simple meal statistics (legacy endpoint for backward compatibility)"
               }
             },
             {
@@ -1233,44 +1257,7 @@
         }
       ]
     },
-    {
-      "name": "API Documentation",
-      "item": [
-        {
-          "name": "Swagger UI",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/docs/",
-              "host": ["{{base_url}}"],
-              "path": ["api", "docs", ""]
-            }
-          }
-        },
-        {
-          "name": "ReDoc",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/redoc/",
-              "host": ["{{base_url}}"],
-              "path": ["api", "redoc", ""]
-            }
-          }
-        },
-        {
-          "name": "OpenAPI Schema",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/api/schema/",
-              "host": ["{{base_url}}"],
-              "path": ["api", "schema", ""]
-            }
-          }
-        }
-      ]
-    },
+ 
     {
       "name": "Employee User",
       "description": "Complete employee management endpoints for food reservations, guest reservations, and daily menu management",
@@ -1345,14 +1332,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal\": 1,\n  \"quantity\": 2\n}"
+                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal_option\": 1,\n  \"quantity\": 2\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/employee/reservations/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "employee", "reservations", ""]
                 },
-                "description": "Create a personal food reservation"
+                "description": "Create a personal food reservation using meal_option (which is the actual meal with price and options)"
               },
               "event": [
                 {
@@ -1385,14 +1372,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal\": 2,\n  \"quantity\": 1\n}"
+                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal_option\": 2,\n  \"quantity\": 1\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/employee/reservations/{{reservation_id}}/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "employee", "reservations", "{{reservation_id}}", ""]
                 },
-                "description": "Update a personal food reservation"
+                "description": "Update a personal food reservation using meal_option"
               }
             },
             {
@@ -1441,7 +1428,7 @@
                       "    response.forEach((reservation, index) => {",
                       "        console.log(`Reservation ${index + 1}:`, {",
                       "            id: reservation.id,",
-                      "            meal: reservation.meal?.title,",
+                      "            meal_option: reservation.meal_option?.title,",
                       "            date: reservation.daily_menu?.date,",
                       "            status: reservation.status,",
                       "            quantity: reservation.quantity",
@@ -1522,14 +1509,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"guest_first_name\": \"علی\",\n  \"guest_last_name\": \"احمدی\",\n  \"daily_menu\": 1,\n  \"meal\": 1\n}"
+                  "raw": "{\n  \"guest_first_name\": \"علی\",\n  \"guest_last_name\": \"احمدی\",\n  \"daily_menu\": 1,\n  \"meal_option\": 1\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/employee/guest-reservations/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "employee", "guest-reservations", ""]
                 },
-                "description": "Create a guest food reservation"
+                "description": "Create a guest food reservation using meal_option (which is the actual meal with price and options)"
               },
               "event": [
                 {
@@ -1562,14 +1549,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"guest_first_name\": \"علی\",\n  \"guest_last_name\": \"احمدی\",\n  \"daily_menu\": 1,\n  \"meal\": 2\n}"
+                  "raw": "{\n  \"guest_first_name\": \"علی\",\n  \"guest_last_name\": \"احمدی\",\n  \"daily_menu\": 1,\n  \"meal_option\": 2\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/employee/guest-reservations/{{guest_reservation_id}}/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "employee", "guest-reservations", "{{guest_reservation_id}}", ""]
                 },
-                "description": "Update a guest food reservation"
+                "description": "Update a guest food reservation using meal_option"
               }
             },
             {
@@ -1619,7 +1606,7 @@
                       "        console.log(`Guest Reservation ${index + 1}:`, {",
                       "            id: reservation.id,",
                       "            guest_name: `${reservation.guest_first_name} ${reservation.guest_last_name}`,",
-                      "            meal: reservation.meal?.title,",
+                      "            meal_option: reservation.meal_option?.title,",
                       "            date: reservation.daily_menu?.date,",
                       "            status: reservation.status",
                       "        });",
@@ -1799,13 +1786,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal\": 1,\n  \"quantity\": 1\n}"
+                  "raw": "{\n  \"daily_menu\": 1,\n  \"meal_option\": 1,\n  \"quantity\": 1\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/employee/reservations/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "employee", "reservations", ""]
-                }
+                },
+                "description": "Create a personal reservation using meal_option"
               }
             },
             {
@@ -1824,13 +1812,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"guest_first_name\": \"مهمان\",\n  \"guest_last_name\": \"تست\",\n  \"daily_menu\": 1,\n  \"meal\": 1\n}"
+                  "raw": "{\n  \"guest_first_name\": \"مهمان\",\n  \"guest_last_name\": \"تست\",\n  \"daily_menu\": 1,\n  \"meal_option\": 1\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/employee/guest-reservations/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "employee", "guest-reservations", ""]
-                }
+                },
+                "description": "Create a guest reservation using meal_option"
               }
             },
             {
@@ -2060,7 +2049,7 @@
               }
             },
             {
-              "name": "4. Create Meal for Center 1",
+              "name": "4. Create Base Meal for Center 1",
               "request": {
                 "method": "POST",
                 "header": [
@@ -2075,17 +2064,18 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"title\": \"غذای تست - مرکز 1\",\n    \"description\": \"این غذا برای مرکز 1 ایجاد شده\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران تست\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"title\": \"غذای تست - مرکز 1\",\n    \"description\": \"این غذای پایه برای مرکز 1 ایجاد شده\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران تست\",\n    \"center\": 1,\n    \"is_active\": true\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/meals/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "meals", ""]
-                }
+                },
+                "description": "Create base meal. Then add meal options via admin panel."
               }
             },
             {
-              "name": "5. Create Meal for Center 2",
+              "name": "5. Create Base Meal for Center 2",
               "request": {
                 "method": "POST",
                 "header": [
@@ -2100,13 +2090,14 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"title\": \"غذای تست - مرکز 2\",\n    \"description\": \"این غذا برای مرکز 2 ایجاد شده\",\n    \"date\": \"2025-10-23\",\n    \"meal_type\": 1,\n                    \"restaurant\": \"رستوران تست\",\n    \"center\": 2,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"title\": \"غذای تست - مرکز 2\",\n    \"description\": \"این غذای پایه برای مرکز 2 ایجاد شده\",\n    \"meal_type\": 1,\n    \"restaurant\": \"رستوران تست\",\n    \"center\": 2,\n    \"is_active\": true\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/meals/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "meals", ""]
-                }
+                },
+                "description": "Create base meal. Then add meal options via admin panel."
               }
             }
           ]

@@ -7,6 +7,82 @@ from apps.accounts.models import User
 import jdatetime
 
 
+class Restaurant(models.Model):
+    """مدل رستوران"""
+    name = models.CharField(max_length=200, verbose_name='نام رستوران')
+    address = models.TextField(blank=True, null=True, verbose_name='آدرس')
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='تلفن')
+    email = models.EmailField(blank=True, null=True, verbose_name='ایمیل')
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, related_name='restaurants', verbose_name='مرکز')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'رستوران'
+        verbose_name_plural = 'رستوران‌ها'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} - {self.center.name if self.center else 'بدون مرکز'}"
+
+
+class BaseMeal(models.Model):
+    """مدل غذای پایه"""
+    title = models.CharField(max_length=200, verbose_name='عنوان')
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    image = models.ImageField(upload_to='meals/', blank=True, null=True, verbose_name='تصویر')
+    meal_type = models.ForeignKey('MealType', on_delete=models.CASCADE, blank=True, null=True, verbose_name='وعده')
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, blank=True, null=True, verbose_name='مرکز')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='base_meals', verbose_name='رستوران')
+    cancellation_deadline = models.DateTimeField(blank=True, null=True, verbose_name='مهلت لغو')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'غذای پایه'
+        verbose_name_plural = 'غذاهای پایه'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.meal_type.name if self.meal_type else 'بدون وعده'}"
+
+
+class MealOption(models.Model):
+    """مدل گزینه غذا (اپشن غذا)"""
+    base_meal = models.ForeignKey(BaseMeal, on_delete=models.CASCADE, related_name='options', verbose_name='گروه غذا')
+    title = models.CharField(max_length=200, verbose_name='عنوان غذا')
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='قیمت')
+    quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
+    reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    is_default = models.BooleanField(default=False, verbose_name='گزینه پیش‌فرض')
+    sort_order = models.PositiveIntegerField(default=0, verbose_name='ترتیب نمایش')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'غذا'
+        verbose_name_plural = 'غذاها'
+        ordering = ['sort_order', 'title']
+
+    def __str__(self):
+        return f"{self.base_meal.title} - {self.title}"
+
+    @property
+    def available_quantity(self):
+        """تعداد موجود"""
+        return max(0, self.quantity - self.reserved_quantity)
+
+    @property
+    def restaurant(self):
+        """رستوران از طریق base_meal"""
+        return self.base_meal.restaurant if self.base_meal else None
+
+
 class Meal(models.Model):
     """مدل غذا"""
     title = models.CharField(max_length=200, verbose_name='عنوان', blank=True, null=True)
@@ -66,21 +142,21 @@ class WeeklyMenu(models.Model):
 
 class DailyMenu(models.Model):
     """منوی روزانه"""
-    weekly_menu = models.ForeignKey(WeeklyMenu, on_delete=models.CASCADE, verbose_name='برنامه هفتگی', related_name='daily_menus')
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, verbose_name='مرکز')
     date = models.DateField(verbose_name='تاریخ')
     meal_type = models.ForeignKey(MealType, on_delete=models.CASCADE, verbose_name='وعده')
-    meals = models.ManyToManyField(Meal, verbose_name='غذاهای موجود', blank=True)
+    meal_options = models.ManyToManyField(MealOption, verbose_name='غذاهای موجود', blank=True, related_name='daily_menus')
     max_reservations_per_meal = models.PositiveIntegerField(default=100, verbose_name='حداکثر رزرو برای هر غذا')
     is_available = models.BooleanField(default=True, verbose_name='در دسترس')
 
     class Meta:
         verbose_name = 'منوی روزانه'
         verbose_name_plural = 'منوهای روزانه'
-        unique_together = ['weekly_menu', 'date', 'meal_type']
+        unique_together = ['center', 'date', 'meal_type']
         ordering = ['date', 'meal_type__start_time']
 
     def __str__(self):
-        return f"{self.weekly_menu.center.name} - {self.date} - {self.meal_type.name}"
+        return f"{self.center.name if self.center else 'بدون مرکز'} - {self.date} - {self.meal_type.name if self.meal_type else 'بدون وعده'}"
 
     @property
     def available_spots(self):
@@ -92,7 +168,7 @@ class FoodReservation(models.Model):
     """رزرو غذا"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='شناسه کاربر')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.CASCADE, verbose_name='منوی روزانه', null=True, blank=True)
-    meal = models.ForeignKey(Meal, on_delete=models.CASCADE, verbose_name='غذا', null=True, blank=True)
+    meal_option = models.ForeignKey(MealOption, on_delete=models.CASCADE, verbose_name='گزینه غذا', null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1, verbose_name='تعداد رزرو')
     status = models.CharField(
         max_length=20,
@@ -116,7 +192,7 @@ class FoodReservation(models.Model):
         ordering = ['-reservation_date']
 
     def __str__(self):
-        meal_title = self.meal.title if self.meal else "بدون غذا"
+        meal_title = self.meal_option.title if self.meal_option else "بدون غذا"
         return f"{self.user.username} - {meal_title} - {self.quantity} عدد"
 
     @classmethod
@@ -187,7 +263,7 @@ class GuestReservation(models.Model):
     guest_first_name = models.CharField(max_length=150, verbose_name='نام مهمان')
     guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.CASCADE, verbose_name='منوی روزانه', null=True, blank=True)
-    meal = models.ForeignKey(Meal, on_delete=models.CASCADE, verbose_name='غذا', null=True, blank=True)
+    meal_option = models.ForeignKey(MealOption, on_delete=models.CASCADE, verbose_name='گزینه غذا', null=True, blank=True)
     status = models.CharField(
         max_length=20,
         choices=[
@@ -210,7 +286,7 @@ class GuestReservation(models.Model):
         ordering = ['-reservation_date']
 
     def __str__(self):
-        meal_title = self.meal.title if self.meal else "بدون غذا"
+        meal_title = self.meal_option.title if self.meal_option else "بدون غذا"
         return f"{self.guest_first_name} {self.guest_last_name} - {meal_title} (میزبان: {self.host_user.username})"
 
     @classmethod
