@@ -109,8 +109,8 @@ class MealListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.role in ['sys_admin', 'admin_food']:
             return Meal.objects.all()
-        elif user.center:
-            return Meal.objects.filter(is_active=True, center=user.center)
+        elif user.centers.exists():
+            return Meal.objects.filter(is_active=True, center__in=user.centers.all())
         return Meal.objects.none()
     
     def perform_create(self, serializer):
@@ -175,8 +175,8 @@ class MealDetailView(generics.RetrieveUpdateDestroyAPIView):
         if user.role in ['admin_food', 'sys_admin']:
             return Meal.objects.all()
         # کاربران عادی فقط غذاهای مرکز خود را می‌بینند
-        elif user.center:
-            return Meal.objects.filter(center=user.center)
+        elif user.centers.exists():
+            return Meal.objects.filter(center__in=user.centers.all())
         else:
             return Meal.objects.none()
 
@@ -230,9 +230,9 @@ class RestaurantListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.is_admin:
             return Restaurant.objects.all()
-        # Employees see only their center's restaurants
-        if hasattr(user, 'center') and user.center:
-            return Restaurant.objects.filter(center=user.center, is_active=True)
+        # Employees see only their centers' restaurants
+        if user.centers.exists():
+            return Restaurant.objects.filter(center__in=user.centers.all(), is_active=True)
         return Restaurant.objects.none()
 
     def perform_create(self, serializer):
@@ -277,8 +277,8 @@ class MealOptionListCreateView(generics.ListCreateAPIView):
                 
                 # بررسی دسترسی
                 user = request.user
-                if not user.is_admin and hasattr(user, 'center') and user.center:
-                    if base_meal.center != user.center:
+                if not user.is_admin and user.centers.exists():
+                    if not user.has_center(base_meal.center):
                         return Response(
                             {'error': 'شما به این غذا دسترسی ندارید'},
                             status=status.HTTP_403_FORBIDDEN
@@ -323,8 +323,8 @@ class MealOptionListCreateView(generics.ListCreateAPIView):
         if user.is_admin:
             return queryset.all()
         # Employees see only their center's meal options
-        if hasattr(user, 'center') and user.center:
-            return queryset.filter(base_meal__center=user.center, is_active=True)
+        if user.centers.exists():
+            return queryset.filter(base_meal__center__in=user.centers.all(), is_active=True)
         return queryset.none()
 
     def perform_create(self, serializer):
@@ -387,8 +387,8 @@ class MealOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
         if user.is_admin:
             return MealOption.objects.all()
         # کاربران عادی فقط اپشن‌های مرکز خود را می‌بینند
-        elif hasattr(user, 'center') and user.center:
-            return MealOption.objects.filter(base_meal__center=user.center)
+        elif user.centers.exists():
+            return MealOption.objects.filter(base_meal__center__in=user.centers.all())
         else:
             return MealOption.objects.none()
 
@@ -458,9 +458,9 @@ class RestaurantDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         if user.is_admin:
             return Restaurant.objects.all()
-        # Employees see only their center's restaurants
-        if hasattr(user, 'center') and user.center:
-            return Restaurant.objects.filter(center=user.center, is_active=True)
+        # Employees see only their centers' restaurants
+        if user.centers.exists():
+            return Restaurant.objects.filter(center__in=user.centers.all(), is_active=True)
         return Restaurant.objects.none()
 
 
@@ -488,8 +488,8 @@ class DailyMenuListView(generics.ListAPIView):
             except (ValueError, TypeError):
                 # Invalid center_id, return empty queryset
                 queryset = queryset.none()
-        elif user.center and not user.is_admin:
-            queryset = queryset.filter(center=user.center)
+        elif user.centers.exists() and not user.is_admin:
+            queryset = queryset.filter(center__in=user.centers.all())
         
         # فیلتر بر اساس تاریخ
         if date:
@@ -803,9 +803,9 @@ def comprehensive_statistics(request):
     """آمار جامع با امکان فیلتر"""
     user = request.user
     
-    # اگر کاربر ادمین نیست، فقط آمار مرکز خودش را ببیند
+    # اگر کاربر ادمین نیست، فقط آمار مراکز خودش را ببیند
     if not user.is_admin:
-        if not user.center:
+        if not user.centers.exists():
             return Response({
                 'error': 'کاربر مرکز مشخصی ندارد'
             }, status=status.HTTP_403_FORBIDDEN)
@@ -833,21 +833,25 @@ def comprehensive_statistics(request):
         base_meals_qs = base_meals_qs.filter(center_id=center_id)
         meal_options_qs = meal_options_qs.filter(base_meal__center_id=center_id)
         restaurants_qs = restaurants_qs.filter(center_id=center_id)
-        users_qs = users_qs.filter(center_id=center_id)
+        users_qs = users_qs.filter(centers__id=center_id).distinct()
         reservations_qs = reservations_qs.filter(daily_menu__center_id=center_id)
         guest_reservations_qs = guest_reservations_qs.filter(daily_menu__center_id=center_id)
         daily_menus_qs = daily_menus_qs.filter(center_id=center_id)
         centers_qs = centers_qs.filter(id=center_id)
     elif not user.is_admin:
-        # اگر ادمین نیست، فقط مرکز خودش
-        base_meals_qs = base_meals_qs.filter(center=user.center)
-        meal_options_qs = meal_options_qs.filter(base_meal__center=user.center)
-        restaurants_qs = restaurants_qs.filter(center=user.center)
-        users_qs = users_qs.filter(center=user.center)
-        reservations_qs = reservations_qs.filter(daily_menu__center=user.center)
-        guest_reservations_qs = guest_reservations_qs.filter(daily_menu__center=user.center)
-        daily_menus_qs = daily_menus_qs.filter(center=user.center)
-        centers_qs = centers_qs.filter(id=user.center.id) if user.center else Center.objects.none()
+        # اگر ادمین نیست، فقط مراکز خودش
+        user_centers = user.centers.all()
+        if user_centers.exists():
+            base_meals_qs = base_meals_qs.filter(center__in=user_centers)
+            meal_options_qs = meal_options_qs.filter(base_meal__center__in=user_centers)
+            restaurants_qs = restaurants_qs.filter(center__in=user_centers)
+            users_qs = users_qs.filter(centers__in=user_centers).distinct()
+            reservations_qs = reservations_qs.filter(daily_menu__center__in=user_centers)
+            guest_reservations_qs = guest_reservations_qs.filter(daily_menu__center__in=user_centers)
+            daily_menus_qs = daily_menus_qs.filter(center__in=user_centers)
+            centers_qs = centers_qs.filter(id__in=user_centers.values_list('id', flat=True))
+        else:
+            centers_qs = Center.objects.none()
     
     # فیلتر بر اساس کاربر
     if user_id:
@@ -1401,7 +1405,7 @@ def employee_daily_menus(request):
     user = request.user
     
     # بررسی اینکه کاربر مرکز دارد
-    if not user.center:
+    if not user.centers.exists():
         return Response(
             {'error': 'کاربر مرکز مشخصی ندارد'}, 
             status=status.HTTP_400_BAD_REQUEST
@@ -1425,7 +1429,7 @@ def employee_daily_menus(request):
     
     # دریافت منوهای روزانه برای مرکز کاربر در تاریخ مشخص
     daily_menus = DailyMenu.objects.filter(
-        center=user.center,
+        center__in=user.centers.all(),
         date=parsed_date,
         is_available=True
     ).select_related('meal_type', 'center').prefetch_related('meal_options')
@@ -1483,9 +1487,9 @@ def employee_reservations(request):
         # ایجاد رزرو جدید
         serializer = FoodReservationCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            # بررسی اینکه daily_menu متعلق به مرکز کاربر است
+            # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
             daily_menu = serializer.validated_data['daily_menu']
-            if daily_menu.center != user.center:
+            if not user.has_center(daily_menu.center):
                 return Response(
                     {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1512,7 +1516,7 @@ def employee_create_guest_reservation(request):
     user = request.user
     
     # بررسی اینکه کاربر مرکز دارد
-    if not user.center:
+    if not user.centers.exists():
         return Response(
             {'error': 'کاربر مرکز مشخصی ندارد'}, 
             status=status.HTTP_400_BAD_REQUEST
@@ -1520,9 +1524,9 @@ def employee_create_guest_reservation(request):
     
     serializer = GuestReservationCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
-        # بررسی اینکه daily_menu متعلق به مرکز کاربر است
+        # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
         daily_menu = serializer.validated_data['daily_menu']
-        if daily_menu.center != user.center:
+        if not user.has_center(daily_menu.center):
             return Response(
                 {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1578,9 +1582,9 @@ def employee_update_reservation(request, reservation_id):
     )
     
     if serializer.is_valid():
-        # بررسی اینکه daily_menu متعلق به مرکز کاربر است
+        # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
         daily_menu = serializer.validated_data['daily_menu']
-        if daily_menu.center != user.center:
+        if not user.has_center(daily_menu.center):
             return Response(
                 {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1635,9 +1639,9 @@ def employee_update_guest_reservation(request, guest_reservation_id):
     )
     
     if serializer.is_valid():
-        # بررسی اینکه daily_menu متعلق به مرکز کاربر است
+        # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
         daily_menu = serializer.validated_data['daily_menu']
-        if daily_menu.center != user.center:
+        if not user.has_center(daily_menu.center):
             return Response(
                 {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST

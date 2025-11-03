@@ -14,7 +14,7 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=150, verbose_name='نام')
     last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی')
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE, verbose_name='نقش')
-    center = models.ForeignKey('centers.Center', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='مرکز')
+    centers = models.ManyToManyField('centers.Center', blank=True, verbose_name='مراکز', related_name='users')
     phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='شماره تلفن')
     max_reservations_per_day = models.PositiveIntegerField(default=1, verbose_name='حداکثر رزرو در روز')
     max_guest_reservations_per_day = models.PositiveIntegerField(default=1, verbose_name='حداکثر رزرو مهمان در روز')
@@ -23,6 +23,14 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
+
+    @property
+    def center(self):
+        """
+        برای backward compatibility - اولین مرکز کاربر را برمی‌گرداند
+        """
+        centers = self.centers.all()
+        return centers.first() if centers.exists() else None
 
     @property
     def is_admin(self):
@@ -35,3 +43,11 @@ class User(AbstractUser):
     @property
     def is_sys_admin(self):
         return self.role == self.Role.SYS_ADMIN
+
+    def has_center(self, center):
+        """
+        چک می‌کند که آیا کاربر عضو مرکز مشخص شده است یا نه
+        """
+        if center is None:
+            return False
+        return self.centers.filter(id=center.id).exists()

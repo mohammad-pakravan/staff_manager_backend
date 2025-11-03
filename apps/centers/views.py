@@ -149,10 +149,10 @@ def center_employees(request, center_id):
         
         # Check if user has permission to view this center's employees
         user = request.user
-        if not user.is_admin and user.center != center:
+        if not user.is_admin and not user.has_center(center):
             return Response({'error': 'Permission denied'}, status=403)
         
-        employees = center.user_set.filter(is_active=True)
+        employees = center.users.filter(is_active=True)
         from apps.accounts.serializers import UserSerializer
         serializer = UserSerializer(employees, many=True)
         return Response(serializer.data)

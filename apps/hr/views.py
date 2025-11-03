@@ -53,9 +53,9 @@ class AnnouncementListView(generics.ListCreateAPIView):
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند
         if user.role in ['sys_admin', 'hr']:
             pass  # همه اطلاعیه‌ها
-        # کاربران عادی فقط اطلاعیه‌های مرکز خود را می‌بینند
-        elif user.center:
-            queryset = queryset.filter(center=user.center)
+        # کاربران عادی فقط اطلاعیه‌های مراکز خود را می‌بینند
+        elif user.centers.exists():
+            queryset = queryset.filter(center__in=user.centers.all())
         else:
             queryset = queryset.none()
         
@@ -139,9 +139,9 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند
         if user.role in ['sys_admin', 'hr']:
             pass  # همه اطلاعیه‌ها
-        # کاربران عادی فقط اطلاعیه‌های مرکز خود را می‌بینند
-        elif user.center:
-            queryset = queryset.filter(center=user.center)
+        # کاربران عادی فقط اطلاعیه‌های مراکز خود را می‌بینند
+        elif user.centers.exists():
+            queryset = queryset.filter(center__in=user.centers.all())
         else:
             queryset = queryset.none()
         

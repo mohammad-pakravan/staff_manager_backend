@@ -23,6 +23,6 @@ class CenterListSerializer(serializers.ModelSerializer):
         ]
 
     def get_employee_count(self, obj):
-        return obj.user_set.count()
+        return obj.users.count()
 
 

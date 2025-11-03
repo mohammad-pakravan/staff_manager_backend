@@ -1,8 +1,8 @@
 {
   "info": {
     "name": "Staff Management System API",
-    "description": "Complete API collection for Staff Management System with Enhanced Access Control - System Admin Only Center Management, Bulk Announcements, Restricted User Access, Multi-Center Support, Persian Date Support, Complete Employee Management\n\n🍽️ **Meal Structure**:\n- BaseMeal: Food groups (e.g., \"چلو خورشت سبزی\") - created via /api/food/meals/\n- MealOption: Actual meals with prices, quantities, etc. (e.g., \"با برنج خارجی\", \"با برنج ایرانی\") - managed via admin panel under BaseMeal\n- Restaurant: Restaurant model with center association - managed via /api/food/restaurants/\n- Reservations use meal_option (not base_meal directly)\n- All prices, costs, and reports are based on meal_option\n- BaseMeal has optional cancellation_deadline - if null, reservation can always be cancelled\n\n📅 **Persian Date Support**: All dates in the system are automatically converted to Persian (Jalali) format in the admin panel and API responses.\n\n🔐 **Access Control**:\n- System Admin: Full access to all features\n- Food Admin: Can manage meals and menus for any center, cannot manage centers\n- HR Admin: Can manage announcements for any center, can create bulk announcements, cannot manage centers\n- Employee: Can only see and manage data for their assigned center\n\n📊 **Features**:\n- Multi-center support\n- Guest reservations\n- Bulk announcements\n- Persian date display\n- Role-based access control\n- Complete employee workflow management\n- Personal and guest reservation management\n- Menu viewing and reservation system\n- Meal options with prices\n- Comprehensive API documentation",
-    "version": "8.0.0",
+    "description": "Complete API collection for Staff Management System with Enhanced Access Control - System Admin Only Center Management, Bulk Announcements, Restricted User Access, Multi-Center Support, Persian Date Support, Complete Employee Management\n\n🍽️ **Meal Structure**:\n- BaseMeal: Food groups (e.g., \"چلو خورشت سبزی\") - created via /api/food/meals/\n- MealOption: Actual meals with prices, quantities, etc. (e.g., \"با برنج خارجی\", \"با برنج ایرانی\") - managed via admin panel under BaseMeal\n- Restaurant: Restaurant model with center association - managed via /api/food/restaurants/\n- Reservations use meal_option (not base_meal directly)\n- All prices, costs, and reports are based on meal_option\n- BaseMeal has optional cancellation_deadline - if null, reservation can always be cancelled\n\n📅 **Persian Date Support**: All dates in the system are automatically converted to Persian (Jalali) format in the admin panel and API responses.\n\n👥 **Multi-Center User Support**: Users can now belong to multiple centers. The API accepts both `center` (single, for backward compatibility) and `centers` (array) fields. User responses include `centers` (IDs), `center_names` (list of names), and `centers_detail` (full center objects).\n\n🔐 **Access Control**:\n- System Admin: Full access to all features\n- Food Admin: Can manage meals and menus for any center, cannot manage centers\n- HR Admin: Can manage announcements for any center, can create bulk announcements, cannot manage centers\n- Employee: Can see and manage data for all their assigned centers (multiple centers support)\n\n📊 **Features**:\n- Multi-center support (users can belong to multiple centers)\n- Guest reservations\n- Bulk announcements\n- Persian date display\n- Role-based access control\n- Complete employee workflow management\n- Personal and guest reservation management\n- Menu viewing and reservation system\n- Meal options with prices\n- Comprehensive API documentation",
+    "version": "8.1.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -185,7 +185,7 @@
                   "    const response = pm.response.json();",
                   "    pm.collectionVariables.set('jwt_token', response.access);",
                   "    pm.collectionVariables.set('refresh_token', response.refresh);",
-                  "    console.log('Logged in as Employee - Can only see own center data, cannot see centers list, cannot create announcements');",
+                  "    console.log('Logged in as Employee - Can see data for all assigned centers, cannot see centers list, cannot create announcements');",
                   "}"
                 ]
               }
@@ -224,7 +224,8 @@
               "raw": "{{base_url}}/api/auth/me/",
               "host": ["{{base_url}}"],
               "path": ["api", "auth", "me", ""]
-            }
+            },
+            "description": "Get current authenticated user information. Response includes:\n- `centers`: Array of center IDs the user belongs to\n- `center_name`: First center name (for backward compatibility)\n- `center_names`: Array of all center names\n- `centers_detail`: Full details of all assigned centers\n\nUsers can belong to multiple centers. Access control is based on all assigned centers."
           }
         },
         {
@@ -394,7 +395,7 @@
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "restaurants", ""]
                 },
-                "description": "Get list of restaurants. Admins see all restaurants, employees see only their center restaurants."
+                "description": "Get list of restaurants. Admins see all restaurants, employees see restaurants for all their assigned centers."
               }
             },
             {
@@ -658,7 +659,7 @@
                     }
                   ]
                 },
-                "description": "Get list of meal options (actual meals with prices, quantities). Admins see all, employees see only their center meal options. Use 'base_meal' query parameter to filter by base meal ID."
+                "description": "Get list of meal options (actual meals with prices, quantities). Admins see all, employees see meal options for all their assigned centers. Use 'base_meal' query parameter to filter by base meal ID."
               }
             },
             {
@@ -841,7 +842,7 @@
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "statistics", ""]
                 },
-                "description": "Get comprehensive statistics including: base meals, meal types, meal options, restaurants, users, daily menus, reservations, and guest reservations. Supports filters by center_id, user_id, start_date, and end_date. Employees see only their center's statistics."
+                "description": "Get comprehensive statistics including: base meals, meal types, meal options, restaurants, users, daily menus, reservations, and guest reservations. Supports filters by center_id, user_id, start_date, and end_date. Employees see statistics for all their assigned centers."
               }
             },
             {
@@ -1286,7 +1287,7 @@
                     }
                   ]
                 },
-                "description": "Get daily menus for employee's center on specific date"
+                "description": "Get daily menus for employee's assigned centers on specific date (supports multiple centers)"
               },
               "event": [
                 {
@@ -2103,7 +2104,7 @@
           ]
         },
         {
-          "name": "Test Employee - Own Center Only",
+          "name": "Test Employee - Own Centers Only",
           "item": [
             {
               "name": "1. Login as Employee",
