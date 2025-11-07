@@ -1,5 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.urls import path
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali, date2jalali
 from .models import (
@@ -159,6 +163,123 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     ordering = ('-date',)
     raw_id_fields = ('center',)
     filter_horizontal = ('meal_options',)
+    change_form_template = 'admin/food_management/dailymenu/change_form.html'
+    add_form_template = 'admin/food_management/dailymenu/change_form.html'
+    
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        """فیلتر کردن meal_options بر اساس مرکز"""
+        if db_field.name == 'meal_options':
+            from .models import MealOption
+            
+            # اگر در حال ویرایش یک DailyMenu هستیم
+            if hasattr(request, 'resolver_match') and request.resolver_match:
+                try:
+                    daily_menu_id = request.resolver_match.kwargs.get('object_id')
+                    if daily_menu_id:
+                        try:
+                            daily_menu = DailyMenu.objects.get(pk=daily_menu_id)
+                            if daily_menu.center:
+                                kwargs['queryset'] = MealOption.objects.filter(
+                                    base_meal__center=daily_menu.center,
+                                    is_active=True
+                                ).select_related('base_meal', 'base_meal__center')
+                        except DailyMenu.DoesNotExist:
+                            pass
+                except Exception:
+                    pass
+            
+            # اگر در حال ایجاد DailyMenu جدید هستیم و center از POST آمده
+            if not kwargs.get('queryset'):
+                center_id = request.POST.get('center')
+                if center_id:
+                    try:
+                        from apps.centers.models import Center
+                        center = Center.objects.get(pk=center_id)
+                        kwargs['queryset'] = MealOption.objects.filter(
+                            base_meal__center=center,
+                            is_active=True
+                        ).select_related('base_meal', 'base_meal__center')
+                    except (Center.DoesNotExist, ValueError, TypeError):
+                        pass
+        
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+    
+    def get_urls(self):
+        """افزودن URL برای دریافت meal_options بر اساس center"""
+        urls = super().get_urls()
+        custom_urls = [
+            path('meal-options-by-center/', self.admin_site.admin_view(self.get_meal_options_by_center), name='food_management_dailymenu_meal_options_by_center'),
+        ]
+        return custom_urls + urls
+    
+    def get_meal_options_by_center(self, request):
+        """API endpoint برای دریافت meal_options بر اساس center_id"""
+        center_id = request.GET.get('center_id')
+        if not center_id:
+            return JsonResponse({'error': 'center_id required'}, status=400)
+        
+        try:
+            from apps.centers.models import Center
+            center = Center.objects.get(pk=center_id)
+            meal_options = MealOption.objects.filter(
+                base_meal__center=center,
+                is_active=True
+            ).select_related('base_meal', 'base_meal__center').order_by('base_meal__title', 'title')
+            
+            options_data = [
+                {
+                    'id': option.id,
+                    'text': f"{option.base_meal.title} - {option.title}",
+                    'base_meal_title': option.base_meal.title,
+                    'title': option.title
+                }
+                for option in meal_options
+            ]
+            
+            return JsonResponse({'options': options_data})
+        except Center.DoesNotExist:
+            return JsonResponse({'error': 'Center not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """تنظیم queryset meal_options بر اساس مرکز"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # اگر در حال ویرایش هستیم و center وجود دارد
+        if obj and obj.center:
+            from .models import MealOption
+            form.base_fields['meal_options'].queryset = MealOption.objects.filter(
+                base_meal__center=obj.center,
+                is_active=True
+            ).select_related('base_meal', 'base_meal__center').order_by('base_meal__title', 'title')
+        else:
+            # اگر در حال ایجاد هستیم، فقط meal_options فعال را نشان بده
+            # کاربر باید ابتدا center را انتخاب کند، سپس صفحه را refresh کند
+            from .models import MealOption
+            form.base_fields['meal_options'].queryset = MealOption.objects.filter(
+                is_active=True
+            ).select_related('base_meal', 'base_meal__center').order_by('base_meal__title', 'title')
+        
+        return form
+    
+    
+    def save_model(self, request, obj, form, change):
+        """ذخیره مدل و بررسی اینکه meal_options مربوط به center هستند"""
+        super().save_model(request, obj, form, change)
+        
+        # بررسی اینکه همه meal_options مربوط به center هستند
+        if obj.center:
+            from .models import MealOption
+            invalid_options = obj.meal_options.exclude(base_meal__center=obj.center)
+            if invalid_options.exists():
+                # حذف meal_options نامعتبر
+                obj.meal_options.remove(*invalid_options)
+                from django.contrib import messages
+                messages.warning(
+                    request,
+                    f'توجه: {invalid_options.count()} غذای نامعتبر (مربوط به مرکز دیگر) از منو حذف شد.'
+                )
     
     def jalali_date(self, obj):
         if obj.date:

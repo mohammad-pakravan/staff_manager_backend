@@ -1,0 +1,220 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script>
+    (function($) {
+        $(document).ready(function() {
+            var $centerField = $('#id_center');
+            var selectedOptions = [];
+            var apiUrl = '{% url "admin:food_management_dailymenu_meal_options_by_center" %}';
+            
+            function getSelectBoxes() {
+                var $mealOptionsFrom = $('#id_meal_options_from');
+                var $mealOptionsTo = $('#id_meal_options_to');
+                return {
+                    from: $mealOptionsFrom,
+                    to: $mealOptionsTo,
+                    found: $mealOptionsFrom.length > 0 && $mealOptionsTo.length > 0
+                };
+            }
+            
+            function updateMealOptions() {
+                var centerId = $centerField.val();
+                if (!centerId) {
+                    return;
+                }
+                
+                var boxes = getSelectBoxes();
+                if (!boxes.found) {
+                    console.log('Select boxes not found yet, retrying...');
+                    setTimeout(updateMealOptions, 200);
+                    return;
+                }
+                
+                // ذخیره meal_options انتخاب شده
+                selectedOptions = [];
+                boxes.to.find('option').each(function() {
+                    selectedOptions.push($(this).val());
+                });
+                
+                console.log('Updating meal options for center:', centerId);
+                console.log('Selected options:', selectedOptions);
+                
+                $.ajax({
+                    url: apiUrl,
+                    data: {'center_id': centerId},
+                    dataType: 'json',
+                    success: function(data) {
+                        console.log('Received data:', data);
+                        if (data.options) {
+                            // دوباره select box ها را بگیر (ممکن است تغییر کرده باشند)
+                            var boxes = getSelectBoxes();
+                            if (!boxes.found) {
+                                console.error('Select boxes not found after AJAX!');
+                                return;
+                            }
+                            
+                            console.log('Before update - From box options:', boxes.from.find('option').length);
+                            console.log('Before update - To box options:', boxes.to.find('option').length);
+                            
+                            // پاک کردن cache SelectBox
+                            if (typeof SelectBox !== 'undefined' && SelectBox.cache) {
+                                delete SelectBox.cache['id_meal_options_from'];
+                                delete SelectBox.cache['id_meal_options_to'];
+                            }
+                            
+                            // ساخت cache جدید برای SelectBox
+                            if (typeof SelectBox !== 'undefined') {
+                                if (!SelectBox.cache) {
+                                    SelectBox.cache = {};
+                                }
+                                
+                                // پاک کردن select box ها
+                                boxes.from.empty();
+                                boxes.to.empty();
+                                
+                                // اضافه کردن options به select box ها
+                                $.each(data.options, function(index, option) {
+                                    var wasSelected = selectedOptions.indexOf(option.id.toString()) !== -1;
+                                    var $option = $('<option></option>')
+                                        .attr('value', option.id)
+                                        .text(option.text)
+                                        .attr('title', option.text);
+                                    
+                                    if (wasSelected) {
+                                        boxes.to.append($option);
+                                    } else {
+                                        boxes.from.append($option);
+                                    }
+                                });
+                                
+                                console.log('Options added to select boxes - From:', boxes.from.find('option').length, 'To:', boxes.to.find('option').length);
+                                
+                                // ساخت cache از select box ها (نه از data.options)
+                                // SelectBox.redisplay() از cache استفاده می‌کند، پس باید cache را از select box ها بسازیم
+                                // Cache باید شامل object هایی با value، text و displayed باشد
+                                setTimeout(function() {
+                                    try {
+                                        // Rebuild cache from actual select boxes
+                                        var fromCacheRebuilt = [];
+                                        boxes.from.find('option').each(function() {
+                                            fromCacheRebuilt.push({
+                                                value: $(this).val(),
+                                                text: $(this).text(),
+                                                displayed: 1
+                                            });
+                                        });
+                                        
+                                        var toCacheRebuilt = [];
+                                        boxes.to.find('option').each(function() {
+                                            toCacheRebuilt.push({
+                                                value: $(this).val(),
+                                                text: $(this).text(),
+                                                displayed: 1
+                                            });
+                                        });
+                                        
+                                        // Set cache BEFORE redisplay
+                                        SelectBox.cache['id_meal_options_from'] = fromCacheRebuilt;
+                                        SelectBox.cache['id_meal_options_to'] = toCacheRebuilt;
+                                        
+                                        console.log('Cache built from select boxes - From cache length:', fromCacheRebuilt.length);
+                                        console.log('Cache built from select boxes - To cache length:', toCacheRebuilt.length);
+                                        
+                                        // Redisplay SelectBox
+                                        SelectBox.redisplay('id_meal_options_from');
+                                        SelectBox.redisplay('id_meal_options_to');
+                                        
+                                        console.log('SelectBox updated successfully');
+                                        console.log('After redisplay - From box options:', boxes.from.find('option').length);
+                                        console.log('After redisplay - To box options:', boxes.to.find('option').length);
+                                    } catch (e) {
+                                        console.error('Error updating SelectBox:', e);
+                                        console.error('Stack:', e.stack);
+                                    }
+                                }, 100);
+                            } else {
+                                // Fallback: اگر SelectBox وجود نداشت، مستقیماً به select box اضافه کن
+                                boxes.from.empty();
+                                boxes.to.empty();
+                                
+                                $.each(data.options, function(index, option) {
+                                    var wasSelected = selectedOptions.indexOf(option.id.toString()) !== -1;
+                                    var $option = $('<option></option>')
+                                        .attr('value', option.id)
+                                        .text(option.text)
+                                        .attr('title', option.text);
+                                    
+                                    if (wasSelected) {
+                                        boxes.to.append($option);
+                                    } else {
+                                        boxes.from.append($option);
+                                    }
+                                });
+                                
+                                console.log('Options added directly - From box options:', boxes.from.find('option').length);
+                                console.log('Options added directly - To box options:', boxes.to.find('option').length);
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading meal options:', error);
+                        console.error('Response:', xhr.responseText);
+                        alert('خطا در بارگذاری غذاها. لطفاً صفحه را refresh کنید.');
+                    }
+                });
+            }
+            
+            // فیلتر کردن هنگام تغییر center
+            $centerField.on('change', function() {
+                console.log('Center changed to:', $centerField.val());
+                // استفاده از retry برای اطمینان از وجود select box ها
+                var retryCount = 0;
+                var maxRetries = 10;
+                function tryUpdate() {
+                    var boxes = getSelectBoxes();
+                    if (boxes.found) {
+                        updateMealOptions();
+                    } else if (retryCount < maxRetries) {
+                        retryCount++;
+                        console.log('Select boxes not found, retrying... (' + retryCount + '/' + maxRetries + ')');
+                        setTimeout(tryUpdate, 200);
+                    } else {
+                        console.error('Select boxes not found after ' + maxRetries + ' retries!');
+                    }
+                }
+                tryUpdate();
+            });
+            
+            // فیلتر کردن در بارگذاری اولیه
+            // استفاده از MutationObserver برای تشخیص ایجاد select box ها
+            var observer = new MutationObserver(function(mutations) {
+                var boxes = getSelectBoxes();
+                if (boxes.found && $centerField.val()) {
+                    console.log('Select boxes found, updating meal options...');
+                    updateMealOptions();
+                    observer.disconnect();
+                }
+            });
+            
+            // مشاهده تغییرات در DOM
+            var targetNode = document.body;
+            var config = { childList: true, subtree: true };
+            observer.observe(targetNode, config);
+            
+            // همچنین یک بار بعد از بارگذاری کامل صفحه چک کن
+            setTimeout(function() {
+                var boxes = getSelectBoxes();
+                if (boxes.found && $centerField.val()) {
+                    console.log('Select boxes found on page load, updating meal options...');
+                    updateMealOptions();
+                    observer.disconnect();
+                }
+            }, 1000);
+        });
+    })(django.jQuery);
+    </script>
+{% endblock %}
+
