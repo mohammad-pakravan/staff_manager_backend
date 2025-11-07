@@ -35,7 +35,6 @@ class BaseMeal(models.Model):
     image = models.ImageField(upload_to='meals/', blank=True, null=True, verbose_name='تصویر')
     center = models.ForeignKey(Center, on_delete=models.CASCADE, blank=True, null=True, verbose_name='مرکز')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='base_meals', verbose_name='رستوران')
-    cancellation_deadline = models.DateTimeField(blank=True, null=True, verbose_name='مهلت لغو')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
@@ -49,84 +48,10 @@ class BaseMeal(models.Model):
         return self.title
 
 
-class MealOption(models.Model):
-    """مدل گزینه غذا (اپشن غذا)"""
-    base_meal = models.ForeignKey(BaseMeal, on_delete=models.CASCADE, related_name='options', verbose_name='گروه غذا')
-    title = models.CharField(max_length=200, verbose_name='عنوان غذا')
-    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='قیمت')
-    quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
-    reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
-    is_active = models.BooleanField(default=True, verbose_name='فعال')
-    is_default = models.BooleanField(default=False, verbose_name='گزینه پیش‌فرض')
-    sort_order = models.PositiveIntegerField(default=0, verbose_name='ترتیب نمایش')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
-
-    class Meta:
-        verbose_name = 'غذا'
-        verbose_name_plural = 'غذاها'
-        ordering = ['sort_order', 'title']
-
-    def __str__(self):
-        return f"{self.base_meal.title} - {self.title}"
-
-    @property
-    def available_quantity(self):
-        """تعداد موجود"""
-        return max(0, self.quantity - self.reserved_quantity)
-
-    @property
-    def restaurant(self):
-        """رستوران از طریق base_meal"""
-        return self.base_meal.restaurant if self.base_meal else None
-
-
-class Meal(models.Model):
-    """مدل غذا"""
-    title = models.CharField(max_length=200, verbose_name='عنوان', blank=True, null=True)
-    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
-    image = models.ImageField(upload_to='meals/', blank=True, null=True, verbose_name='تصویر')
-    date = models.DateField(verbose_name='تاریخ', null=True, blank=True)
-    restaurant = models.CharField(max_length=200, blank=True, null=True, verbose_name='رستوران')
-    center = models.ForeignKey(Center, on_delete=models.CASCADE, null=True, blank=True, verbose_name='مرکز')
-    is_active = models.BooleanField(default=True, verbose_name='فعال')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
-
-    class Meta:
-        verbose_name = 'غذا'
-        verbose_name_plural = 'غذاها'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.title} - {self.date}" if self.date else self.title
-
-
-class WeeklyMenu(models.Model):
-    """برنامه هفتگی غذا"""
-    center = models.ForeignKey(Center, on_delete=models.CASCADE, verbose_name='مرکز')
-    week_start_date = models.DateField(verbose_name='تاریخ شروع هفته')
-    week_end_date = models.DateField(verbose_name='تاریخ پایان هفته')
-    is_active = models.BooleanField(default=True, verbose_name='فعال')
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='ایجاد شده توسط')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
-
-    class Meta:
-        verbose_name = 'برنامه هفتگی'
-        verbose_name_plural = 'برنامه‌های هفتگی'
-        unique_together = ['center', 'week_start_date']
-        ordering = ['-week_start_date']
-
-    def __str__(self):
-        return f"{self.center.name} - {self.week_start_date} تا {self.week_end_date}"
-
-
 class DailyMenu(models.Model):
     """منوی روزانه"""
-    center = models.ForeignKey(Center, on_delete=models.CASCADE, verbose_name='مرکز')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, verbose_name='رستوران')
     date = models.DateField(verbose_name='تاریخ')
-    meal_options = models.ManyToManyField(MealOption, verbose_name='غذاهای موجود', blank=True, related_name='daily_menus')
     base_meals = models.ManyToManyField(BaseMeal, verbose_name='غذاهای پایه', blank=True, related_name='daily_menus')
     max_reservations_per_meal = models.PositiveIntegerField(default=100, verbose_name='حداکثر رزرو برای هر غذا')
     is_available = models.BooleanField(default=True, verbose_name='در دسترس')
@@ -134,33 +59,63 @@ class DailyMenu(models.Model):
     class Meta:
         verbose_name = 'منوی روزانه'
         verbose_name_plural = 'منوهای روزانه'
-        unique_together = ['center', 'date']
+        unique_together = ['restaurant', 'date']
         ordering = ['date']
 
     def __str__(self):
-        return f"{self.center.name if self.center else 'بدون مرکز'} - {self.date}"
+        return f"{self.restaurant.name if self.restaurant else 'بدون رستوران'} - {self.date}"
+    
+    @property
+    def center(self):
+        """مرکز از طریق رستوران"""
+        return self.restaurant.center if self.restaurant else None
 
     @property
     def available_spots(self):
         """تعداد جای خالی"""
         return max(0, self.max_reservations - self.current_reservations)
     
-    def sync_meal_options_from_base_meals(self):
-        """همگام‌سازی meal_options از base_meals"""
-        # دریافت همه MealOption‌های فعال مربوط به base_meals انتخاب شده
-        meal_options = MealOption.objects.filter(
-            base_meal__in=self.base_meals.all(),
-            is_active=True
-        )
-        # اضافه کردن همه MealOption‌ها به meal_options
-        self.meal_options.set(meal_options)
+    @property
+    def meal_options(self):
+        """اپشن‌های غذا برای این منو"""
+        return DailyMenuMealOption.objects.filter(daily_menu=self)
+
+
+class DailyMenuMealOption(models.Model):
+    """اپشن غذا برای منوی روزانه (مختص هر منو)"""
+    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.CASCADE, related_name='menu_meal_options', verbose_name='منوی روزانه')
+    base_meal = models.ForeignKey(BaseMeal, on_delete=models.CASCADE, related_name='daily_menu_options', verbose_name='غذای پایه')
+    title = models.CharField(max_length=200, verbose_name='عنوان غذا')
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='قیمت')
+    quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
+    reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
+    is_default = models.BooleanField(default=False, verbose_name='گزینه پیش‌فرض')
+    cancellation_deadline = models.DateTimeField(blank=True, null=True, verbose_name='مهلت لغو')
+    sort_order = models.PositiveIntegerField(default=0, verbose_name='ترتیب نمایش')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'اپشن غذا برای منو'
+        verbose_name_plural = 'اپشن‌های غذا برای منو'
+        ordering = ['sort_order', 'title']
+        unique_together = ['daily_menu', 'base_meal', 'title']
+
+    def __str__(self):
+        return f"{self.daily_menu} - {self.base_meal.title} - {self.title}"
+
+    @property
+    def available_quantity(self):
+        """تعداد موجود"""
+        return max(0, self.quantity - self.reserved_quantity)
 
 
 class FoodReservation(models.Model):
     """رزرو غذا"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='شناسه کاربر')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
-    meal_option = models.ForeignKey(MealOption, on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
+    meal_option = models.ForeignKey('DailyMenuMealOption', on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
     # فیلدهای ذخیره اطلاعات منو و غذا به صورت string (برای حفظ اطلاعات بعد از حذف)
     daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
     meal_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات غذا (حذف شده)')
@@ -256,11 +211,11 @@ class FoodReservation(models.Model):
             pass
         
         if not self.cancellation_deadline:
-            # اگر مهلت لغو تعیین نشده، از base_meal استفاده کن
-            if self.meal_option and self.meal_option.base_meal and self.meal_option.base_meal.cancellation_deadline:
-                self.cancellation_deadline = self.meal_option.base_meal.cancellation_deadline
+            # اگر مهلت لغو تعیین نشده، از meal_option استفاده کن
+            if self.meal_option and self.meal_option.cancellation_deadline:
+                self.cancellation_deadline = self.meal_option.cancellation_deadline
             elif self.daily_menu and self.daily_menu.date:
-                # اگر base_meal مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
+                # اگر meal_option مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
                 meal_date = self.daily_menu.date
                 meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
                 self.cancellation_deadline = timezone.make_aware(meal_time) - timezone.timedelta(hours=2)
@@ -273,7 +228,7 @@ class GuestReservation(models.Model):
     guest_first_name = models.CharField(max_length=150, verbose_name='نام مهمان')
     guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
-    meal_option = models.ForeignKey(MealOption, on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
+    meal_option = models.ForeignKey('DailyMenuMealOption', on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
     # فیلدهای ذخیره اطلاعات منو و غذا به صورت string (برای حفظ اطلاعات بعد از حذف)
     daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
     meal_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات غذا (حذف شده)')
@@ -370,11 +325,11 @@ class GuestReservation(models.Model):
         if not self.pk:  # اگر رزرو جدید است
             # محاسبه مهلت لغو
             if not self.cancellation_deadline:
-                # اگر مهلت لغو تعیین نشده، از base_meal استفاده کن
-                if self.meal_option and self.meal_option.base_meal and self.meal_option.base_meal.cancellation_deadline:
-                    self.cancellation_deadline = self.meal_option.base_meal.cancellation_deadline
+                # اگر مهلت لغو تعیین نشده، از meal_option استفاده کن
+                if self.meal_option and self.meal_option.cancellation_deadline:
+                    self.cancellation_deadline = self.meal_option.cancellation_deadline
                 elif self.daily_menu and self.daily_menu.date:
-                    # اگر base_meal مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
+                    # اگر meal_option مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
                     meal_date = self.daily_menu.date
                     meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
                     gregorian_meal_time = timezone.make_aware(meal_time)

@@ -140,7 +140,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Staff Management System API',
     'DESCRIPTION': "Complete API documentation for Staff Management System including User Management, Food Management, and HR Management",
-    'VERSION': '1.1.0',
+    'VERSION': '9.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/',
@@ -148,7 +148,7 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Authentication', 'description': 'User authentication and authorization'},
         {'name': 'Centers', 'description': 'Center management operations (System Admin only)'},
         {'name': 'Meals', 'description': 'Base meal management operations (Food Admin & System Admin)'},
-        {'name': 'Food Management', 'description': 'Food management endpoints including restaurants, meal options, and daily menus (Food Admin & System Admin)'},
+        {'name': 'Food Management', 'description': 'Food management endpoints including restaurants, base meals, daily menus, and meal options (DailyMenuMealOption) (Food Admin & System Admin)'},
         {'name': 'Reservations', 'description': 'Food reservation operations'},
         {'name': 'Guest Reservations', 'description': 'Guest reservation operations'},
         {'name': 'User Reservations', 'description': 'User personal and guest reservations'},

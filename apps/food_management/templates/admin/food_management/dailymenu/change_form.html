@@ -3,216 +3,857 @@
 
 {% block extrahead %}
     {{ block.super }}
+    <!-- Custom DailyMenu Template Loaded -->
+    <!-- Jalali Date Picker -->
+    <link rel="stylesheet" href="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+    <script src="https://unpkg.com/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+    <style>
+        /* Light mode styles */
+        .meal-options-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--body-bg, #f8f9fa);
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 4px;
+        }
+        .meal-options-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .meal-options-header h3 {
+            margin: 0;
+            color: var(--body-fg, #333);
+        }
+        .meal-options-list {
+            margin-top: 15px;
+        }
+        .meal-option-item {
+            background: var(--body-bg, #fff);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .meal-option-info {
+            flex: 1;
+            color: var(--body-fg, #333);
+        }
+        .meal-option-info strong {
+            color: var(--body-fg, #333);
+        }
+        .meal-option-info small {
+            color: var(--body-quiet-color, #666);
+        }
+        .meal-option-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: var(--body-bg, #fefefe);
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid var(--border-color, #888);
+            width: 80%;
+            max-width: 600px;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            color: var(--body-fg, #333);
+        }
+        .close {
+            color: var(--body-quiet-color, #aaa);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+        .close:hover,
+        .close:focus {
+            color: var(--body-fg, #000);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--body-fg, #333);
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color, #ddd);
+            border-radius: 4px;
+            background-color: var(--body-bg, #fff);
+            color: var(--body-fg, #333);
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--link-fg, #417690);
+            outline: none;
+        }
+        .form-group textarea {
+            min-height: 80px;
+        }
+        .persian-date-input {
+            font-family: 'Tahoma', 'Arial', sans-serif;
+            direction: rtl;
+            text-align: right;
+        }
+        .form-actions {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+        .btn-primary {
+            background-color: var(--button-bg, #007cba);
+            color: var(--button-fg, #fff);
+        }
+        .btn-primary:hover {
+            background-color: var(--button-hover-bg, #005a8a);
+        }
+        .btn-secondary {
+            background-color: var(--button-bg, #6c757d);
+            color: var(--button-fg, #fff);
+        }
+        .btn-secondary:hover {
+            background-color: var(--button-hover-bg, #5a6268);
+        }
+        .btn-danger {
+            background-color: var(--delete-button-bg, #dc3545);
+            color: var(--button-fg, #fff);
+        }
+        .btn-danger:hover {
+            background-color: var(--delete-button-hover-bg, #c82333);
+        }
+        .btn-success {
+            background-color: var(--button-bg, #28a745);
+            color: var(--button-fg, #fff);
+        }
+        .btn-success:hover {
+            background-color: var(--button-hover-bg, #218838);
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .meal-options-section {
+                background: var(--darkened-bg, #1a1a1a);
+                border-color: var(--border-color, #444);
+            }
+            .meal-option-item {
+                background: var(--darkened-bg, #1a1a1a);
+                border-color: var(--border-color, #444);
+            }
+            .modal-content {
+                background-color: var(--darkened-bg, #1a1a1a);
+                border-color: var(--border-color, #444);
+            }
+        }
+        
+        /* Django admin dark mode classes */
+        body.dark-theme .meal-options-section,
+        body.dark-theme .meal-option-item,
+        body.dark-theme .modal-content {
+            background: var(--darkened-bg, #1a1a1a);
+            border-color: var(--border-color, #444);
+        }
+        body.dark-theme .meal-options-header h3,
+        body.dark-theme .meal-option-info,
+        body.dark-theme .meal-option-info strong,
+        body.dark-theme .modal-content h2,
+        body.dark-theme .form-group label {
+            color: var(--body-fg, #e0e0e0);
+        }
+        body.dark-theme .meal-option-info small {
+            color: var(--body-quiet-color, #999);
+        }
+        body.dark-theme .form-group input,
+        body.dark-theme .form-group textarea,
+        body.dark-theme .form-group select {
+            background-color: var(--darkened-bg, #1a1a1a);
+            border-color: var(--border-color, #444);
+            color: var(--body-fg, #e0e0e0);
+        }
+        body.dark-theme .close {
+            color: var(--body-quiet-color, #999);
+        }
+        body.dark-theme .close:hover,
+        body.dark-theme .close:focus {
+            color: var(--body-fg, #e0e0e0);
+        }
+    </style>
     <script>
     (function($) {
         $(document).ready(function() {
-            var $centerField = $('#id_center');
-            var selectedOptions = [];
-            var apiUrl = '{% url "admin:food_management_dailymenu_base_meals_by_center" %}';
+            var dailyMenuId = '{% if original.pk %}{{ original.pk }}{% else %}{% endif %}';
+            var $restaurantField = $('#id_restaurant');
+            var $baseMealsField = $('#id_base_meals');
+            var selectedBaseMeals = [];
+            var mealOptions = [];
+            var editingOptionId = null;
             
-            function getSelectBoxes() {
-                var $baseMealsFrom = $('#id_base_meals_from');
-                var $baseMealsTo = $('#id_base_meals_to');
-                return {
-                    from: $baseMealsFrom,
-                    to: $baseMealsTo,
-                    found: $baseMealsFrom.length > 0 && $baseMealsTo.length > 0
-                };
+            // Debug: Check if fields exist
+            if (!$restaurantField.length) {
+                console.warn('Restaurant field not found!');
+            }
+            if (!$baseMealsField.length) {
+                console.warn('Base meals field not found!');
             }
             
-            function updateBaseMeals() {
-                var centerId = $centerField.val();
-                if (!centerId) {
-                    return;
-                }
-                
-                var boxes = getSelectBoxes();
-                if (!boxes.found) {
-                    console.log('Select boxes not found yet, retrying...');
-                    setTimeout(updateBaseMeals, 200);
-                    return;
-                }
-                
-                // ذخیره base_meals انتخاب شده
-                selectedOptions = [];
-                boxes.to.find('option').each(function() {
-                    selectedOptions.push($(this).val());
+            // Get daily menu ID from URL if not available
+            if (!dailyMenuId) {
+                var urlParts = window.location.pathname.split('/').filter(function(part) {
+                    return part && part !== 'add' && part !== 'change' && !isNaN(parseInt(part));
                 });
-                
-                console.log('Updating base meals for center:', centerId);
-                console.log('Selected options:', selectedOptions);
+                if (urlParts.length > 0) {
+                    var possibleId = urlParts[urlParts.length - 1];
+                    if (possibleId && !isNaN(parseInt(possibleId))) {
+                        dailyMenuId = possibleId;
+                    }
+                }
+            }
+            
+            // Validate dailyMenuId is a number
+            if (dailyMenuId && (isNaN(parseInt(dailyMenuId)) || dailyMenuId === 'change' || dailyMenuId === 'add')) {
+                dailyMenuId = '';
+            }
+            
+            // URLs
+            var baseMealsUrl = '{% url "admin:food_management_dailymenu_base_meals_by_restaurant" %}';
+            var mealOptionsUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/' : '';
+            var createOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/create/' : '';
+            var updateOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/update/' : '';
+            var deleteOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/delete/' : '';
+            
+            // Modal elements
+            var $modal = $('<div class="modal" id="mealOptionModal"><div class="modal-content"><span class="close">&times;</span><h2>افزودن/ویرایش اپشن غذا</h2><form id="mealOptionForm"></form></div></div>');
+            $('body').append($modal);
+            
+            // Meal options section
+            var $mealOptionsSection = $('<div class="meal-options-section" id="mealOptionsSection" style="display:none;"><div class="meal-options-header"><h3>اپشن‌های غذا</h3><button type="button" class="btn btn-primary" id="addMealOptionBtn">افزودن اپشن</button></div><div class="meal-options-list" id="mealOptionsList"></div></div>');
+            
+            // Find the base_meals field container
+            var $baseMealsContainer = $baseMealsField.closest('.form-row, .form-group, fieldset');
+            if ($baseMealsContainer.length) {
+                $baseMealsContainer.after($mealOptionsSection);
+            } else {
+                // Fallback: append after base meals field
+                $baseMealsField.after($mealOptionsSection);
+            }
+            
+            // Update URLs when daily menu is saved
+            function updateUrls(newId) {
+                // Validate newId is a number
+                if (!newId || isNaN(parseInt(newId)) || newId === 'change' || newId === 'add') {
+                    console.error('Invalid dailyMenuId:', newId);
+                    return;
+                }
+                dailyMenuId = newId;
+                mealOptionsUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/';
+                createOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/create/';
+                updateOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/update/';
+                deleteOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/delete/';
+                console.log('URLs updated with dailyMenuId:', dailyMenuId);
+            }
+            
+            // Get selected base meals
+            function getSelectedBaseMeals() {
+                var selected = [];
+                $('#id_base_meals_to option').each(function() {
+                    selected.push({
+                        id: $(this).val(),
+                        title: $(this).text()
+                    });
+                });
+                return selected;
+            }
+            
+            // Load meal options
+            function loadMealOptions() {
+                if (!dailyMenuId) return;
                 
                 $.ajax({
-                    url: apiUrl,
-                    data: {'center_id': centerId},
+                    url: mealOptionsUrl,
+                    method: 'GET',
                     dataType: 'json',
                     success: function(data) {
-                        console.log('Received data:', data);
                         if (data.options) {
-                            // دوباره select box ها را بگیر (ممکن است تغییر کرده باشند)
-                            var boxes = getSelectBoxes();
-                            if (!boxes.found) {
-                                console.error('Select boxes not found after AJAX!');
-                                return;
-                            }
+                            mealOptions = data.options;
+                            renderMealOptions();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading meal options:', error);
+                    }
+                });
+            }
+            
+            // Render meal options
+            function renderMealOptions() {
+                var $list = $('#mealOptionsList');
+                $list.empty();
+                
+                if (mealOptions.length === 0) {
+                    $list.html('<p>هیچ اپشنی اضافه نشده است.</p>');
+                    return;
+                }
+                
+                mealOptions.forEach(function(option) {
+                    var $item = $('<div class="meal-option-item"></div>');
+                    var $info = $('<div class="meal-option-info"></div>');
+                    $info.append('<strong>' + option.base_meal_title + ' - ' + option.title + '</strong><br>');
+                    if (option.description) {
+                        $info.append('<small>' + option.description + '</small><br>');
+                    }
+                    $info.append('<small>قیمت: ' + option.price + ' | تعداد: ' + option.quantity + '</small>');
+                    $item.append($info);
+                    
+                    var $actions = $('<div class="meal-option-actions"></div>');
+                    $actions.append('<button type="button" class="btn btn-success btn-edit" data-id="' + option.id + '">ویرایش</button>');
+                    $actions.append('<button type="button" class="btn btn-danger btn-delete" data-id="' + option.id + '">حذف</button>');
+                    $item.append($actions);
+                    
+                    $list.append($item);
+                });
+            }
+            
+            // Update base meals based on restaurant
+            function updateBaseMeals() {
+                var restaurantId = $restaurantField.val();
+                if (!restaurantId) {
+                    // Clear base meals if no restaurant selected
+                    $('#id_base_meals_from').empty();
+                    $('#id_base_meals_to').empty();
+                    if (typeof SelectBox !== 'undefined') {
+                        var fromId = 'id_base_meals_from';
+                        var toId = 'id_base_meals_to';
+                        if (SelectBox.cache[fromId]) {
+                            SelectBox.cache[fromId] = [];
+                            SelectBox.redisplay(fromId);
+                        }
+                        if (SelectBox.cache[toId]) {
+                            SelectBox.cache[toId] = [];
+                            SelectBox.redisplay(toId);
+                        }
+                    }
+                    return;
+                }
+                
+                // Save currently selected base meals
+                var selectedBaseMealIds = [];
+                $('#id_base_meals_to option').each(function() {
+                    selectedBaseMealIds.push($(this).val());
+                });
+                
+                // Fetch base meals for this restaurant
+                $.ajax({
+                    url: baseMealsUrl,
+                    method: 'GET',
+                    data: { restaurant_id: restaurantId },
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.options) {
+                            var $fromBox = $('#id_base_meals_from');
+                            var $toBox = $('#id_base_meals_to');
                             
-                            console.log('Before update - From box options:', boxes.from.find('option').length);
-                            console.log('Before update - To box options:', boxes.to.find('option').length);
+                            // Clear existing options
+                            $fromBox.empty();
+                            $toBox.empty();
                             
-                            // پاک کردن cache SelectBox
-                            if (typeof SelectBox !== 'undefined' && SelectBox.cache) {
-                                delete SelectBox.cache['id_base_meals_from'];
-                                delete SelectBox.cache['id_base_meals_to'];
-                            }
-                            
-                            // ساخت cache جدید برای SelectBox
-                            if (typeof SelectBox !== 'undefined') {
-                                if (!SelectBox.cache) {
-                                    SelectBox.cache = {};
+                            // Add new options
+                            data.options.forEach(function(option) {
+                                var $option = $('<option></option>')
+                                    .attr('value', option.id)
+                                    .text(option.title);
+                                
+                                // If this was previously selected, add to "to" box
+                                if (selectedBaseMealIds.indexOf(option.id.toString()) !== -1) {
+                                    $toBox.append($option);
+                                } else {
+                                    $fromBox.append($option);
                                 }
+                            });
+                            
+                            // Update SelectBox cache and redisplay
+                            if (typeof SelectBox !== 'undefined') {
+                                var fromId = 'id_base_meals_from';
+                                var toId = 'id_base_meals_to';
                                 
-                                // پاک کردن select box ها
-                                boxes.from.empty();
-                                boxes.to.empty();
-                                
-                                // اضافه کردن options به select box ها
-                                $.each(data.options, function(index, option) {
-                                    var wasSelected = selectedOptions.indexOf(option.id.toString()) !== -1;
-                                    var $option = $('<option></option>')
-                                        .attr('value', option.id)
-                                        .text(option.text)
-                                        .attr('title', option.text);
-                                    
-                                    if (wasSelected) {
-                                        boxes.to.append($option);
-                                    } else {
-                                        boxes.from.append($option);
-                                    }
+                                // Build cache from actual select boxes
+                                SelectBox.cache[fromId] = [];
+                                $fromBox.find('option').each(function() {
+                                    SelectBox.cache[fromId].push({
+                                        value: $(this).val(),
+                                        text: $(this).text(),
+                                        displayed: 1
+                                    });
                                 });
                                 
-                                console.log('Options added to select boxes - From:', boxes.from.find('option').length, 'To:', boxes.to.find('option').length);
+                                SelectBox.cache[toId] = [];
+                                $toBox.find('option').each(function() {
+                                    SelectBox.cache[toId].push({
+                                        value: $(this).val(),
+                                        text: $(this).text(),
+                                        displayed: 1
+                                    });
+                                });
                                 
-                                // ساخت cache از select box ها (نه از data.options)
-                                // SelectBox.redisplay() از cache استفاده می‌کند، پس باید cache را از select box ها بسازیم
-                                // Cache باید شامل object هایی با value، text و displayed باشد
+                                // Redisplay
                                 setTimeout(function() {
-                                    try {
-                                        // Rebuild cache from actual select boxes
-                                        var fromCacheRebuilt = [];
-                                        boxes.from.find('option').each(function() {
-                                            fromCacheRebuilt.push({
-                                                value: $(this).val(),
-                                                text: $(this).text(),
-                                                displayed: 1
-                                            });
-                                        });
-                                        
-                                        var toCacheRebuilt = [];
-                                        boxes.to.find('option').each(function() {
-                                            toCacheRebuilt.push({
-                                                value: $(this).val(),
-                                                text: $(this).text(),
-                                                displayed: 1
-                                            });
-                                        });
-                                        
-                                        // Set cache BEFORE redisplay
-                                        SelectBox.cache['id_base_meals_from'] = fromCacheRebuilt;
-                                        SelectBox.cache['id_base_meals_to'] = toCacheRebuilt;
-                                        
-                                        console.log('Cache built from select boxes - From cache length:', fromCacheRebuilt.length);
-                                        console.log('Cache built from select boxes - To cache length:', toCacheRebuilt.length);
-                                        
-                                        // Redisplay SelectBox
-                                        SelectBox.redisplay('id_base_meals_from');
-                                        SelectBox.redisplay('id_base_meals_to');
-                                        
-                                        console.log('SelectBox updated successfully');
-                                        console.log('After redisplay - From box options:', boxes.from.find('option').length);
-                                        console.log('After redisplay - To box options:', boxes.to.find('option').length);
-                                    } catch (e) {
-                                        console.error('Error updating SelectBox:', e);
-                                        console.error('Stack:', e.stack);
-                                    }
+                                    SelectBox.redisplay(fromId);
+                                    SelectBox.redisplay(toId);
                                 }, 100);
-                            } else {
-                                // Fallback: اگر SelectBox وجود نداشت، مستقیماً به select box اضافه کن
-                                boxes.from.empty();
-                                boxes.to.empty();
-                                
-                                $.each(data.options, function(index, option) {
-                                    var wasSelected = selectedOptions.indexOf(option.id.toString()) !== -1;
-                                    var $option = $('<option></option>')
-                                        .attr('value', option.id)
-                                        .text(option.text)
-                                        .attr('title', option.text);
-                                    
-                                    if (wasSelected) {
-                                        boxes.to.append($option);
-                                    } else {
-                                        boxes.from.append($option);
-                                    }
-                                });
-                                
-                                console.log('Options added directly - From box options:', boxes.from.find('option').length);
-                                console.log('Options added directly - To box options:', boxes.to.find('option').length);
                             }
                         }
                     },
                     error: function(xhr, status, error) {
                         console.error('Error loading base meals:', error);
-                        console.error('Response:', xhr.responseText);
                         alert('خطا در بارگذاری غذاهای پایه. لطفاً صفحه را refresh کنید.');
                     }
                 });
             }
             
-            // فیلتر کردن هنگام تغییر center
-            $centerField.on('change', function() {
-                console.log('Center changed to:', $centerField.val());
-                // استفاده از retry برای اطمینان از وجود select box ها
-                var retryCount = 0;
-                var maxRetries = 10;
-                function tryUpdate() {
-                    var boxes = getSelectBoxes();
-                    if (boxes.found) {
-                        updateBaseMeals();
-                    } else if (retryCount < maxRetries) {
-                        retryCount++;
-                        console.log('Select boxes not found, retrying... (' + retryCount + '/' + maxRetries + ')');
-                        setTimeout(tryUpdate, 200);
+            // Show/hide meal options section
+            function toggleMealOptionsSection() {
+                var selected = getSelectedBaseMeals();
+                var $section = $('#mealOptionsSection');
+                
+                if (!$section.length) {
+                    console.error('Meal options section not found!');
+                    return;
+                }
+                
+                if (selected.length > 0) {
+                    $section.show();
+                    if (dailyMenuId) {
+                        loadMealOptions();
                     } else {
-                        console.error('Select boxes not found after ' + maxRetries + ' retries!');
+                        // If no dailyMenuId yet, show message
+                        $('#mealOptionsList').html('<p>لطفاً ابتدا منو را ذخیره کنید تا بتوانید اپشن‌ها را اضافه کنید.</p>');
                     }
+                } else {
+                    $section.hide();
                 }
-                tryUpdate();
+            }
+            
+            // Watch for base meals changes
+            function watchBaseMealsChanges() {
+                var $baseMealsTo = $('#id_base_meals_to');
+                if ($baseMealsTo.length) {
+                    // Use MutationObserver to detect changes
+                    var observer = new MutationObserver(function() {
+                        setTimeout(toggleMealOptionsSection, 100);
+                    });
+                    observer.observe($baseMealsTo[0], { childList: true, subtree: true });
+                    
+                    // Also check on change
+                    $baseMealsTo.on('change', function() {
+                        setTimeout(toggleMealOptionsSection, 100);
+                    });
+                }
+            }
+            
+            // Watch for restaurant changes
+            $restaurantField.on('change', function() {
+                updateBaseMeals();
+                // After updating base meals, check if we should show options section
+                setTimeout(function() {
+                    toggleMealOptionsSection();
+                }, 500);
             });
             
-            // فیلتر کردن در بارگذاری اولیه
-            // استفاده از MutationObserver برای تشخیص ایجاد select box ها
-            var observer = new MutationObserver(function(mutations) {
-                var boxes = getSelectBoxes();
-                if (boxes.found && $centerField.val()) {
-                    console.log('Select boxes found, updating base meals...');
-                    updateBaseMeals();
-                    observer.disconnect();
-                }
-            });
-            
-            // مشاهده تغییرات در DOM
-            var targetNode = document.body;
-            var config = { childList: true, subtree: true };
-            observer.observe(targetNode, config);
-            
-            // همچنین یک بار بعد از بارگذاری کامل صفحه چک کن
+            // Initialize
             setTimeout(function() {
-                var boxes = getSelectBoxes();
-                if (boxes.found && $centerField.val()) {
-                    console.log('Select boxes found on page load, updating base meals...');
+                // Always initialize, whether editing or adding
+                toggleMealOptionsSection();
+                watchBaseMealsChanges();
+                
+                // If adding new menu, update base meals when restaurant is selected
+                if (!dailyMenuId && $restaurantField.val()) {
                     updateBaseMeals();
-                    observer.disconnect();
                 }
             }, 1000);
+            
+            // Modal functions
+            function openModal(option) {
+                editingOptionId = option ? option.id : null;
+                var $form = $('#mealOptionForm');
+                $form.empty();
+                
+                // Get selected base meals for dropdown
+                var selectedBaseMeals = getSelectedBaseMeals();
+                
+                // Build base meal dropdown
+                var $baseMealSelect = $('<div class="form-group"><label>غذای پایه *:</label><select name="base_meal_id" id="modal_base_meal_id" required></select></div>');
+                var $select = $baseMealSelect.find('select');
+                $select.append('<option value="">-- انتخاب کنید --</option>');
+                selectedBaseMeals.forEach(function(baseMeal) {
+                    var selected = (option && option.base_meal_id == baseMeal.id) ? 'selected' : '';
+                    $select.append('<option value="' + baseMeal.id + '" ' + selected + '>' + baseMeal.title + '</option>');
+                });
+                $form.append($baseMealSelect);
+                
+                $form.append('<div class="form-group"><label>عنوان اپشن *:</label><input type="text" name="title" value="' + (option ? option.title : '') + '" required></div>');
+                $form.append('<div class="form-group"><label>توضیحات:</label><textarea name="description">' + (option ? (option.description || '') : '') + '</textarea></div>');
+                $form.append('<div class="form-group"><label>قیمت *:</label><input type="number" name="price" step="0.01" value="' + (option ? option.price : '0') + '" required></div>');
+                $form.append('<div class="form-group"><label>تعداد:</label><input type="number" name="quantity" value="' + (option ? option.quantity : '0') + '" min="0"></div>');
+                
+                // Cancellation deadline field with Jalali Date Picker (with time)
+                var cancellationDeadlineDate = '';
+                var cancellationDeadlineGregorian = '';
+                if (option && option.cancellation_deadline) {
+                    // Convert from 'YYYY-MM-DDTHH:MM' to Jalali date and time
+                    try {
+                        var dateTime = new Date(option.cancellation_deadline);
+                        if (!isNaN(dateTime.getTime())) {
+                            // Manual conversion
+                            var gy = dateTime.getFullYear();
+                            var gm = dateTime.getMonth() + 1;
+                            var gd = dateTime.getDate();
+                            var jalali = gregorian_to_jalali(gy, gm, gd);
+                            var hours = String(dateTime.getHours()).padStart(2, '0');
+                            var minutes = String(dateTime.getMinutes()).padStart(2, '0');
+                            cancellationDeadlineDate = jalali[0] + '/' + 
+                                                       String(jalali[1]).padStart(2, '0') + '/' + 
+                                                       String(jalali[2]).padStart(2, '0') + ' ' +
+                                                       hours + ':' + minutes;
+                            cancellationDeadlineGregorian = option.cancellation_deadline;
+                        } else {
+                            cancellationDeadlineGregorian = option.cancellation_deadline;
+                        }
+                    } catch(e) {
+                        console.error('Error converting date:', e);
+                        cancellationDeadlineGregorian = option.cancellation_deadline;
+                    }
+                }
+                
+                var $deadlineGroup = $('<div class="form-group"><label>مهلت لغو:</label></div>');
+                var $dateInput = $('<input type="text" id="cancellation_deadline_date" class="persian-date-input" data-jdp placeholder="تاریخ و زمان شمسی (مثال: 1403/09/15 14:30)" value="' + cancellationDeadlineDate + '">');
+                var $deadlineHidden = $('<input type="hidden" name="cancellation_deadline" id="cancellation_deadline_hidden" value="' + cancellationDeadlineGregorian + '">');
+                
+                $deadlineGroup.append($dateInput);
+                $deadlineGroup.append($deadlineHidden);
+                $form.append($deadlineGroup);
+                
+                // Function to convert Gregorian to Jalali
+                function gregorian_to_jalali(gy, gm, gd) {
+                    var jy, jm, jd, days;
+                    gy -= 1600;
+                    gm -= 1;
+                    gd -= 1;
+                    days = (365 * gy) + (~~((gy + 3) / 4)) - (~~((gy + 99) / 100)) + (~~((gy + 399) / 400)) + gd + ((1601 > gy) ? 0 : (~~((gy - 1601) / 4) * 2) - ~~((gy - 1601) / 100) + ~~((gy - 1601) / 400));
+                    jy = -979 + (33 * ~~(days / 12053));
+                    days %= 12053;
+                    jy += 4 * ~~(days / 1461);
+                    days %= 1461;
+                    if (days >= 366) {
+                        jy += ~~((days - 1) / 365);
+                        days = (days - 1) % 365;
+                    }
+                    if (days < 186) {
+                        jm = 1 + ~~(days / 31);
+                        jd = 1 + (days % 31);
+                    } else {
+                        jm = 7 + ~~((days - 186) / 30);
+                        jd = 1 + ((days - 186) % 30);
+                    }
+                    return [jy, jm, jd];
+                }
+                
+                // Function to convert Jalali to Gregorian
+                function jalali_to_gregorian(jy, jm, jd) {
+                    var gy, gm, gd, days;
+                    jy += 1595;
+                    days = -355668 + (365 * jy) + (~~(jy / 33) * 8) + ~~(((jy % 33) + 3) / 4) + jd + ((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+                    gy = 400 * ~~(days / 146097);
+                    days %= 146097;
+                    if (days > 36524) {
+                        gy += 100 * ~~(--days / 36524);
+                        days %= 36524;
+                        if (days >= 365) days++;
+                    }
+                    gy += 4 * ~~(days / 1461);
+                    days %= 1461;
+                    if (days > 365) {
+                        gy += ~~((days - 1) / 365);
+                        days = (days - 1) % 365;
+                    }
+                    gd = days + 1;
+                    if ((gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0)) {
+                        var sal_a = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+                    } else {
+                        var sal_a = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+                    }
+                    for (gm = 0; gm < 12 && gd > sal_a[gm]; gm++) { }
+                    gd -= sal_a[gm - 1];
+                    return [gy, gm, gd];
+                }
+                
+                // Function to update hidden field (with time)
+                function updateCancellationDeadline() {
+                    var dateValue = $('#cancellation_deadline_date').val();
+                    
+                    if (dateValue) {
+                        try {
+                            // Parse Jalali date and time (format: YYYY/MM/DD HH:mm)
+                            var parts = dateValue.split(' ');
+                            if (parts.length >= 1) {
+                                var dateParts = parts[0].split('/');
+                                if (dateParts.length === 3) {
+                                    var jy = parseInt(dateParts[0]);
+                                    var jm = parseInt(dateParts[1]);
+                                    var jd = parseInt(dateParts[2]);
+                                    
+                                    // Convert Jalali to Gregorian
+                                    var gregorian = jalali_to_gregorian(jy, jm, jd);
+                                    var gregorianDate = new Date(gregorian[0], gregorian[1] - 1, gregorian[2]);
+                                    
+                                    // Parse time if available (format: HH:mm)
+                                    if (parts.length >= 2) {
+                                        var timeParts = parts[1].split(':');
+                                        if (timeParts.length >= 2) {
+                                            var hours = parseInt(timeParts[0]) || 12;
+                                            var minutes = parseInt(timeParts[1]) || 0;
+                                            gregorianDate.setHours(hours);
+                                            gregorianDate.setMinutes(minutes);
+                                        } else {
+                                            // Default time if not provided
+                                            gregorianDate.setHours(12);
+                                            gregorianDate.setMinutes(0);
+                                        }
+                                    } else {
+                                        // Default time if not provided
+                                        gregorianDate.setHours(12);
+                                        gregorianDate.setMinutes(0);
+                                    }
+                                    
+                                    gregorianDate.setSeconds(0);
+                                    gregorianDate.setMilliseconds(0);
+                                    
+                                    // Format as YYYY-MM-DDTHH:mm
+                                    var formatted = gregorianDate.getFullYear() + '-' + 
+                                                  String(gregorianDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                                  String(gregorianDate.getDate()).padStart(2, '0') + 'T' + 
+                                                  String(gregorianDate.getHours()).padStart(2, '0') + ':' + 
+                                                  String(gregorianDate.getMinutes()).padStart(2, '0');
+                                    $('#cancellation_deadline_hidden').val(formatted);
+                                }
+                            }
+                        } catch(e) {
+                            console.error('Error updating cancellation deadline:', e);
+                        }
+                    }
+                }
+                
+                // Initialize Jalali Date Picker with time
+                setTimeout(function() {
+                    if (typeof jalaliDatepicker !== 'undefined') {
+                        // Start watching for date picker with time enabled
+                        jalaliDatepicker.startWatch({
+                            time: true,
+                            hasSecond: false,
+                            autoClose: true,
+                            todayButton: true,
+                            clearButton: true
+                        });
+                        
+                        // Listen for changes
+                        $('#cancellation_deadline_date').on('change', function() {
+                            updateCancellationDeadline();
+                        });
+                    } else {
+                        console.error('Jalali Date Picker library not loaded!');
+                    }
+                }, 300);
+                
+                
+                var $actions = $('<div class="form-actions"></div>');
+                $actions.append('<button type="button" class="btn btn-secondary" id="cancelBtn">انصراف</button>');
+                $actions.append('<button type="submit" class="btn btn-primary">ذخیره</button>');
+                $form.append($actions);
+                
+                $('#mealOptionModal').show();
+            }
+            
+            function closeModal() {
+                // Destroy date picker before closing
+                if ($('#cancellation_deadline_date').length && $('#cancellation_deadline_date').data('jalaliDatepicker')) {
+                    try {
+                        $('#cancellation_deadline_date').jalaliDatepicker('destroy');
+                    } catch(e) {
+                        console.error('Error destroying date picker:', e);
+                    }
+                }
+                $('#mealOptionModal').hide();
+                editingOptionId = null;
+            }
+            
+            // Event handlers
+            $(document).on('click', '.close', closeModal);
+            $(document).on('click', '#cancelBtn', closeModal);
+            $(window).on('click', function(event) {
+                if ($(event.target).is('#mealOptionModal')) {
+                    closeModal();
+                }
+            });
+            
+            $('#addMealOptionBtn').on('click', function() {
+                var selected = getSelectedBaseMeals();
+                if (selected.length === 0) {
+                    alert('لطفاً ابتدا غذای پایه را انتخاب کنید.');
+                    return;
+                }
+                openModal(null);
+            });
+            
+            $(document).on('click', '.btn-edit', function() {
+                var optionId = $(this).data('id');
+                var option = mealOptions.find(function(o) { return o.id == optionId; });
+                if (option) {
+                    openModal(option);
+                }
+            });
+            
+            $(document).on('click', '.btn-delete', function() {
+                if (!confirm('آیا از حذف این اپشن مطمئن هستید؟')) {
+                    return;
+                }
+                var optionId = $(this).data('id');
+                $.ajax({
+                    url: deleteOptionUrl.replace('0', optionId),
+                    method: 'POST',
+                    data: {csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()},
+                    success: function() {
+                        loadMealOptions();
+                    },
+                    error: function(xhr, status, error) {
+                        alert('خطا در حذف اپشن: ' + error);
+                    }
+                });
+            });
+            
+            $('#mealOptionForm').on('submit', function(e) {
+                e.preventDefault();
+                var formData = new FormData(this);
+                formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+                
+                // Validate dailyMenuId before making request
+                if (!dailyMenuId || dailyMenuId === 'change' || dailyMenuId === 'add' || isNaN(parseInt(dailyMenuId))) {
+                    alert('خطا: منو را ابتدا ذخیره کنید.');
+                    return;
+                }
+                
+                var url = editingOptionId ? updateOptionUrl.replace('0', editingOptionId) : createOptionUrl;
+                
+                if (!url || url.indexOf('change') !== -1 || url.indexOf('add') !== -1) {
+                    alert('خطا: منو را ابتدا ذخیره کنید.');
+                    return;
+                }
+                
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        console.log('Response:', data);
+                        if (data.success) {
+                            closeModal();
+                            loadMealOptions();
+                        } else {
+                            var errorMsg = data.error || 'خطای نامشخص';
+                            console.error('Error from server:', errorMsg);
+                            alert('خطا: ' + errorMsg);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX Error:', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            responseText: xhr.responseText,
+                            error: error,
+                            url: url
+                        });
+                        
+                        var errorMsg = 'خطا در ذخیره اپشن';
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.error) {
+                                errorMsg = response.error;
+                            } else if (response.message) {
+                                errorMsg = response.message;
+                            } else if (response.traceback) {
+                                // Show first line of traceback for debugging
+                                var tracebackLines = response.traceback.split('\n');
+                                errorMsg = 'خطای سرور: ' + (tracebackLines[0] || 'خطای نامشخص');
+                                console.error('Full traceback:', response.traceback);
+                            }
+                        } catch(e) {
+                            console.error('Error parsing response:', e);
+                            // If response is not JSON, try to get error from status
+                            if (xhr.status === 400) {
+                                errorMsg = 'درخواست نامعتبر. لطفاً فیلدها را بررسی کنید.';
+                            } else if (xhr.status === 404) {
+                                errorMsg = 'منو یا غذای پایه پیدا نشد.';
+                            } else if (xhr.status === 500) {
+                                errorMsg = 'خطای سرور. لطفاً console را بررسی کنید.';
+                            } else if (xhr.status === 0) {
+                                errorMsg = 'خطا در اتصال به سرور. لطفاً اتصال اینترنت را بررسی کنید.';
+                            } else {
+                                errorMsg = 'خطا: ' + (xhr.statusText || error || 'خطای نامشخص');
+                            }
+                        }
+                        alert('خطا: ' + errorMsg);
+                    }
+                });
+            });
+            
+            // Update URLs after save
+            $('form').on('submit', function() {
+                setTimeout(function() {
+                    var urlParts = window.location.pathname.split('/').filter(function(part) {
+                        return part && part !== 'add' && part !== 'change' && !isNaN(parseInt(part));
+                    });
+                    if (urlParts.length > 0) {
+                        var newId = urlParts[urlParts.length - 1];
+                        if (newId && !isNaN(parseInt(newId)) && newId !== dailyMenuId) {
+                            updateUrls(newId);
+                            toggleMealOptionsSection();
+                        }
+                    }
+                }, 1000);
+            });
         });
     })(django.jQuery);
     </script>

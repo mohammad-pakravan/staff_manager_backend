@@ -54,7 +54,7 @@ except ImportError:
     HAS_REPORTLAB = False
 
 from .models import (
-    BaseMeal, MealOption, DailyMenu, 
+    BaseMeal, DailyMenu, DailyMenuMealOption,
     FoodReservation, FoodReport, GuestReservation
 )
 # برای سازگاری با کدهای قبلی
@@ -69,7 +69,7 @@ from .serializers import (
     SimpleFoodReservationSerializer, SimpleGuestReservationSerializer,
     MealOptionReportSerializer, BaseMealReportSerializer, UserReportSerializer,
     DateReportSerializer, DetailedReservationReportSerializer, ComprehensiveReportSerializer,
-    MealOptionSerializer
+    DailyMenuMealOptionSerializer as MealOptionSerializer
 )
 from .models import Restaurant
 
@@ -80,13 +80,13 @@ from .models import Restaurant
     get=extend_schema(
         operation_id='meal_list',
         summary='List Meals',
-        description='Get list of all meals (only active meals for regular users)',
+        description='Get list of all base meals (food groups). Meal options (DailyMenuMealOption) are managed per DailyMenu via admin panel.',
         tags=['Meals']
     ),
     post=extend_schema(
         operation_id='meal_create',
         summary='Create Meal',
-        description='Create new meal (only for food admins and system admins)',
+        description='Create new base meal (food group). After creation, add meal options (DailyMenuMealOption) via admin panel when creating/editing a DailyMenu. (only for food admins and system admins)',
         tags=['Meals'],
         request=MealSerializer,
         responses={
@@ -128,13 +128,13 @@ class MealListCreateView(generics.ListCreateAPIView):
     get=extend_schema(
         operation_id='meal_detail',
         summary='Get Meal Details',
-        description='Get details of a specific meal',
+        description='Get base meal details. Meal options (DailyMenuMealOption) are managed per DailyMenu via admin panel.',
         tags=['Meals']
     ),
     put=extend_schema(
         operation_id='meal_update',
         summary='Update Meal',
-        description='Update meal completely (only for admins)',
+        description='Update base meal. Note: Meal options (DailyMenuMealOption) should be managed via admin panel when creating/editing a DailyMenu. (only for admins)',
         tags=['Meals'],
         request=MealSerializer,
         responses={
@@ -147,7 +147,7 @@ class MealListCreateView(generics.ListCreateAPIView):
     patch=extend_schema(
         operation_id='meal_partial_update',
         summary='Partial Update Meal',
-        description='Partially update meal (only for admins)',
+        description='Partially update base meal. Note: Meal options (DailyMenuMealOption) should be managed via admin panel when creating/editing a DailyMenu. (only for admins)',
         tags=['Meals'],
         request=MealSerializer,
         responses={
@@ -226,173 +226,8 @@ class RestaurantListCreateView(generics.ListCreateAPIView):
 
 
 # ========== Meal Option Management ==========
-
-@extend_schema_view(
-    get=extend_schema(
-        operation_id='meal_option_list',
-        summary='List Meal Options',
-        description='Get list of all meal options. Admins see all, employees see only their center meal options.',
-        tags=['Food Management']
-    ),
-    post=extend_schema(
-        operation_id='meal_option_create',
-        summary='Create Meal Option',
-        description='Create a new meal option for a base meal (Food Admin only)',
-        tags=['Food Management'],
-        request=MealOptionSerializer,
-        responses={
-            201: MealOptionSerializer,
-            400: {'description': 'Validation error'},
-            403: {'description': 'Permission denied'}
-        }
-    )
-)
-class MealOptionListCreateView(generics.ListCreateAPIView):
-    """لیست و ایجاد اپشن غذا"""
-    serializer_class = MealOptionSerializer
-    permission_classes = [FoodManagementPermission]
-    pagination_class = CustomPageNumberPagination
-
-    def list(self, request, *args, **kwargs):
-        base_meal_id = request.query_params.get('base_meal')
-        
-        # اگر base_meal مشخص شده، response متفاوت بده
-        if base_meal_id:
-            try:
-                base_meal = BaseMeal.objects.select_related('center', 'restaurant').get(pk=base_meal_id)
-                
-                # بررسی دسترسی
-                user = request.user
-                if not user.is_admin and user.centers.exists():
-                    if not user.has_center(base_meal.center):
-                        return Response(
-                            {'error': 'شما به این غذا دسترسی ندارید'},
-                            status=status.HTTP_403_FORBIDDEN
-                        )
-                
-                # دریافت MealOptions
-                meal_options = base_meal.options.filter(is_active=True).order_by('sort_order', 'title')
-                
-                # ساخت response - اطلاعات BaseMeal یکبار و options بدون اطلاعات تکراری
-                from .serializers import BaseMealSerializer, MealOptionInBaseMealSerializer
-                
-                # ساخت serializer برای BaseMeal بدون options (چون options را جداگانه می‌فرستیم)
-                base_meal_data = BaseMealSerializer(base_meal, context={'request': request}).data
-                # حذف options از base_meal_data چون جداگانه می‌فرستیم
-                base_meal_data.pop('options', None)
-                
-                options_data = MealOptionInBaseMealSerializer(meal_options, many=True, context={'request': request}).data
-                
-                return Response({
-                    'base_meal': base_meal_data,
-                    'options': options_data
-                })
-            except BaseMeal.DoesNotExist:
-                return Response(
-                    {'error': 'غذای پایه یافت نشد'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        
-        # حالت عادی - لیست تخت MealOptions
-        return super().list(request, *args, **kwargs)
-
-    def get_queryset(self):
-        user = self.request.user
-        base_meal_id = self.request.query_params.get('base_meal')
-        
-        queryset = MealOption.objects.select_related('base_meal', 'base_meal__center', 'base_meal__restaurant')
-        
-        # فیلتر بر اساس base_meal
-        if base_meal_id:
-            queryset = queryset.filter(base_meal_id=base_meal_id)
-        
-        if user.is_admin:
-            return queryset.all()
-        # Employees see only their center's meal options
-        if user.centers.exists():
-            return queryset.filter(base_meal__center__in=user.centers.all(), is_active=True)
-        return queryset.none()
-
-    def perform_create(self, serializer):
-        # فقط ادمین‌های غذا و سیستم می‌توانند اپشن غذا ایجاد کنند
-        user = self.request.user
-        if user.role not in ['admin_food', 'sys_admin']:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("فقط ادمین‌های غذا می‌توانند اپشن غذا ایجاد کنند")
-        
-        serializer.save()
-
-
-@extend_schema_view(
-    get=extend_schema(
-        operation_id='meal_option_detail',
-        summary='Get Meal Option Details',
-        description='Get details of a specific meal option',
-        tags=['Food Management']
-    ),
-    put=extend_schema(
-        operation_id='meal_option_update',
-        summary='Update Meal Option',
-        description='Update meal option completely (Food Admin only)',
-        tags=['Food Management'],
-        request=MealOptionSerializer,
-        responses={
-            200: MealOptionSerializer,
-            400: {'description': 'Validation error'},
-            403: {'description': 'Permission denied'},
-            404: {'description': 'Meal option not found'}
-        }
-    ),
-    patch=extend_schema(
-        operation_id='meal_option_partial_update',
-        summary='Partial Update Meal Option',
-        description='Partially update meal option (Food Admin only)',
-        tags=['Food Management'],
-        request=MealOptionSerializer,
-        responses={
-            200: MealOptionSerializer,
-            400: {'description': 'Validation error'},
-            403: {'description': 'Permission denied'},
-            404: {'description': 'Meal option not found'}
-        }
-    ),
-    delete=extend_schema(
-        operation_id='meal_option_delete',
-        summary='Delete Meal Option',
-        description='Delete meal option (Food Admin only)',
-        tags=['Food Management']
-    )
-)
-class MealOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """جزئیات، ویرایش و حذف اپشن غذا"""
-    serializer_class = MealOptionSerializer
-    permission_classes = [FoodManagementPermission]
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_admin:
-            return MealOption.objects.all()
-        # کاربران عادی فقط اپشن‌های مرکز خود را می‌بینند
-        elif user.centers.exists():
-            return MealOption.objects.filter(base_meal__center__in=user.centers.all())
-        else:
-            return MealOption.objects.none()
-
-    def perform_update(self, serializer):
-        # فقط ادمین‌های غذا و سیستم می‌توانند اپشن غذا ویرایش کنند
-        user = self.request.user
-        if user.role not in ['admin_food', 'sys_admin']:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("فقط ادمین‌های غذا می‌توانند اپشن غذا ویرایش کنند")
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        # فقط ادمین‌های غذا و سیستم می‌توانند اپشن غذا حذف کنند
-        user = self.request.user
-        if user.role not in ['admin_food', 'sys_admin']:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("فقط ادمین‌های غذا می‌توانند اپشن غذا حذف کنند")
-        instance.delete()
+# MealOption حذف شد - از DailyMenuMealOption استفاده کنید
+# این view ها حذف شدند چون MealOption دیگر وجود ندارد
 
 
 @extend_schema_view(
@@ -470,12 +305,12 @@ class DailyMenuListView(generics.ListAPIView):
         if center_id:
             try:
                 center_id = int(center_id)
-                queryset = queryset.filter(center_id=center_id)
+                queryset = queryset.filter(restaurant__center_id=center_id)
             except (ValueError, TypeError):
                 # Invalid center_id, return empty queryset
                 queryset = queryset.none()
         elif user.centers.exists() and not user.is_admin:
-            queryset = queryset.filter(center__in=user.centers.all())
+            queryset = queryset.filter(restaurant__center__in=user.centers.all())
         
         # فیلتر بر اساس تاریخ
         if date:
@@ -750,7 +585,7 @@ def cancel_guest_reservation(request, reservation_id):
 @extend_schema(
     operation_id='comprehensive_statistics',
     summary='Comprehensive Statistics',
-    description='Get comprehensive statistics with filters by date, center, and user',
+    description='Get comprehensive statistics including: base meals, meal options (DailyMenuMealOption), restaurants, users, daily menus, reservations, and guest reservations. Supports filters by center_id, user_id, start_date, and end_date. Employees see statistics for all their assigned centers.',
     tags=['Statistics'],
     parameters=[
         {
@@ -804,7 +639,7 @@ def comprehensive_statistics(request):
     
     # ساخت queryset های پایه
     base_meals_qs = BaseMeal.objects.all()
-    meal_options_qs = MealOption.objects.all()
+    meal_options_qs = DailyMenuMealOption.objects.all()
     restaurants_qs = Restaurant.objects.all()
     from apps.accounts.models import User
     users_qs = User.objects.all()
@@ -819,9 +654,9 @@ def comprehensive_statistics(request):
         meal_options_qs = meal_options_qs.filter(base_meal__center_id=center_id)
         restaurants_qs = restaurants_qs.filter(center_id=center_id)
         users_qs = users_qs.filter(centers__id=center_id).distinct()
-        reservations_qs = reservations_qs.filter(daily_menu__center_id=center_id)
-        guest_reservations_qs = guest_reservations_qs.filter(daily_menu__center_id=center_id)
-        daily_menus_qs = daily_menus_qs.filter(center_id=center_id)
+        reservations_qs = reservations_qs.filter(daily_menu__restaurant__center_id=center_id)
+        guest_reservations_qs = guest_reservations_qs.filter(daily_menu__restaurant__center_id=center_id)
+        daily_menus_qs = daily_menus_qs.filter(restaurant__center_id=center_id)
         centers_qs = centers_qs.filter(id=center_id)
     elif not user.is_admin:
         # اگر ادمین نیست، فقط مراکز خودش
@@ -831,9 +666,9 @@ def comprehensive_statistics(request):
             meal_options_qs = meal_options_qs.filter(base_meal__center__in=user_centers)
             restaurants_qs = restaurants_qs.filter(center__in=user_centers)
             users_qs = users_qs.filter(centers__in=user_centers).distinct()
-            reservations_qs = reservations_qs.filter(daily_menu__center__in=user_centers)
-            guest_reservations_qs = guest_reservations_qs.filter(daily_menu__center__in=user_centers)
-            daily_menus_qs = daily_menus_qs.filter(center__in=user_centers)
+            reservations_qs = reservations_qs.filter(daily_menu__restaurant__center__in=user_centers)
+            guest_reservations_qs = guest_reservations_qs.filter(daily_menu__restaurant__center__in=user_centers)
+            daily_menus_qs = daily_menus_qs.filter(restaurant__center__in=user_centers)
             centers_qs = centers_qs.filter(id__in=user_centers.values_list('id', flat=True))
         else:
             centers_qs = Center.objects.none()
@@ -1062,7 +897,7 @@ def center_reservations(request, center_id):
     date = request.query_params.get('date')
     
     queryset = FoodReservation.objects.filter(
-        daily_menu__center=center
+        daily_menu__restaurant__center=center
     )
     
     if date:
@@ -1094,7 +929,7 @@ def export_reservations_excel(request, center_id):
     date = request.query_params.get('date')
     
     reservations = FoodReservation.objects.filter(
-        daily_menu__center=center
+        daily_menu__restaurant__center=center
     )
     
     if date:
@@ -1158,7 +993,7 @@ def export_reservations_pdf(request, center_id):
     date = request.query_params.get('date')
     
     reservations = FoodReservation.objects.filter(
-        daily_menu__center=center
+        daily_menu__restaurant__center=center
     )
     
     if date:
@@ -1365,7 +1200,7 @@ def user_reservations_summary(request):
 @extend_schema(
     operation_id='employee_daily_menus',
     summary='Get Daily Menus for Employee',
-    description='Get daily menus for the employee\'s center on a specific date',
+    description='Get daily menus for employee\'s assigned centers on specific date (supports multiple centers). Response structure:\n- `restaurant`: Full restaurant object with nested `center`\n- `base_meals`: Simple list of base meals (id, title, description, is_active)\n- `meals`: Base meals with their options (each meal has an `options` array)\n- `meal_options`: Flat list of all meal options (id, base_meal_id, title, price)\n- `meals_count`: Total count of meal options',
     tags=['Employee Management']
 )
 @api_view(['GET'])
@@ -1399,19 +1234,22 @@ def employee_daily_menus(request):
     
     # دریافت منوهای روزانه برای مرکز کاربر در تاریخ مشخص
     daily_menus = DailyMenu.objects.filter(
-        center__in=user.centers.all(),
+        restaurant__center__in=user.centers.all(),
         date=parsed_date,
         is_available=True
-    ).select_related('center').prefetch_related('meal_options')
+    ).select_related('restaurant', 'restaurant__center').prefetch_related(
+        'menu_meal_options', 
+        'menu_meal_options__base_meal'
+    )
     
-    serializer = DailyMenuSerializer(daily_menus, many=True)
+    serializer = DailyMenuSerializer(daily_menus, many=True, context={'request': request})
     return Response(serializer.data)
 
 
 @extend_schema(
     operation_id='employee_reservations',
     summary='Employee Reservations',
-    description='Get all reservations for the authenticated employee or create a new reservation',
+    description='Get all reservations for the authenticated employee or create a new reservation. Reservations use meal_option (DailyMenuMealOption) which is the actual meal with price and options.',
     tags=['Employee Management'],
     request=FoodReservationCreateSerializer,
     responses={
@@ -1459,7 +1297,7 @@ def employee_reservations(request):
         if serializer.is_valid():
             # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
             daily_menu = serializer.validated_data['daily_menu']
-            if not user.has_center(daily_menu.center):
+            if not user.has_center(daily_menu.restaurant.center):
                 return Response(
                     {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1476,7 +1314,7 @@ def employee_reservations(request):
 @extend_schema(
     operation_id='employee_create_guest_reservation',
     summary='Create Guest Reservation (Employee)',
-    description='Create a guest reservation for the authenticated employee',
+    description='Create a guest reservation for the authenticated employee using meal_option (DailyMenuMealOption) which is the actual meal with price and options.',
     tags=['Employee Management']
 )
 @api_view(['POST'])
@@ -1496,7 +1334,7 @@ def employee_create_guest_reservation(request):
     if serializer.is_valid():
         # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
         daily_menu = serializer.validated_data['daily_menu']
-        if not user.has_center(daily_menu.center):
+        if not user.has_center(daily_menu.restaurant.center):
             return Response(
                 {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1513,7 +1351,7 @@ def employee_create_guest_reservation(request):
 @extend_schema(
     operation_id='employee_update_reservation',
     summary='Update Food Reservation (Employee)',
-    description='Update a food reservation (only own reservations)',
+    description='Update a food reservation using meal_option (DailyMenuMealOption). (only own reservations)',
     tags=['Employee Management'],
     request=FoodReservationCreateSerializer,
     responses={
@@ -1554,7 +1392,7 @@ def employee_update_reservation(request, reservation_id):
     if serializer.is_valid():
         # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
         daily_menu = serializer.validated_data['daily_menu']
-        if not user.has_center(daily_menu.center):
+        if not user.has_center(daily_menu.restaurant.center):
             return Response(
                 {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1570,7 +1408,7 @@ def employee_update_reservation(request, reservation_id):
 @extend_schema(
     operation_id='employee_update_guest_reservation',
     summary='Update Guest Reservation (Employee)',
-    description='Update a guest reservation (only own guest reservations)',
+    description='Update a guest reservation using meal_option (DailyMenuMealOption). (only own guest reservations)',
     tags=['Employee Management'],
     request=GuestReservationCreateSerializer,
     responses={
@@ -1611,7 +1449,7 @@ def employee_update_guest_reservation(request, guest_reservation_id):
     if serializer.is_valid():
         # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
         daily_menu = serializer.validated_data['daily_menu']
-        if not user.has_center(daily_menu.center):
+        if not user.has_center(daily_menu.restaurant.center):
             return Response(
                 {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -1688,7 +1526,7 @@ def employee_cancel_guest_reservation(request, guest_reservation_id):
 
 @extend_schema(
     summary='Report by Meal Option',
-    description='Complete report of reservations by meal options (MealOption)',
+    description='Complete report of reservations by meal options (DailyMenuMealOption)',
     tags=['Reports'],
     parameters=[
         {
@@ -1717,7 +1555,7 @@ def employee_cancel_guest_reservation(request, guest_reservation_id):
 @api_view(['GET'])
 @permission_classes([StatisticsPermission])
 def report_by_meal_option(request):
-    """گزارش بر اساس MealOption"""
+    """گزارش بر اساس DailyMenuMealOption"""
     if not request.user.is_admin:
         return Response({
             'error': 'دسترسی غیرمجاز'
@@ -1731,7 +1569,7 @@ def report_by_meal_option(request):
     reservations = FoodReservation.objects.all()
     
     if center_id:
-        reservations = reservations.filter(daily_menu__center_id=center_id)
+        reservations = reservations.filter(daily_menu__restaurant__center_id=center_id)
     
     if start_date:
         reservations = reservations.filter(daily_menu__date__gte=start_date)
@@ -1739,12 +1577,12 @@ def report_by_meal_option(request):
     if end_date:
         reservations = reservations.filter(daily_menu__date__lte=end_date)
     
-    # گروه‌بندی بر اساس MealOption
+    # گروه‌بندی بر اساس DailyMenuMealOption
     from django.db.models import Sum, Count, Q
     
     meal_options_data = {}
     
-    for reservation in reservations.select_related('meal_option', 'meal_option__base_meal', 'meal_option__restaurant', 'daily_menu__center'):
+    for reservation in reservations.select_related('meal_option', 'meal_option__base_meal', 'meal_option__daily_menu', 'meal_option__daily_menu__restaurant', 'meal_option__daily_menu__restaurant__center', 'daily_menu__restaurant', 'daily_menu__restaurant__center'):
         if not reservation.meal_option:
             continue
         
@@ -1752,14 +1590,21 @@ def report_by_meal_option(request):
         meal_option_id = meal_option.id
         
         if meal_option_id not in meal_options_data:
+            # دریافت restaurant از meal_option
+            restaurant = None
+            if meal_option.base_meal and meal_option.base_meal.restaurant:
+                restaurant = meal_option.base_meal.restaurant
+            elif meal_option.daily_menu and meal_option.daily_menu.restaurant:
+                restaurant = meal_option.daily_menu.restaurant
+            
             meal_options_data[meal_option_id] = {
                 'meal_option_id': meal_option_id,
                 'meal_option_title': meal_option.title,
                 'base_meal_title': meal_option.base_meal.title if meal_option.base_meal else '',
-                'restaurant_name': meal_option.restaurant.name if meal_option.restaurant else '',
-                'restaurant_id': meal_option.restaurant.id if meal_option.restaurant else None,
-                'center_name': reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else '',
-                'center_id': reservation.daily_menu.center.id if reservation.daily_menu and reservation.daily_menu.center else None,
+                'restaurant_name': restaurant.name if restaurant else '',
+                'restaurant_id': restaurant.id if restaurant else None,
+                'center_name': restaurant.center.name if restaurant and restaurant.center else '',
+                'center_id': restaurant.center.id if restaurant and restaurant.center else None,
                 'total_reservations': 0,
                 'reserved_count': 0,
                 'cancelled_count': 0,
@@ -1837,11 +1682,11 @@ def report_by_base_meal(request):
     # فیلتر رزروها
     reservations = FoodReservation.objects.select_related(
         'meal_option', 'meal_option__base_meal', 'meal_option__restaurant',
-        'daily_menu__center'
+        'daily_menu__restaurant__center'
     ).filter(meal_option__isnull=False)
     
     if center_id:
-        reservations = reservations.filter(daily_menu__center_id=center_id)
+        reservations = reservations.filter(daily_menu__restaurant__center_id=center_id)
     
     if start_date:
         reservations = reservations.filter(daily_menu__date__gte=start_date)
@@ -1866,7 +1711,7 @@ def report_by_base_meal(request):
                 'base_meal_id': base_meal_id,
                 'base_meal_title': base_meal.title,
                 'restaurant_name': reservation.meal_option.restaurant.name if reservation.meal_option.restaurant else '',
-                'center_name': reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else '',
+                'center_name': reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else '',
                 'meal_options_count': 0,
                 'total_reservations': 0,
                 'reserved_count': 0,
@@ -1896,8 +1741,8 @@ def report_by_base_meal(request):
                 'base_meal_title': base_meal.title,
                 'restaurant_name': reservation.meal_option.restaurant.name if reservation.meal_option.restaurant else '',
                 'restaurant_id': reservation.meal_option.restaurant.id if reservation.meal_option.restaurant else None,
-                'center_name': reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else '',
-                'center_id': reservation.daily_menu.center.id if reservation.daily_menu and reservation.daily_menu.center else None,
+                'center_name': reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else '',
+                'center_id': reservation.daily_menu.restaurant.center.id if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else None,
                 'total_reservations': 0,
                 'reserved_count': 0,
                 'cancelled_count': 0,
@@ -1983,15 +1828,15 @@ def report_by_user(request):
     
     # فیلتر رزروها
     reservations = FoodReservation.objects.select_related(
-        'user', 'user__center', 'daily_menu__center'
+        'user', 'user__center', 'daily_menu__restaurant', 'daily_menu__restaurant__center'
     ).all()
     guest_reservations = GuestReservation.objects.select_related(
-        'host_user', 'host_user__center', 'daily_menu__center'
+        'host_user', 'host_user__center', 'daily_menu__restaurant', 'daily_menu__restaurant__center'
     ).all()
     
     if center_id:
-        reservations = reservations.filter(daily_menu__center_id=center_id)
-        guest_reservations = guest_reservations.filter(daily_menu__center_id=center_id)
+        reservations = reservations.filter(daily_menu__restaurant__center_id=center_id)
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__center_id=center_id)
     
     if start_date:
         reservations = reservations.filter(daily_menu__date__gte=start_date)
@@ -2121,15 +1966,15 @@ def report_by_date(request):
     
     # فیلتر رزروها
     reservations = FoodReservation.objects.select_related(
-        'daily_menu__center'
+        'daily_menu__restaurant__center'
     ).all()
     guest_reservations = GuestReservation.objects.select_related(
-        'daily_menu__center'
+        'daily_menu__restaurant__center'
     ).all()
     
     if center_id:
-        reservations = reservations.filter(daily_menu__center_id=center_id)
-        guest_reservations = guest_reservations.filter(daily_menu__center_id=center_id)
+        reservations = reservations.filter(daily_menu__restaurant__center_id=center_id)
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__center_id=center_id)
     
     if start_date:
         reservations = reservations.filter(daily_menu__date__gte=start_date)
@@ -2165,7 +2010,7 @@ def report_by_date(request):
         data = dates_data[date]
         data['total_reservations'] += 1
         
-        center_name = reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else 'نامشخص'
+        center_name = reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else 'نامشخص'
         if center_name not in data['centers']:
             data['centers'][center_name] = {
                 'name': center_name,
@@ -2209,7 +2054,7 @@ def report_by_date(request):
         data = dates_data[date]
         data['total_guest_reservations'] += 1
         
-        center_name = guest_reservation.daily_menu.center.name if guest_reservation.daily_menu and guest_reservation.daily_menu.center else 'نامشخص'
+        center_name = guest_reservation.daily_menu.restaurant.center.name if guest_reservation.daily_menu and guest_reservation.daily_menu.restaurant and guest_reservation.daily_menu.restaurant.center else 'نامشخص'
         if center_name not in data['centers']:
             data['centers'][center_name] = {
                 'name': center_name,
@@ -2286,16 +2131,16 @@ def comprehensive_report(request):
     # فیلتر رزروها
     reservations = FoodReservation.objects.select_related(
         'meal_option', 'meal_option__base_meal', 'meal_option__restaurant',
-        'daily_menu__center', 'user'
+        'daily_menu__restaurant__center', 'user'
     ).all()
     guest_reservations = GuestReservation.objects.select_related(
         'meal_option', 'meal_option__base_meal', 'meal_option__restaurant',
-        'daily_menu__center', 'host_user'
+        'daily_menu__restaurant__center', 'host_user'
     ).all()
     
     if center_id:
-        reservations = reservations.filter(daily_menu__center_id=center_id)
-        guest_reservations = guest_reservations.filter(daily_menu__center_id=center_id)
+        reservations = reservations.filter(daily_menu__restaurant__center_id=center_id)
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__center_id=center_id)
     
     if start_date:
         reservations = reservations.filter(daily_menu__date__gte=start_date)
@@ -2351,8 +2196,8 @@ def comprehensive_report(request):
                 'base_meal_title': meal_option.base_meal.title if meal_option.base_meal else '',
                 'restaurant_name': meal_option.restaurant.name if meal_option.restaurant else '',
                 'restaurant_id': meal_option.restaurant.id if meal_option.restaurant else None,
-                'center_name': reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else '',
-                'center_id': reservation.daily_menu.center.id if reservation.daily_menu and reservation.daily_menu.center else None,
+                'center_name': reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else '',
+                'center_id': reservation.daily_menu.restaurant.center.id if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else None,
                 'total_reservations': 0,
                 'reserved_count': 0,
                 'cancelled_count': 0,
@@ -2393,7 +2238,7 @@ def comprehensive_report(request):
                 'base_meal_id': base_meal_id,
                 'base_meal_title': base_meal.title,
                 'restaurant_name': reservation.meal_option.restaurant.name if reservation.meal_option.restaurant else '',
-                'center_name': reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else '',
+                'center_name': reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else '',
                 'meal_options_count': 0,
                 'total_reservations': 0,
                 'reserved_count': 0,
@@ -2422,8 +2267,8 @@ def comprehensive_report(request):
                 'base_meal_title': base_meal.title,
                 'restaurant_name': reservation.meal_option.restaurant.name if reservation.meal_option.restaurant else '',
                 'restaurant_id': reservation.meal_option.restaurant.id if reservation.meal_option.restaurant else None,
-                'center_name': reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else '',
-                'center_id': reservation.daily_menu.center.id if reservation.daily_menu and reservation.daily_menu.center else None,
+                'center_name': reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else '',
+                'center_id': reservation.daily_menu.restaurant.center.id if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else None,
                 'total_reservations': 0,
                 'reserved_count': 0,
                 'cancelled_count': 0,
@@ -2547,7 +2392,7 @@ def comprehensive_report(request):
         amount = Decimal(str(reservation.amount or 0))
         data['total_amount'] += amount
         
-        center_name = reservation.daily_menu.center.name if reservation.daily_menu and reservation.daily_menu.center else 'نامشخص'
+        center_name = reservation.daily_menu.restaurant.center.name if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.center else 'نامشخص'
         if center_name not in data['centers']:
             data['centers'][center_name] = {
                 'name': center_name,
@@ -2591,7 +2436,7 @@ def comprehensive_report(request):
         amount = Decimal(str(guest_reservation.amount or 0))
         data['total_amount'] += amount
         
-        center_name = guest_reservation.daily_menu.center.name if guest_reservation.daily_menu and guest_reservation.daily_menu.center else 'نامشخص'
+        center_name = guest_reservation.daily_menu.restaurant.center.name if guest_reservation.daily_menu and guest_reservation.daily_menu.restaurant and guest_reservation.daily_menu.restaurant.center else 'نامشخص'
         if center_name not in data['centers']:
             data['centers'][center_name] = {
                 'name': center_name,
@@ -2691,11 +2536,11 @@ def detailed_reservations_report(request):
     # فیلتر رزروها
     reservations = FoodReservation.objects.select_related(
         'user', 'meal_option', 'meal_option__base_meal', 'meal_option__restaurant',
-        'daily_menu', 'daily_menu__center'
+        'daily_menu', 'daily_menu__restaurant', 'daily_menu__restaurant__center'
     ).all()
     
     if center_id:
-        reservations = reservations.filter(daily_menu__center_id=center_id)
+        reservations = reservations.filter(daily_menu__restaurant__center_id=center_id)
     
     if user_id:
         reservations = reservations.filter(user_id=user_id)

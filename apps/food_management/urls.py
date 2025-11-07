@@ -7,9 +7,7 @@ urlpatterns = [
     path('meals/<int:pk>/', views.MealDetailView.as_view(), name='meal-detail'),
     
     
-    # Meal Options
-    path('meal-options/', views.MealOptionListCreateView.as_view(), name='meal-option-list-create'),
-    path('meal-options/<int:pk>/', views.MealOptionDetailView.as_view(), name='meal-option-detail'),
+    # Meal Options - حذف شد (از DailyMenuMealOption استفاده کنید)
     
     # Restaurants
     path('restaurants/', views.RestaurantListCreateView.as_view(), name='restaurant-list-create'),

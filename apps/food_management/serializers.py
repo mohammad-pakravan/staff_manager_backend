@@ -4,24 +4,31 @@ from drf_spectacular.utils import extend_schema_field
 from datetime import datetime
 import jdatetime
 from .models import (
-    Restaurant, BaseMeal, MealOption, DailyMenu, 
+    Restaurant, BaseMeal, DailyMenu, DailyMenuMealOption,
     FoodReservation, FoodReport, GuestReservation
 )
 # برای سازگاری با کدهای قبلی
 Meal = BaseMeal
 
 
+class CenterSerializer(serializers.ModelSerializer):
+    """سریالایزر مرکز"""
+    class Meta:
+        from apps.centers.models import Center
+        model = Center
+        fields = ['id', 'name']
+
+
 class RestaurantSerializer(serializers.ModelSerializer):
     """سریالایزر رستوران"""
-    center_id = serializers.IntegerField(source='center.id', read_only=True)
-    center_name = serializers.CharField(source='center.name', read_only=True)
+    center = CenterSerializer(read_only=True)  # center به صورت object
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
     
     class Meta:
         model = Restaurant
         fields = [
-            'id', 'name', 'center_name', 'center_id', 'address', 'phone', 'email', 
+            'id', 'name', 'center', 'address', 'phone', 'email', 
             'description', 'is_active', 'created_at', 'jalali_created_at', 
             'updated_at', 'jalali_updated_at'
         ]
@@ -48,14 +55,11 @@ class BaseMealSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
-    jalali_cancellation_deadline = serializers.SerializerMethodField()
-    
     class Meta:
         model = BaseMeal
         fields = [
             'id', 'title', 'description', 'image', 
             'center', 'center_name', 'restaurant', 'restaurant_name', 'restaurant_detail', 
-            'cancellation_deadline', 'jalali_cancellation_deadline',
             'is_active', 'options',
             'created_at', 'jalali_created_at', 'updated_at', 'jalali_updated_at'
         ]
@@ -87,9 +91,9 @@ class BaseMealSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.ListField())
     def get_options(self, obj):
-        """گزینه‌های غذا"""
-        options = obj.options.filter(is_active=True).order_by('sort_order', 'title')
-        return MealOptionSerializer(options, many=True).data
+        """گزینه‌های غذا - حذف شد چون دیگر MealOption وجود ندارد"""
+        # این متد دیگر استفاده نمی‌شود چون MealOption حذف شده
+        return []
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
@@ -130,35 +134,62 @@ class BaseMealSerializer(serializers.ModelSerializer):
         return data
 
 
-class MealOptionSerializer(serializers.ModelSerializer):
-    """سریالایزر غذای اصلی"""
+# برای سازگاری با کدهای قبلی
+MealSerializer = BaseMealSerializer
+
+
+class DailyMenuMealOptionSerializer(serializers.ModelSerializer):
+    """سریالایزر برای DailyMenuMealOption"""
     base_meal_title = serializers.CharField(source='base_meal.title', read_only=True)
     base_meal_image = serializers.SerializerMethodField()
-    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
-    restaurant_id = serializers.IntegerField(source='restaurant.id', read_only=True)
+    restaurant_name = serializers.SerializerMethodField()
+    restaurant_id = serializers.SerializerMethodField()
     restaurant_detail = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
+    jalali_cancellation_deadline = serializers.SerializerMethodField()
     
     available_quantity = serializers.IntegerField(read_only=True)
     
     class Meta:
-        model = MealOption
+        model = DailyMenuMealOption
         fields = [
             'id', 'base_meal', 'base_meal_title', 'base_meal_image', 
             'restaurant_id', 'restaurant_name', 'restaurant_detail', 'title', 'description', 
             'price', 'quantity', 'reserved_quantity', 'available_quantity',
-            'is_active', 'is_default', 'sort_order',
+            'is_default', 'cancellation_deadline', 'jalali_cancellation_deadline',
             'created_at', 'jalali_created_at', 'updated_at', 'jalali_updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'reserved_quantity']
     
-    def get_restaurant_detail(self, obj):
-        """جزئیات رستوران از طریق base_meal"""
-        if obj.restaurant:
-            return RestaurantSerializer(obj.restaurant).data
+    def get_restaurant_name(self, obj):
+        """نام رستوران از طریق base_meal یا daily_menu"""
+        if obj.base_meal and obj.base_meal.restaurant:
+            return obj.base_meal.restaurant.name
+        if obj.daily_menu and obj.daily_menu.restaurant:
+            return obj.daily_menu.restaurant.name
         return None
-
+    
+    def get_restaurant_id(self, obj):
+        """ID رستوران از طریق base_meal یا daily_menu"""
+        if obj.base_meal and obj.base_meal.restaurant:
+            return obj.base_meal.restaurant.id
+        if obj.daily_menu and obj.daily_menu.restaurant:
+            return obj.daily_menu.restaurant.id
+        return None
+    
+    def get_restaurant_detail(self, obj):
+        """جزئیات رستوران از طریق base_meal یا daily_menu"""
+        restaurant = None
+        if obj.base_meal and obj.base_meal.restaurant:
+            restaurant = obj.base_meal.restaurant
+        elif obj.daily_menu and obj.daily_menu.restaurant:
+            restaurant = obj.daily_menu.restaurant
+        
+        if restaurant:
+            return RestaurantSerializer(restaurant).data
+        return None
+    
     @extend_schema_field(serializers.CharField())
     def get_base_meal_image(self, obj):
         """تصویر غذای پایه"""
@@ -168,25 +199,26 @@ class MealOptionSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.base_meal.image.url)
             return obj.base_meal.image.url
         return None
-
+    
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
             return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
-
+    
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
             return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
+    
+    @extend_schema_field(serializers.CharField())
+    def get_jalali_cancellation_deadline(self, obj):
+        """مهلت لغو به شمسی"""
+        if obj.cancellation_deadline:
+            return jdatetime.datetime.fromgregorian(datetime=obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+        return None
 
-
-# برای سازگاری با کدهای قبلی
-MealSerializer = BaseMealSerializer
-
-
- 
 
 class BaseMealWithOptionsSerializer(serializers.ModelSerializer):
     """BaseMeal با MealOption های مرتبط"""
@@ -195,14 +227,12 @@ class BaseMealWithOptionsSerializer(serializers.ModelSerializer):
     restaurant_id = serializers.IntegerField(source='restaurant.id', read_only=True)
     options = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
-    jalali_cancellation_deadline = serializers.SerializerMethodField()
 
     class Meta:
         model = BaseMeal
         fields = [
             'id', 'title', 'description', 'image', 'image_url',
             'center', 'center_name', 'restaurant', 'restaurant_id', 'restaurant_name',
-            'cancellation_deadline', 'jalali_cancellation_deadline',
             'is_active', 'options'
         ]
     
@@ -211,14 +241,11 @@ class BaseMealWithOptionsSerializer(serializers.ModelSerializer):
         # دریافت daily_menu از context
         daily_menu = self.context.get('daily_menu')
         if daily_menu:
-            # فقط MealOption هایی که در daily_menu هستند
-            options = obj.options.filter(
-                id__in=daily_menu.meal_options.values_list('id', flat=True),
-                is_active=True
-            ).order_by('sort_order', 'title')
+            # فقط DailyMenuMealOption هایی که در daily_menu هستند
+            options = daily_menu.menu_meal_options.filter(base_meal=obj).order_by('title')
             
-            # استفاده از MealOptionInBaseMealSerializer که اطلاعات تکراری BaseMeal را ندارد
-            return MealOptionInBaseMealSerializer(options, many=True, context=self.context).data
+            # استفاده از DailyMenuMealOptionSerializer
+            return DailyMenuMealOptionSerializer(options, many=True, context=self.context).data
         return []
     
     def get_image_url(self, obj):
@@ -230,59 +257,88 @@ class BaseMealWithOptionsSerializer(serializers.ModelSerializer):
             return obj.image.url
         return None
 
-    @extend_schema_field(serializers.CharField())
-    def get_jalali_cancellation_deadline(self, obj):
-        """مهلت لغو به شمسی"""
-        if obj.cancellation_deadline:
-            return jdatetime.datetime.fromgregorian(datetime=obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
-        return None
-
 
 class DailyMenuSerializer(serializers.ModelSerializer):
+    restaurant = RestaurantSerializer(read_only=True)  # restaurant به صورت object کامل
     meals = serializers.SerializerMethodField()  # BaseMeal ها با options
-    meal_options = serializers.SerializerMethodField()  # برای سازگاری با کدهای قبلی (لیست تخت)
-    base_meals = serializers.SerializerMethodField()  # برای سازگاری با کدهای قبلی
-    center_name = serializers.CharField(source='center.name', read_only=True)
+    meal_options = serializers.SerializerMethodField()  # لیست تخت meal options
+    base_meals = serializers.SerializerMethodField()  # لیست ساده base meals
     meals_count = serializers.SerializerMethodField()
     jalali_date = serializers.SerializerMethodField()
 
     class Meta:
         model = DailyMenu
         fields = [
-            'id', 'center', 'date', 'jalali_date', 'meals', 'meal_options', 'base_meals', 'meals_count',
-            'max_reservations_per_meal', 'is_available', 'center_name'
+            'id', 'restaurant', 'date', 'jalali_date', 'meals', 'meal_options', 'base_meals', 'meals_count',
+            'max_reservations_per_meal', 'is_available'
         ]
 
-    @extend_schema_field(BaseMealWithOptionsSerializer(many=True))
+    @extend_schema_field(serializers.ListField())
     def get_meals(self, obj):
         """BaseMeal ها با MealOption های مرتبط"""
-        base_meal_ids = obj.meal_options.values_list('base_meal_id', flat=True).distinct()
+        base_meal_ids = obj.menu_meal_options.values_list('base_meal_id', flat=True).distinct()
         from .models import BaseMeal
         base_meals = BaseMeal.objects.filter(id__in=base_meal_ids).select_related('center', 'restaurant')
         
-        # اضافه کردن daily_menu به context
-        context = self.context.copy()
-        context['daily_menu'] = obj
+        meals_data = []
+        for base_meal in base_meals:
+            # دریافت options مرتبط با این base_meal
+            options = obj.menu_meal_options.filter(base_meal=base_meal).order_by('title')
+            
+            # ساخت options ساده (فقط id, title, description, price, quantity)
+            options_data = []
+            for option in options:
+                options_data.append({
+                    'id': option.id,
+                    'title': option.title,
+                    'description': option.description or '',
+                    'price': float(option.price),
+                    'quantity': option.quantity
+                })
+            
+            meals_data.append({
+                'id': base_meal.id,
+                'title': base_meal.title,
+                'description': base_meal.description or '',
+                'options': options_data
+            })
         
-        return BaseMealWithOptionsSerializer(base_meals, many=True, context=context).data
+        return meals_data
 
-    @extend_schema_field(MealOptionSerializer(many=True))
+    @extend_schema_field(serializers.ListField())
     def get_meal_options(self, obj):
-        """برای سازگاری با کدهای قبلی - لیست تخت MealOption ها"""
-        options = obj.meal_options.filter(is_active=True).order_by('sort_order', 'title')
-        return MealOptionSerializer(options, many=True, context=self.context).data
+        """لیست تخت MealOption ها (فقط id, base_meal_id, title, price)"""
+        options = obj.menu_meal_options.all().order_by('title')
+        return [
+            {
+                'id': option.id,
+                'base_meal_id': option.base_meal.id if option.base_meal else None,
+                'title': option.title,
+                'price': float(option.price)
+            }
+            for option in options
+        ]
 
-    @extend_schema_field(BaseMealSerializer(many=True))
+    @extend_schema_field(serializers.ListField())
     def get_base_meals(self, obj):
-        """برای سازگاری با کدهای قبلی"""
-        base_meal_ids = obj.meal_options.values_list('base_meal_id', flat=True).distinct()
+        """لیست ساده base meals (فقط id, title, description, is_active)"""
+        base_meal_ids = obj.menu_meal_options.values_list('base_meal_id', flat=True).distinct()
         from .models import BaseMeal
         base_meals = BaseMeal.objects.filter(id__in=base_meal_ids)
-        return BaseMealSerializer(base_meals, many=True).data
+        return [
+            {
+                'id': base_meal.id,
+                'title': base_meal.title,
+                'description': base_meal.description or '',
+                'is_active': base_meal.is_active
+            }
+            for base_meal in base_meals
+        ]
 
     @extend_schema_field(serializers.IntegerField())
     def get_meals_count(self, obj):
-        return obj.meal_options.count()
+        """تعداد meal options (نه base meals)"""
+        return obj.menu_meal_options.count()
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_date(self, obj):
@@ -372,7 +428,7 @@ class FoodReservationCreateSerializer(serializers.ModelSerializer):
         # Set queryset for meal_option
         if self.context.get('request'):
             self.fields['meal_option'] = serializers.PrimaryKeyRelatedField(
-                queryset=MealOption.objects.filter(is_active=True),
+                queryset=DailyMenuMealOption.objects.all(),
                 required=True
             )
 
@@ -460,46 +516,10 @@ class FoodReservationCreateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class SimpleMealOptionSerializer(serializers.ModelSerializer):
-    """سریالایزر ساده برای غذای اصلی - با اطلاعات BaseMeal"""
-    base_meal_title = serializers.CharField(source='base_meal.title', read_only=True)
-    base_meal_image = serializers.SerializerMethodField()
-    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
-    restaurant_id = serializers.IntegerField(source='restaurant.id', read_only=True)
-    
-    available_quantity = serializers.IntegerField(read_only=True)
-    
-    class Meta:
-        model = MealOption
-        fields = [
-            'id', 'base_meal', 'base_meal_title', 'base_meal_image', 
-            'restaurant_id', 'restaurant_name', 'title', 'description', 'price', 
-            'quantity', 'reserved_quantity', 'available_quantity'
-        ]
-
-    @extend_schema_field(serializers.CharField())
-    def get_base_meal_image(self, obj):
-        """تصویر غذای پایه"""
-        if obj.base_meal and obj.base_meal.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.base_meal.image.url)
-            return obj.base_meal.image.url
-        return None
-
-
-class MealOptionInBaseMealSerializer(serializers.ModelSerializer):
-    """سریالایزر MealOption برای استفاده در BaseMeal - بدون اطلاعات تکراری"""
-    available_quantity = serializers.IntegerField(read_only=True)
-    
-    class Meta:
-        model = MealOption
-        fields = [
-            'id', 'title', 'description', 'price', 
-            'quantity', 'reserved_quantity', 'available_quantity',
-            'is_active', 'is_default', 'sort_order'
-        ]
-        read_only_fields = ['reserved_quantity']
+# SimpleMealOptionSerializer و MealOptionInBaseMealSerializer حذف شدند
+# از DailyMenuMealOptionSerializer استفاده کنید
+SimpleMealOptionSerializer = DailyMenuMealOptionSerializer
+MealOptionInBaseMealSerializer = DailyMenuMealOptionSerializer
 
 
 class SimpleBaseMealSerializer(serializers.ModelSerializer):
@@ -718,7 +738,7 @@ class GuestReservationCreateSerializer(serializers.ModelSerializer):
         # Set queryset for meal_option
         if self.context.get('request'):
             self.fields['meal_option'] = serializers.PrimaryKeyRelatedField(
-                queryset=MealOption.objects.filter(is_active=True),
+                queryset=DailyMenuMealOption.objects.all(),
                 required=True
             )
 
