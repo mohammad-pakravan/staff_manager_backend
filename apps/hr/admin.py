@@ -8,13 +8,14 @@ from .models import Announcement
 @admin.register(Announcement)
 class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = (
-        'title', 'center', 'created_by', 'jalali_publish_date', 
+        'title', 'get_centers_display', 'created_by', 'jalali_publish_date', 
         'is_active', 'jalali_created_at', 'image_preview'
     )
-    list_filter = ('is_active', 'center', 'created_by', 'publish_date', 'created_at')
-    search_fields = ('title', 'content', 'center__name', 'created_by__username')
+    list_filter = ('is_active', 'centers', 'created_by', 'publish_date', 'created_at')
+    search_fields = ('title', 'lead', 'content', 'centers__name', 'created_by__username')
     ordering = ('-publish_date',)
-    raw_id_fields = ('center', 'created_by')
+    raw_id_fields = ('created_by',)
+    filter_horizontal = ('centers',)
     
     def jalali_publish_date(self, obj):
         if obj.publish_date:
@@ -32,7 +33,7 @@ class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     fieldsets = (
         ('اطلاعات اصلی', {
-            'fields': ('title', 'content', 'image', 'center')
+            'fields': ('title', 'lead', 'content', 'image', 'centers')
         }),
         ('تنظیمات انتشار', {
             'fields': ('publish_date', 'is_active')
@@ -42,6 +43,14 @@ class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+    
+    def get_centers_display(self, obj):
+        """نمایش مراکز در لیست"""
+        centers = obj.centers.all()
+        if centers.exists():
+            return ', '.join([center.name for center in centers[:3]])
+        return 'بدون مرکز'
+    get_centers_display.short_description = 'مراکز'
     
     readonly_fields = ('created_at', 'updated_at')
     

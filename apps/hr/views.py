@@ -48,21 +48,21 @@ class AnnouncementListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Announcement.objects.filter(is_active=True)
+        queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers')
         
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند
         if user.role in ['sys_admin', 'hr']:
             pass  # همه اطلاعیه‌ها
         # کاربران عادی فقط اطلاعیه‌های مراکز خود را می‌بینند
         elif user.centers.exists():
-            queryset = queryset.filter(center__in=user.centers.all())
+            queryset = queryset.filter(centers__in=user.centers.all()).distinct()
         else:
             queryset = queryset.none()
         
         # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
         center_id = self.request.query_params.get('center')
         if center_id and user.role in ['sys_admin', 'hr']:
-            queryset = queryset.filter(center_id=center_id)
+            queryset = queryset.filter(centers__id=center_id).distinct()
         
         return queryset.order_by('-publish_date')
 
@@ -134,14 +134,14 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Announcement.objects.all()
+        queryset = Announcement.objects.all().prefetch_related('centers')
         
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند
         if user.role in ['sys_admin', 'hr']:
             pass  # همه اطلاعیه‌ها
         # کاربران عادی فقط اطلاعیه‌های مراکز خود را می‌بینند
         elif user.centers.exists():
-            queryset = queryset.filter(center__in=user.centers.all())
+            queryset = queryset.filter(centers__in=user.centers.all()).distinct()
         else:
             queryset = queryset.none()
         
@@ -186,16 +186,24 @@ def announcement_statistics(request):
         'total_announcements': Announcement.objects.count(),
         'active_announcements': Announcement.objects.filter(is_active=True).count(),
         'announcements_by_center': [],
-        'recent_announcements': Announcement.objects.filter(
-            is_active=True
-        ).order_by('-publish_date')[:5].values(
-            'id', 'title', 'center__name', 'publish_date'
-        )
+        'recent_announcements': []
     }
+    
+    # اطلاعیه‌های اخیر
+    recent = Announcement.objects.filter(is_active=True).order_by('-publish_date')[:5]
+    stats['recent_announcements'] = [
+        {
+            'id': ann.id,
+            'title': ann.title,
+            'centers': [c.name for c in ann.centers.all()],
+            'publish_date': ann.publish_date
+        }
+        for ann in recent
+    ]
     
     # آمار بر اساس مرکز
     center_stats = Center.objects.annotate(
-        announcement_count=Count('announcement', filter=Q(announcement__is_active=True))
+        announcement_count=Count('announcements', filter=Q(announcements__is_active=True))
     ).values('name', 'announcement_count')
     
     stats['announcements_by_center'] = list(center_stats)
@@ -212,6 +220,7 @@ def announcement_statistics(request):
             'type': 'object',
             'properties': {
                 'title': {'type': 'string', 'description': 'عنوان اطلاعیه'},
+                'lead': {'type': 'string', 'description': 'لید خبر'},
                 'content': {'type': 'string', 'description': 'متن اطلاعیه'},
                 'publish_date': {'type': 'string', 'format': 'date-time', 'description': 'تاریخ انتشار'},
                 'is_active': {'type': 'boolean', 'description': 'وضعیت فعال بودن'}
@@ -238,6 +247,7 @@ def create_bulk_announcement(request):
         }, status=status.HTTP_403_FORBIDDEN)
     
     title = request.data.get('title')
+    lead = request.data.get('lead', '')
     content = request.data.get('content')
     publish_date = request.data.get('publish_date')
     is_active = request.data.get('is_active', True)
@@ -256,28 +266,25 @@ def create_bulk_announcement(request):
             'error': 'هیچ مرکز فعالی وجود ندارد'
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    created_announcements = []
-    
-    # ایجاد اطلاعیه برای هر مرکز
-    for center in centers:
-        announcement = Announcement.objects.create(
-            title=title,
-            content=content,
-            publish_date=publish_date,
-            center=center,
-            is_active=is_active,
-            created_by=user
-        )
-        created_announcements.append({
-            'id': announcement.id,
-            'title': announcement.title,
-            'center_name': center.name,
-            'is_active': announcement.is_active
-        })
+    # ایجاد یک اطلاعیه برای همه مراکز
+    announcement = Announcement.objects.create(
+        title=title,
+        lead=lead,
+        content=content,
+        publish_date=publish_date,
+        is_active=is_active,
+        created_by=user
+    )
+    announcement.centers.set(centers)
     
     return Response({
-        'message': f'اطلاعیه برای {len(created_announcements)} مرکز ایجاد شد',
-        'announcements': created_announcements
+        'message': f'اطلاعیه برای {centers.count()} مرکز ایجاد شد',
+        'announcement': {
+            'id': announcement.id,
+            'title': announcement.title,
+            'centers': [c.name for c in announcement.centers.all()],
+            'is_active': announcement.is_active
+        }
     }, status=status.HTTP_201_CREATED)
 
 
