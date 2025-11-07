@@ -148,8 +148,11 @@ class DailyMenu(models.Model):
 class FoodReservation(models.Model):
     """رزرو غذا"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='شناسه کاربر')
-    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.CASCADE, verbose_name='منوی روزانه', null=True, blank=True)
-    meal_option = models.ForeignKey(MealOption, on_delete=models.CASCADE, verbose_name='گزینه غذا', null=True, blank=True)
+    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
+    meal_option = models.ForeignKey(MealOption, on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
+    # فیلدهای ذخیره اطلاعات منو و غذا به صورت string (برای حفظ اطلاعات بعد از حذف)
+    daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
+    meal_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات غذا (حذف شده)')
     quantity = models.PositiveIntegerField(default=1, verbose_name='تعداد رزرو')
     status = models.CharField(
         max_length=20,
@@ -173,7 +176,12 @@ class FoodReservation(models.Model):
         ordering = ['-reservation_date']
 
     def __str__(self):
-        meal_title = self.meal_option.title if self.meal_option else "بدون غذا"
+        if self.meal_option:
+            meal_title = self.meal_option.title
+        elif self.meal_option_info:
+            meal_title = self.meal_option_info
+        else:
+            meal_title = "بدون غذا"
         return f"{self.user.username} - {meal_title} - {self.quantity} عدد"
 
     @classmethod
@@ -217,6 +225,25 @@ class FoodReservation(models.Model):
 
     def save(self, *args, **kwargs):
         """ذخیره رزرو"""
+        # ذخیره اطلاعات منو به صورت string
+        if self.daily_menu:
+            center_name = self.daily_menu.center.name if self.daily_menu.center else 'بدون مرکز'
+            date_str = self.daily_menu.date.strftime('%Y-%m-%d')
+            self.daily_menu_info = f"مرکز: {center_name} - تاریخ: {date_str}"
+        elif not self.daily_menu_info and self.daily_menu is None:
+            # اگر منو حذف شده و اطلاعات ذخیره نشده، اطلاعات قبلی را نگه دار
+            pass
+        
+        # ذخیره اطلاعات غذا به صورت string
+        if self.meal_option:
+            meal_title = self.meal_option.title
+            meal_price = self.meal_option.price if hasattr(self.meal_option, 'price') else 'نامشخص'
+            base_meal_name = self.meal_option.base_meal.title if self.meal_option.base_meal else 'نامشخص'
+            self.meal_option_info = f"عنوان: {meal_title} - غذای پایه: {base_meal_name} - قیمت: {meal_price}"
+        elif not self.meal_option_info and self.meal_option is None:
+            # اگر غذا حذف شده و اطلاعات ذخیره نشده، اطلاعات قبلی را نگه دار
+            pass
+        
         if not self.cancellation_deadline:
             # اگر مهلت لغو تعیین نشده، از base_meal استفاده کن
             if self.meal_option and self.meal_option.base_meal and self.meal_option.base_meal.cancellation_deadline:
@@ -234,8 +261,11 @@ class GuestReservation(models.Model):
     host_user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='کاربر میزبان')
     guest_first_name = models.CharField(max_length=150, verbose_name='نام مهمان')
     guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
-    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.CASCADE, verbose_name='منوی روزانه', null=True, blank=True)
-    meal_option = models.ForeignKey(MealOption, on_delete=models.CASCADE, verbose_name='گزینه غذا', null=True, blank=True)
+    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
+    meal_option = models.ForeignKey(MealOption, on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
+    # فیلدهای ذخیره اطلاعات منو و غذا به صورت string (برای حفظ اطلاعات بعد از حذف)
+    daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
+    meal_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات غذا (حذف شده)')
     status = models.CharField(
         max_length=20,
         choices=[
@@ -258,7 +288,12 @@ class GuestReservation(models.Model):
         ordering = ['-reservation_date']
 
     def __str__(self):
-        meal_title = self.meal_option.title if self.meal_option else "بدون غذا"
+        if self.meal_option:
+            meal_title = self.meal_option.title
+        elif self.meal_option_info:
+            meal_title = self.meal_option_info
+        else:
+            meal_title = "بدون غذا"
         return f"{self.guest_first_name} {self.guest_last_name} - {meal_title} (میزبان: {self.host_user.username})"
 
     @classmethod
@@ -302,6 +337,25 @@ class GuestReservation(models.Model):
         return False
 
     def save(self, *args, **kwargs):
+        # ذخیره اطلاعات منو به صورت string
+        if self.daily_menu:
+            center_name = self.daily_menu.center.name if self.daily_menu.center else 'بدون مرکز'
+            date_str = self.daily_menu.date.strftime('%Y-%m-%d')
+            self.daily_menu_info = f"مرکز: {center_name} - تاریخ: {date_str}"
+        elif not self.daily_menu_info and self.daily_menu is None:
+            # اگر منو حذف شده و اطلاعات ذخیره نشده، اطلاعات قبلی را نگه دار
+            pass
+        
+        # ذخیره اطلاعات غذا به صورت string
+        if self.meal_option:
+            meal_title = self.meal_option.title
+            meal_price = self.meal_option.price if hasattr(self.meal_option, 'price') else 'نامشخص'
+            base_meal_name = self.meal_option.base_meal.title if self.meal_option.base_meal else 'نامشخص'
+            self.meal_option_info = f"عنوان: {meal_title} - غذای پایه: {base_meal_name} - قیمت: {meal_price}"
+        elif not self.meal_option_info and self.meal_option is None:
+            # اگر غذا حذف شده و اطلاعات ذخیره نشده، اطلاعات قبلی را نگه دار
+            pass
+        
         if not self.pk:  # اگر رزرو جدید است
             # محاسبه مهلت لغو
             if not self.cancellation_deadline:
