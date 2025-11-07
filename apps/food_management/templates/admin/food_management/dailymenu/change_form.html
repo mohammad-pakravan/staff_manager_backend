@@ -8,19 +8,19 @@
         $(document).ready(function() {
             var $centerField = $('#id_center');
             var selectedOptions = [];
-            var apiUrl = '{% url "admin:food_management_dailymenu_meal_options_by_center" %}';
+            var apiUrl = '{% url "admin:food_management_dailymenu_base_meals_by_center" %}';
             
             function getSelectBoxes() {
-                var $mealOptionsFrom = $('#id_meal_options_from');
-                var $mealOptionsTo = $('#id_meal_options_to');
+                var $baseMealsFrom = $('#id_base_meals_from');
+                var $baseMealsTo = $('#id_base_meals_to');
                 return {
-                    from: $mealOptionsFrom,
-                    to: $mealOptionsTo,
-                    found: $mealOptionsFrom.length > 0 && $mealOptionsTo.length > 0
+                    from: $baseMealsFrom,
+                    to: $baseMealsTo,
+                    found: $baseMealsFrom.length > 0 && $baseMealsTo.length > 0
                 };
             }
             
-            function updateMealOptions() {
+            function updateBaseMeals() {
                 var centerId = $centerField.val();
                 if (!centerId) {
                     return;
@@ -29,17 +29,17 @@
                 var boxes = getSelectBoxes();
                 if (!boxes.found) {
                     console.log('Select boxes not found yet, retrying...');
-                    setTimeout(updateMealOptions, 200);
+                    setTimeout(updateBaseMeals, 200);
                     return;
                 }
                 
-                // ذخیره meal_options انتخاب شده
+                // ذخیره base_meals انتخاب شده
                 selectedOptions = [];
                 boxes.to.find('option').each(function() {
                     selectedOptions.push($(this).val());
                 });
                 
-                console.log('Updating meal options for center:', centerId);
+                console.log('Updating base meals for center:', centerId);
                 console.log('Selected options:', selectedOptions);
                 
                 $.ajax({
@@ -61,8 +61,8 @@
                             
                             // پاک کردن cache SelectBox
                             if (typeof SelectBox !== 'undefined' && SelectBox.cache) {
-                                delete SelectBox.cache['id_meal_options_from'];
-                                delete SelectBox.cache['id_meal_options_to'];
+                                delete SelectBox.cache['id_base_meals_from'];
+                                delete SelectBox.cache['id_base_meals_to'];
                             }
                             
                             // ساخت cache جدید برای SelectBox
@@ -117,15 +117,15 @@
                                         });
                                         
                                         // Set cache BEFORE redisplay
-                                        SelectBox.cache['id_meal_options_from'] = fromCacheRebuilt;
-                                        SelectBox.cache['id_meal_options_to'] = toCacheRebuilt;
+                                        SelectBox.cache['id_base_meals_from'] = fromCacheRebuilt;
+                                        SelectBox.cache['id_base_meals_to'] = toCacheRebuilt;
                                         
                                         console.log('Cache built from select boxes - From cache length:', fromCacheRebuilt.length);
                                         console.log('Cache built from select boxes - To cache length:', toCacheRebuilt.length);
                                         
                                         // Redisplay SelectBox
-                                        SelectBox.redisplay('id_meal_options_from');
-                                        SelectBox.redisplay('id_meal_options_to');
+                                        SelectBox.redisplay('id_base_meals_from');
+                                        SelectBox.redisplay('id_base_meals_to');
                                         
                                         console.log('SelectBox updated successfully');
                                         console.log('After redisplay - From box options:', boxes.from.find('option').length);
@@ -160,9 +160,9 @@
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error loading meal options:', error);
+                        console.error('Error loading base meals:', error);
                         console.error('Response:', xhr.responseText);
-                        alert('خطا در بارگذاری غذاها. لطفاً صفحه را refresh کنید.');
+                        alert('خطا در بارگذاری غذاهای پایه. لطفاً صفحه را refresh کنید.');
                     }
                 });
             }
@@ -176,7 +176,7 @@
                 function tryUpdate() {
                     var boxes = getSelectBoxes();
                     if (boxes.found) {
-                        updateMealOptions();
+                        updateBaseMeals();
                     } else if (retryCount < maxRetries) {
                         retryCount++;
                         console.log('Select boxes not found, retrying... (' + retryCount + '/' + maxRetries + ')');
@@ -193,8 +193,8 @@
             var observer = new MutationObserver(function(mutations) {
                 var boxes = getSelectBoxes();
                 if (boxes.found && $centerField.val()) {
-                    console.log('Select boxes found, updating meal options...');
-                    updateMealOptions();
+                    console.log('Select boxes found, updating base meals...');
+                    updateBaseMeals();
                     observer.disconnect();
                 }
             });
@@ -208,8 +208,8 @@
             setTimeout(function() {
                 var boxes = getSelectBoxes();
                 if (boxes.found && $centerField.val()) {
-                    console.log('Select boxes found on page load, updating meal options...');
-                    updateMealOptions();
+                    console.log('Select boxes found on page load, updating base meals...');
+                    updateBaseMeals();
                     observer.disconnect();
                 }
             }, 1000);
@@ -217,4 +217,3 @@
     })(django.jQuery);
     </script>
 {% endblock %}
-

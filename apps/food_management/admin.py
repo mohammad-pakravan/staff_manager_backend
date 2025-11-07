@@ -152,14 +152,15 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     search_fields = ('center__name',)
     ordering = ('-date',)
     raw_id_fields = ('center',)
-    filter_horizontal = ('meal_options',)
+    filter_horizontal = ('base_meals',)
+    exclude = ('meal_options',)  # مخفی کردن meal_options چون از base_meals ساخته می‌شود
     change_form_template = 'admin/food_management/dailymenu/change_form.html'
     add_form_template = 'admin/food_management/dailymenu/change_form.html'
     
     def formfield_for_manytomany(self, db_field, request, **kwargs):
-        """فیلتر کردن meal_options بر اساس مرکز"""
-        if db_field.name == 'meal_options':
-            from .models import MealOption
+        """فیلتر کردن base_meals بر اساس مرکز"""
+        if db_field.name == 'base_meals':
+            from .models import BaseMeal
             
             # اگر در حال ویرایش یک DailyMenu هستیم
             if hasattr(request, 'resolver_match') and request.resolver_match:
@@ -169,10 +170,10 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                         try:
                             daily_menu = DailyMenu.objects.get(pk=daily_menu_id)
                             if daily_menu.center:
-                                kwargs['queryset'] = MealOption.objects.filter(
-                                    base_meal__center=daily_menu.center,
+                                kwargs['queryset'] = BaseMeal.objects.filter(
+                                    center=daily_menu.center,
                                     is_active=True
-                                ).select_related('base_meal', 'base_meal__center')
+                                )
                         except DailyMenu.DoesNotExist:
                             pass
                 except Exception:
@@ -185,45 +186,45 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     try:
                         from apps.centers.models import Center
                         center = Center.objects.get(pk=center_id)
-                        kwargs['queryset'] = MealOption.objects.filter(
-                            base_meal__center=center,
+                        kwargs['queryset'] = BaseMeal.objects.filter(
+                            center=center,
                             is_active=True
-                        ).select_related('base_meal', 'base_meal__center')
+                        )
                     except (Center.DoesNotExist, ValueError, TypeError):
                         pass
         
         return super().formfield_for_manytomany(db_field, request, **kwargs)
     
     def get_urls(self):
-        """افزودن URL برای دریافت meal_options بر اساس center"""
+        """افزودن URL برای دریافت base_meals بر اساس center"""
         urls = super().get_urls()
         custom_urls = [
-            path('meal-options-by-center/', self.admin_site.admin_view(self.get_meal_options_by_center), name='food_management_dailymenu_meal_options_by_center'),
+            path('base-meals-by-center/', self.admin_site.admin_view(self.get_base_meals_by_center), name='food_management_dailymenu_base_meals_by_center'),
         ]
         return custom_urls + urls
     
-    def get_meal_options_by_center(self, request):
-        """API endpoint برای دریافت meal_options بر اساس center_id"""
+    def get_base_meals_by_center(self, request):
+        """API endpoint برای دریافت base_meals بر اساس center_id"""
         center_id = request.GET.get('center_id')
         if not center_id:
             return JsonResponse({'error': 'center_id required'}, status=400)
         
         try:
             from apps.centers.models import Center
+            from .models import BaseMeal
             center = Center.objects.get(pk=center_id)
-            meal_options = MealOption.objects.filter(
-                base_meal__center=center,
+            base_meals = BaseMeal.objects.filter(
+                center=center,
                 is_active=True
-            ).select_related('base_meal', 'base_meal__center').order_by('base_meal__title', 'title')
+            ).order_by('title')
             
             options_data = [
                 {
-                    'id': option.id,
-                    'text': f"{option.base_meal.title} - {option.title}",
-                    'base_meal_title': option.base_meal.title,
-                    'title': option.title
+                    'id': base_meal.id,
+                    'text': base_meal.title,
+                    'title': base_meal.title
                 }
-                for option in meal_options
+                for base_meal in base_meals
             ]
             
             return JsonResponse({'options': options_data})
@@ -233,30 +234,36 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             return JsonResponse({'error': str(e)}, status=500)
     
     def get_form(self, request, obj=None, **kwargs):
-        """تنظیم queryset meal_options بر اساس مرکز"""
+        """تنظیم queryset base_meals بر اساس مرکز"""
         form = super().get_form(request, obj, **kwargs)
         
         # اگر در حال ویرایش هستیم و center وجود دارد
         if obj and obj.center:
-            from .models import MealOption
-            form.base_fields['meal_options'].queryset = MealOption.objects.filter(
-                base_meal__center=obj.center,
-                is_active=True
-            ).select_related('base_meal', 'base_meal__center').order_by('base_meal__title', 'title')
+            from .models import BaseMeal
+            if 'base_meals' in form.base_fields:
+                form.base_fields['base_meals'].queryset = BaseMeal.objects.filter(
+                    center=obj.center,
+                    is_active=True
+                )
         else:
-            # اگر در حال ایجاد هستیم، فقط meal_options فعال را نشان بده
+            # اگر در حال ایجاد هستیم، فقط base_meals فعال را نشان بده
             # کاربر باید ابتدا center را انتخاب کند، سپس صفحه را refresh کند
-            from .models import MealOption
-            form.base_fields['meal_options'].queryset = MealOption.objects.filter(
-                is_active=True
-            ).select_related('base_meal', 'base_meal__center').order_by('base_meal__title', 'title')
+            from .models import BaseMeal
+            if 'base_meals' in form.base_fields:
+                form.base_fields['base_meals'].queryset = BaseMeal.objects.filter(
+                    is_active=True
+                )
         
         return form
     
     
     def save_model(self, request, obj, form, change):
-        """ذخیره مدل و بررسی اینکه meal_options مربوط به center هستند"""
+        """ذخیره مدل و همگام‌سازی meal_options از base_meals"""
         super().save_model(request, obj, form, change)
+        
+        # همگام‌سازی meal_options از base_meals
+        if obj.base_meals.exists():
+            obj.sync_meal_options_from_base_meals()
         
         # بررسی اینکه همه meal_options مربوط به center هستند
         if obj.center:

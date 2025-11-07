@@ -127,6 +127,7 @@ class DailyMenu(models.Model):
     center = models.ForeignKey(Center, on_delete=models.CASCADE, verbose_name='مرکز')
     date = models.DateField(verbose_name='تاریخ')
     meal_options = models.ManyToManyField(MealOption, verbose_name='غذاهای موجود', blank=True, related_name='daily_menus')
+    base_meals = models.ManyToManyField(BaseMeal, verbose_name='غذاهای پایه', blank=True, related_name='daily_menus')
     max_reservations_per_meal = models.PositiveIntegerField(default=100, verbose_name='حداکثر رزرو برای هر غذا')
     is_available = models.BooleanField(default=True, verbose_name='در دسترس')
 
@@ -143,6 +144,16 @@ class DailyMenu(models.Model):
     def available_spots(self):
         """تعداد جای خالی"""
         return max(0, self.max_reservations - self.current_reservations)
+    
+    def sync_meal_options_from_base_meals(self):
+        """همگام‌سازی meal_options از base_meals"""
+        # دریافت همه MealOption‌های فعال مربوط به base_meals انتخاب شده
+        meal_options = MealOption.objects.filter(
+            base_meal__in=self.base_meals.all(),
+            is_active=True
+        )
+        # اضافه کردن همه MealOption‌ها به meal_options
+        self.meal_options.set(meal_options)
 
 
 class FoodReservation(models.Model):
