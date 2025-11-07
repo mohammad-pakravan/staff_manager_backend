@@ -4,14 +4,14 @@ from .models import Center
 
 @admin.register(Center)
 class CenterAdmin(admin.ModelAdmin):
-    list_display = ('name', 'city', 'phone', 'email', 'is_active', 'created_at')
+    list_display = ('name','english_name', 'city', 'phone', 'email', 'is_active', 'created_at')
     list_filter = ('is_active', 'city', 'created_at')
-    search_fields = ('name', 'city', 'phone', 'email')
+    search_fields = ('name', 'english_name', 'city', 'phone', 'email')
     ordering = ('name',)
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'city', 'address')
+            'fields': ('name', 'english_name', 'city', 'address')
         }),
         ('Contact Information', {
             'fields': ('phone', 'email')

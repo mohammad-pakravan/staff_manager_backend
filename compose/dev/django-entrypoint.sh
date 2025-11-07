@@ -9,6 +9,7 @@ echo "Database started"
 
 # Run migrations
 echo "Running migrations..."
+python manage.py makemigrations
 python manage.py migrate
 
 # Create superuser if it doesn't exist

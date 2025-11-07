@@ -6,7 +6,7 @@ class CenterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Center
         fields = [
-            'id', 'name', 'city', 'address', 'phone', 'email',
+            'id', 'name', 'english_name', 'city', 'address', 'phone', 'email',
             'is_active', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -18,7 +18,7 @@ class CenterListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Center
         fields = [
-            'id', 'name', 'city', 'phone', 'email',
+            'id', 'name', 'english_name', 'city', 'phone', 'email',
             'is_active', 'employee_count', 'created_at'
         ]
 
