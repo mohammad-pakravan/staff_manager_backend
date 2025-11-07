@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema_field
 from datetime import datetime
 import jdatetime
 from .models import (
-    Restaurant, BaseMeal, MealOption, MealType, DailyMenu, 
+    Restaurant, BaseMeal, MealOption, DailyMenu, 
     FoodReservation, FoodReport, GuestReservation
 )
 # برای سازگاری با کدهای قبلی
@@ -13,6 +13,7 @@ Meal = BaseMeal
 
 class RestaurantSerializer(serializers.ModelSerializer):
     """سریالایزر رستوران"""
+    center_id = serializers.IntegerField(source='center.id', read_only=True)
     center_name = serializers.CharField(source='center.name', read_only=True)
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
@@ -20,7 +21,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = [
-            'id', 'name', 'center', 'center_name', 'address', 'phone', 'email', 
+            'id', 'name', 'center_name', 'center_id', 'address', 'phone', 'email', 
             'description', 'is_active', 'created_at', 'jalali_created_at', 
             'updated_at', 'jalali_updated_at'
         ]
@@ -42,7 +43,6 @@ class RestaurantSerializer(serializers.ModelSerializer):
 class BaseMealSerializer(serializers.ModelSerializer):
     """سریالایزر غذای پایه"""
     center_name = serializers.CharField(source='center.name', read_only=True)
-    meal_type_name = serializers.CharField(source='meal_type.name', read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
     restaurant_detail = RestaurantSerializer(source='restaurant', read_only=True)
     options = serializers.SerializerMethodField()
@@ -53,7 +53,7 @@ class BaseMealSerializer(serializers.ModelSerializer):
     class Meta:
         model = BaseMeal
         fields = [
-            'id', 'title', 'description', 'image', 'meal_type', 'meal_type_name', 
+            'id', 'title', 'description', 'image', 
             'center', 'center_name', 'restaurant', 'restaurant_name', 'restaurant_detail', 
             'cancellation_deadline', 'jalali_cancellation_deadline',
             'is_active', 'options',
@@ -186,18 +186,11 @@ class MealOptionSerializer(serializers.ModelSerializer):
 MealSerializer = BaseMealSerializer
 
 
-class MealTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MealType
-        fields = [
-            'id', 'name', 'start_time', 'end_time', 'is_active'
-        ]
-
+ 
 
 class BaseMealWithOptionsSerializer(serializers.ModelSerializer):
     """BaseMeal با MealOption های مرتبط"""
     center_name = serializers.CharField(source='center.name', read_only=True)
-    meal_type_name = serializers.CharField(source='meal_type.name', read_only=True)
     restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
     restaurant_id = serializers.IntegerField(source='restaurant.id', read_only=True)
     options = serializers.SerializerMethodField()
@@ -207,7 +200,7 @@ class BaseMealWithOptionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = BaseMeal
         fields = [
-            'id', 'title', 'description', 'image', 'image_url', 'meal_type', 'meal_type_name',
+            'id', 'title', 'description', 'image', 'image_url',
             'center', 'center_name', 'restaurant', 'restaurant_id', 'restaurant_name',
             'cancellation_deadline', 'jalali_cancellation_deadline',
             'is_active', 'options'
@@ -249,7 +242,6 @@ class DailyMenuSerializer(serializers.ModelSerializer):
     meals = serializers.SerializerMethodField()  # BaseMeal ها با options
     meal_options = serializers.SerializerMethodField()  # برای سازگاری با کدهای قبلی (لیست تخت)
     base_meals = serializers.SerializerMethodField()  # برای سازگاری با کدهای قبلی
-    meal_type = MealTypeSerializer(read_only=True)
     center_name = serializers.CharField(source='center.name', read_only=True)
     meals_count = serializers.SerializerMethodField()
     jalali_date = serializers.SerializerMethodField()
@@ -257,7 +249,7 @@ class DailyMenuSerializer(serializers.ModelSerializer):
     class Meta:
         model = DailyMenu
         fields = [
-            'id', 'center', 'date', 'jalali_date', 'meal_type', 'meals', 'meal_options', 'base_meals', 'meals_count',
+            'id', 'center', 'date', 'jalali_date', 'meals', 'meal_options', 'base_meals', 'meals_count',
             'max_reservations_per_meal', 'is_available', 'center_name'
         ]
 
@@ -266,7 +258,7 @@ class DailyMenuSerializer(serializers.ModelSerializer):
         """BaseMeal ها با MealOption های مرتبط"""
         base_meal_ids = obj.meal_options.values_list('base_meal_id', flat=True).distinct()
         from .models import BaseMeal
-        base_meals = BaseMeal.objects.filter(id__in=base_meal_ids).select_related('meal_type', 'center', 'restaurant')
+        base_meals = BaseMeal.objects.filter(id__in=base_meal_ids).select_related('center', 'restaurant')
         
         # اضافه کردن daily_menu به context
         context = self.context.copy()
@@ -885,7 +877,6 @@ class DetailedReservationReportSerializer(serializers.ModelSerializer):
     meal_option_title = serializers.CharField(source='meal_option.title', read_only=True)
     base_meal_title = serializers.CharField(source='meal_option.base_meal.title', read_only=True)
     restaurant_name = serializers.SerializerMethodField()
-    meal_type_name = serializers.CharField(source='daily_menu.meal_type.name', read_only=True)
     date = serializers.SerializerMethodField()
     jalali_date = serializers.SerializerMethodField()
     jalali_reservation_date = serializers.SerializerMethodField()
@@ -895,7 +886,7 @@ class DetailedReservationReportSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'user_name', 'user_full_name', 'employee_number',
             'center_name', 'meal_option', 'meal_option_title', 'base_meal_title',
-            'restaurant_name', 'meal_type_name', 'quantity', 'amount',
+            'restaurant_name', 'quantity', 'amount',
             'status', 'date', 'jalali_date', 'reservation_date',
             'jalali_reservation_date', 'cancelled_at'
         ]

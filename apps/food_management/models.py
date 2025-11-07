@@ -33,7 +33,6 @@ class BaseMeal(models.Model):
     title = models.CharField(max_length=200, verbose_name='عنوان')
     description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     image = models.ImageField(upload_to='meals/', blank=True, null=True, verbose_name='تصویر')
-    meal_type = models.ForeignKey('MealType', on_delete=models.CASCADE, blank=True, null=True, verbose_name='وعده')
     center = models.ForeignKey(Center, on_delete=models.CASCADE, blank=True, null=True, verbose_name='مرکز')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='base_meals', verbose_name='رستوران')
     cancellation_deadline = models.DateTimeField(blank=True, null=True, verbose_name='مهلت لغو')
@@ -47,7 +46,7 @@ class BaseMeal(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} - {self.meal_type.name if self.meal_type else 'بدون وعده'}"
+        return self.title
 
 
 class MealOption(models.Model):
@@ -89,7 +88,6 @@ class Meal(models.Model):
     description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     image = models.ImageField(upload_to='meals/', blank=True, null=True, verbose_name='تصویر')
     date = models.DateField(verbose_name='تاریخ', null=True, blank=True)
-    meal_type = models.ForeignKey('MealType', on_delete=models.CASCADE, null=True, blank=True, verbose_name='وعده')
     restaurant = models.CharField(max_length=200, blank=True, null=True, verbose_name='رستوران')
     center = models.ForeignKey(Center, on_delete=models.CASCADE, null=True, blank=True, verbose_name='مرکز')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
@@ -102,23 +100,7 @@ class Meal(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} - {self.date} - {self.meal_type.name if self.meal_type else 'بدون وعده'}"
-
-
-class MealType(models.Model):
-    """نوع وعده غذایی"""
-    name = models.CharField(max_length=100, verbose_name='نام')
-    start_time = models.TimeField(verbose_name='زمان شروع')
-    end_time = models.TimeField(verbose_name='زمان پایان')
-    is_active = models.BooleanField(default=True, verbose_name='فعال')
-
-    class Meta:
-        verbose_name = 'نوع وعده'
-        verbose_name_plural = 'انواع وعده‌ها'
-        ordering = ['start_time']
-
-    def __str__(self):
-        return self.name
+        return f"{self.title} - {self.date}" if self.date else self.title
 
 
 class WeeklyMenu(models.Model):
@@ -144,7 +126,6 @@ class DailyMenu(models.Model):
     """منوی روزانه"""
     center = models.ForeignKey(Center, on_delete=models.CASCADE, verbose_name='مرکز')
     date = models.DateField(verbose_name='تاریخ')
-    meal_type = models.ForeignKey(MealType, on_delete=models.CASCADE, verbose_name='وعده')
     meal_options = models.ManyToManyField(MealOption, verbose_name='غذاهای موجود', blank=True, related_name='daily_menus')
     max_reservations_per_meal = models.PositiveIntegerField(default=100, verbose_name='حداکثر رزرو برای هر غذا')
     is_available = models.BooleanField(default=True, verbose_name='در دسترس')
@@ -152,11 +133,11 @@ class DailyMenu(models.Model):
     class Meta:
         verbose_name = 'منوی روزانه'
         verbose_name_plural = 'منوهای روزانه'
-        unique_together = ['center', 'date', 'meal_type']
-        ordering = ['date', 'meal_type__start_time']
+        unique_together = ['center', 'date']
+        ordering = ['date']
 
     def __str__(self):
-        return f"{self.center.name if self.center else 'بدون مرکز'} - {self.date} - {self.meal_type.name if self.meal_type else 'بدون وعده'}"
+        return f"{self.center.name if self.center else 'بدون مرکز'} - {self.date}"
 
     @property
     def available_spots(self):
@@ -237,23 +218,14 @@ class FoodReservation(models.Model):
     def save(self, *args, **kwargs):
         """ذخیره رزرو"""
         if not self.cancellation_deadline:
-            # اگر مهلت لغو تعیین نشده، 2 ساعت قبل از وعده غذایی تنظیم کن
-            if self.daily_menu and self.daily_menu.date:
-                # تبدیل تاریخ میلادی به شمسی برای محاسبه
-                jalali_date = jdatetime.date.fromgregorian(date=self.daily_menu.date)
-                # تبدیل زمان میلادی به شمسی
-                jalali_time = jdatetime.time(
-                    self.daily_menu.meal_type.start_time.hour,
-                    self.daily_menu.meal_type.start_time.minute,
-                    self.daily_menu.meal_type.start_time.second
-                )
-                meal_time = jdatetime.datetime.combine(
-                    jalali_date,
-                    jalali_time
-                )
-                # تبدیل به میلادی برای ذخیره در دیتابیس
-                gregorian_meal_time = meal_time.togregorian()
-                self.cancellation_deadline = timezone.make_aware(gregorian_meal_time) - timezone.timedelta(hours=2)
+            # اگر مهلت لغو تعیین نشده، از base_meal استفاده کن
+            if self.meal_option and self.meal_option.base_meal and self.meal_option.base_meal.cancellation_deadline:
+                self.cancellation_deadline = self.meal_option.base_meal.cancellation_deadline
+            elif self.daily_menu and self.daily_menu.date:
+                # اگر base_meal مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
+                meal_date = self.daily_menu.date
+                meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
+                self.cancellation_deadline = timezone.make_aware(meal_time) - timezone.timedelta(hours=2)
         super().save(*args, **kwargs)
 
 
@@ -331,22 +303,17 @@ class GuestReservation(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:  # اگر رزرو جدید است
-            # محاسبه مهلت لغو (2 ساعت قبل از زمان سرو غذا)
-            # تبدیل تاریخ میلادی به شمسی برای محاسبه
-            jalali_date = jdatetime.date.fromgregorian(date=self.daily_menu.date)
-            # تبدیل زمان میلادی به شمسی
-            jalali_time = jdatetime.time(
-                self.daily_menu.meal_type.start_time.hour,
-                self.daily_menu.meal_type.start_time.minute,
-                self.daily_menu.meal_type.start_time.second
-            )
-            meal_time = jdatetime.datetime.combine(
-                jalali_date,
-                jalali_time
-            )
-            # تبدیل به میلادی برای ذخیره در دیتابیس
-            gregorian_meal_time = meal_time.togregorian()
-            self.cancellation_deadline = timezone.make_aware(gregorian_meal_time) - timezone.timedelta(hours=2)
+            # محاسبه مهلت لغو
+            if not self.cancellation_deadline:
+                # اگر مهلت لغو تعیین نشده، از base_meal استفاده کن
+                if self.meal_option and self.meal_option.base_meal and self.meal_option.base_meal.cancellation_deadline:
+                    self.cancellation_deadline = self.meal_option.base_meal.cancellation_deadline
+                elif self.daily_menu and self.daily_menu.date:
+                    # اگر base_meal مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
+                    meal_date = self.daily_menu.date
+                    meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
+                    gregorian_meal_time = timezone.make_aware(meal_time)
+                    self.cancellation_deadline = gregorian_meal_time - timezone.timedelta(hours=2)
         super().save(*args, **kwargs)
 
 

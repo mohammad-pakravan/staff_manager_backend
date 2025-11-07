@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali, date2jalali
 from .models import (
-    Restaurant, BaseMeal, MealOption, MealType, DailyMenu, 
+    Restaurant, BaseMeal, MealOption, DailyMenu, 
     FoodReservation, FoodReport, GuestReservation
 )
 # برای سازگاری با کدهای قبلی
@@ -36,14 +36,14 @@ class MealOptionInline(admin.TabularInline):
 
 @admin.register(BaseMeal)
 class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('title', 'meal_type', 'center', 'restaurant', 'jalali_cancellation_deadline', 'options_count', 'jalali_created_at', 'is_active', 'image_preview')
-    list_filter = ('meal_type', 'center', 'restaurant', 'is_active', 'created_at', 'cancellation_deadline')
+    list_display = ('title', 'center', 'restaurant', 'jalali_cancellation_deadline', 'options_count', 'jalali_created_at', 'is_active', 'image_preview')
+    list_filter = ('center', 'restaurant', 'is_active', 'created_at', 'cancellation_deadline')
     search_fields = ('title', 'description')
     ordering = ('title',)
-    raw_id_fields = ('meal_type', 'center', 'restaurant')
+    raw_id_fields = ('center', 'restaurant')
     fieldsets = (
         ('اطلاعات پایه', {
-            'fields': ('title', 'description', 'image', 'meal_type', 'center', 'restaurant', 'is_active')
+            'fields': ('title', 'description', 'image', 'center', 'restaurant', 'is_active')
         }),
         ('مهلت لغو', {
             'fields': ('cancellation_deadline',),
@@ -146,24 +146,18 @@ except admin.sites.NotRegistered:
 MealAdmin = BaseMealAdmin
 
 
-@admin.register(MealType)
-class MealTypeAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('name', 'start_time', 'end_time', 'is_active')
-    list_filter = ('is_active',)
-    search_fields = ('name',)
-    ordering = ('start_time',)
 
 
 @admin.register(DailyMenu)
 class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = (
-        'center', 'jalali_date', 'meal_type', 'meal_options_count', 
+        'center', 'jalali_date', 'meal_options_count', 
         'max_reservations_per_meal', 'is_available'
     )
-    list_filter = ('date', 'meal_type', 'is_available', 'center')
+    list_filter = ('date', 'is_available', 'center')
     search_fields = ('center__name',)
-    ordering = ('-date', 'meal_type__start_time')
-    raw_id_fields = ('center', 'meal_type')
+    ordering = ('-date',)
+    raw_id_fields = ('center',)
     filter_horizontal = ('meal_options',)
     
     def jalali_date(self, obj):
@@ -184,7 +178,7 @@ class FoodReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'user', 'jalali_date', 'get_meal_option_title', 'quantity', 'status', 'amount', 
         'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
-    list_filter = ('status', 'reservation_date', 'daily_menu__meal_type', 'daily_menu__center')
+    list_filter = ('status', 'reservation_date', 'daily_menu__center')
     search_fields = ('user__username', 'user__employee_number', 'meal_option__title', 'meal_option__base_meal__title')
     ordering = ('-reservation_date',)
     raw_id_fields = ('user', 'daily_menu', 'meal_option')
@@ -231,7 +225,7 @@ class GuestReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'guest_first_name', 'guest_last_name', 'host_user', 'jalali_date', 'get_meal_option_title', 
         'status', 'amount', 'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
-    list_filter = ('status', 'reservation_date', 'daily_menu__meal_type', 'daily_menu__center')
+    list_filter = ('status', 'reservation_date', 'daily_menu__center')
     search_fields = ('guest_first_name', 'guest_last_name', 'host_user__username', 'host_user__employee_number', 'meal_option__title', 'meal_option__base_meal__title')
     ordering = ('-reservation_date',)
     raw_id_fields = ('host_user', 'daily_menu', 'meal_option')

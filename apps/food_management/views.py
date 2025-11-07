@@ -54,14 +54,14 @@ except ImportError:
     HAS_REPORTLAB = False
 
 from .models import (
-    BaseMeal, MealOption, MealType, DailyMenu, 
+    BaseMeal, MealOption, DailyMenu, 
     FoodReservation, FoodReport, GuestReservation
 )
 # برای سازگاری با کدهای قبلی
 Meal = BaseMeal
 from apps.centers.models import Center
 from .serializers import (
-    RestaurantSerializer, MealSerializer, MealTypeSerializer,
+    RestaurantSerializer, MealSerializer,
     DailyMenuSerializer, FoodReservationSerializer,
     FoodReservationCreateSerializer, FoodReportSerializer,
     MealStatisticsSerializer,
@@ -183,20 +183,6 @@ class MealDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # ========== Meal Type Management ==========
 
-@extend_schema_view(
-    get=extend_schema(
-        operation_id='meal_type_list',
-        summary='List Meal Types',
-        description='Get list of all meal types (breakfast, lunch, dinner, etc.)',
-        tags=['Food Management']
-    )
-)
-class MealTypeListView(generics.ListAPIView):
-    """لیست انواع وعده غذایی"""
-    queryset = MealType.objects.all()
-    serializer_class = MealTypeSerializer
-    permission_classes = [FoodManagementPermission]
-
 
 # ========== Restaurant Management ==========
 
@@ -273,7 +259,7 @@ class MealOptionListCreateView(generics.ListCreateAPIView):
         # اگر base_meal مشخص شده، response متفاوت بده
         if base_meal_id:
             try:
-                base_meal = BaseMeal.objects.select_related('center', 'restaurant', 'meal_type').get(pk=base_meal_id)
+                base_meal = BaseMeal.objects.select_related('center', 'restaurant').get(pk=base_meal_id)
                 
                 # بررسی دسترسی
                 user = request.user
@@ -508,7 +494,7 @@ class DailyMenuListView(generics.ListAPIView):
             week_end = week_start + timedelta(days=6)
             queryset = queryset.filter(date__range=[week_start, week_end])
         
-        return queryset.order_by('date', 'meal_type__start_time')
+        return queryset.order_by('date')
 
 
 # ========== Food Reservation Views ==========
@@ -818,7 +804,6 @@ def comprehensive_statistics(request):
     
     # ساخت queryset های پایه
     base_meals_qs = BaseMeal.objects.all()
-    meal_types_qs = MealType.objects.all()
     meal_options_qs = MealOption.objects.all()
     restaurants_qs = Restaurant.objects.all()
     from apps.accounts.models import User
@@ -880,15 +865,6 @@ def comprehensive_statistics(request):
         'all': list(base_meals_qs.values_list('id', flat=True)),
         'active': list(base_meals_qs.filter(is_active=True).values_list('id', flat=True)),
         'inactive': list(base_meals_qs.filter(is_active=False).values_list('id', flat=True))
-    }
-    
-    # آمار وعده‌ها
-    total_meal_types = meal_types_qs.count()
-    active_meal_types = meal_types_qs.filter(is_active=True).count()
-    meal_type_ids = {
-        'all': list(meal_types_qs.values_list('id', flat=True)),
-        'active': list(meal_types_qs.filter(is_active=True).values_list('id', flat=True)),
-        'inactive': list(meal_types_qs.filter(is_active=False).values_list('id', flat=True))
     }
     
     # آمار اپشن‌ها
@@ -1002,12 +978,6 @@ def comprehensive_statistics(request):
             'active': active_base_meals,
             'inactive': total_base_meals - active_base_meals,
             'ids': base_meal_ids
-        },
-        'meal_types': {
-            'total': total_meal_types,
-            'active': active_meal_types,
-            'inactive': total_meal_types - active_meal_types,
-            'ids': meal_type_ids
         },
         'meal_options': {
             'total': total_meal_options,
@@ -1150,7 +1120,7 @@ def export_reservations_excel(request, center_id):
     for row, reservation in enumerate(reservations, 2):
         ws.cell(row=row, column=1, value=reservation.user.username)
         ws.cell(row=row, column=2, value=str(reservation.daily_menu.date))
-        ws.cell(row=row, column=3, value=reservation.daily_menu.meal_type.name)
+        ws.cell(row=row, column=3, value='-')
         if reservation.meal_option:
             meal_title = f"{reservation.meal_option.base_meal.title} - {reservation.meal_option.title}"
         else:
@@ -1230,7 +1200,7 @@ def export_reservations_pdf(request, center_id):
         data = [
             reservation.user.username,
             str(reservation.daily_menu.date),
-            reservation.daily_menu.meal_type.name,
+            '-',
             f"{reservation.meal_option.base_meal.title} - {reservation.meal_option.title}" if reservation.meal_option else 'نامشخص',
             reservation.get_status_display()
         ]
@@ -1432,7 +1402,7 @@ def employee_daily_menus(request):
         center__in=user.centers.all(),
         date=parsed_date,
         is_available=True
-    ).select_related('meal_type', 'center').prefetch_related('meal_options')
+    ).select_related('center').prefetch_related('meal_options')
     
     serializer = DailyMenuSerializer(daily_menus, many=True)
     return Response(serializer.data)
@@ -2721,7 +2691,7 @@ def detailed_reservations_report(request):
     # فیلتر رزروها
     reservations = FoodReservation.objects.select_related(
         'user', 'meal_option', 'meal_option__base_meal', 'meal_option__restaurant',
-        'daily_menu', 'daily_menu__meal_type', 'daily_menu__center'
+        'daily_menu', 'daily_menu__center'
     ).all()
     
     if center_id:
