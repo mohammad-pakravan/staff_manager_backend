@@ -16,11 +16,16 @@ Meal = BaseMeal
 
 @admin.register(Restaurant)
 class RestaurantAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('name', 'center', 'phone', 'is_active', 'jalali_created_at')
-    list_filter = ('center', 'is_active', 'created_at')
+    list_display = ('name', 'get_centers_display', 'phone', 'is_active', 'jalali_created_at')
+    list_filter = ('centers', 'is_active', 'created_at')
     search_fields = ('name', 'address', 'phone', 'email')
     ordering = ('name',)
-    raw_id_fields = ('center',)
+    filter_horizontal = ('centers',)
+    
+    def get_centers_display(self, obj):
+        """نمایش مراکز"""
+        return ', '.join([c.name for c in obj.centers.all()])
+    get_centers_display.short_description = 'مراکز'
     
     def jalali_created_at(self, obj):
         if obj.created_at:
@@ -66,9 +71,9 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                 
                 restaurant = cleaned_data.get('restaurant')
                 
-                # تنظیم خودکار مرکز از رستوران
-                if restaurant and restaurant.center:
-                    cleaned_data['center'] = restaurant.center
+                # تنظیم خودکار مرکز از رستوران (اولین مرکز)
+                if restaurant and restaurant.centers.exists():
+                    cleaned_data['center'] = restaurant.centers.first()
                 
                 return cleaned_data
         
@@ -77,9 +82,9 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     def save_model(self, request, obj, form, change):
         """ذخیره مدل و تنظیم خودکار مرکز از رستوران"""
-        # اگر رستوران انتخاب شده، مرکز را از رستوران بگیر
-        if obj.restaurant and obj.restaurant.center:
-            obj.center = obj.restaurant.center
+        # اگر رستوران انتخاب شده، مرکز را از رستوران بگیر (اولین مرکز)
+        if obj.restaurant and obj.restaurant.centers.exists():
+            obj.center = obj.restaurant.centers.first()
         super().save_model(request, obj, form, change)
     
     def options_count(self, obj):
@@ -125,8 +130,8 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'restaurant', 'get_center_display', 'jalali_date', 'meal_options_count', 
         'max_reservations_per_meal', 'is_available'
     )
-    list_filter = ('date', 'is_available', 'restaurant', 'restaurant__center')
-    search_fields = ('restaurant__name', 'restaurant__center__name')
+    list_filter = ('date', 'is_available', 'restaurant', 'restaurant__centers')
+    search_fields = ('restaurant__name', 'restaurant__centers__name')
     ordering = ('-date',)
     raw_id_fields = ('restaurant',)
     filter_horizontal = ('base_meals',)
@@ -134,9 +139,11 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     add_form_template = 'admin/food_management/dailymenu/change_form.html'
     
     def get_center_display(self, obj):
-        """نمایش مرکز از طریق رستوران"""
-        return obj.restaurant.center.name if obj.restaurant and obj.restaurant.center else '-'
-    get_center_display.short_description = 'مرکز'
+        """نمایش مراکز از طریق رستوران"""
+        if obj.restaurant and obj.restaurant.centers.exists():
+            return ', '.join([c.name for c in obj.restaurant.centers.all()])
+        return '-'
+    get_center_display.short_description = 'مراکز'
     
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         """فیلتر کردن base_meals بر اساس رستوران"""
@@ -553,7 +560,7 @@ class FoodReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'user', 'jalali_date', 'get_meal_option_title', 'quantity', 'status', 'amount', 
         'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
-    list_filter = ('status', 'reservation_date', 'daily_menu__restaurant__center')
+    list_filter = ('status', 'reservation_date', 'daily_menu__restaurant__centers')
     search_fields = ('user__username', 'user__employee_number', 'meal_option__title', 'meal_option__base_meal__title', 'daily_menu_info', 'meal_option_info')
     ordering = ('-reservation_date',)
     raw_id_fields = ('user', 'daily_menu', 'meal_option')
@@ -613,7 +620,7 @@ class GuestReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'guest_first_name', 'guest_last_name', 'host_user', 'jalali_date', 'get_meal_option_title', 
         'status', 'amount', 'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
-    list_filter = ('status', 'reservation_date', 'daily_menu__restaurant__center')
+    list_filter = ('status', 'reservation_date', 'daily_menu__restaurant__centers')
     search_fields = ('guest_first_name', 'guest_last_name', 'host_user__username', 'host_user__employee_number', 'meal_option__title', 'meal_option__base_meal__title', 'daily_menu_info', 'meal_option_info')
     ordering = ('-reservation_date',)
     raw_id_fields = ('host_user', 'daily_menu', 'meal_option')

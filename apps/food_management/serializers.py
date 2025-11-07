@@ -21,18 +21,26 @@ class CenterSerializer(serializers.ModelSerializer):
 
 class RestaurantSerializer(serializers.ModelSerializer):
     """سریالایزر رستوران"""
-    center = CenterSerializer(read_only=True)  # center به صورت object
+    centers = CenterSerializer(many=True, read_only=True)  # centers به صورت لیست
+    center = serializers.SerializerMethodField()  # برای سازگاری با کدهای قبلی (اولین مرکز)
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
     
     class Meta:
         model = Restaurant
         fields = [
-            'id', 'name', 'center', 'address', 'phone', 'email', 
+            'id', 'name', 'centers', 'center', 'address', 'phone', 'email', 
             'description', 'is_active', 'created_at', 'jalali_created_at', 
             'updated_at', 'jalali_updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+    @extend_schema_field(CenterSerializer())
+    def get_center(self, obj):
+        """برای سازگاری با کدهای قبلی - اولین مرکز را برمی‌گرداند"""
+        if obj.centers.exists():
+            return CenterSerializer(obj.centers.first()).data
+        return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
@@ -70,12 +78,13 @@ class BaseMealSerializer(serializers.ModelSerializer):
         # فیلتر کردن queryset رستوران‌ها بر اساس مرکز
         if 'restaurant' in self.fields:
             # چک کردن اینکه instance یک object است نه QuerySet
-            if self.instance and not hasattr(self.instance, '__iter__') and hasattr(self.instance, 'center'):
-                if self.instance.center:
+            if self.instance and not hasattr(self.instance, '__iter__') and hasattr(self.instance, 'centers'):
+                if self.instance.centers.exists():
+                    # فیلتر رستوران‌هایی که حداقل یکی از مراکز instance را دارند
                     self.fields['restaurant'].queryset = Restaurant.objects.filter(
-                        center=self.instance.center,
+                        centers__in=self.instance.centers.all(),
                         is_active=True
-                    )
+                    ).distinct()
             elif hasattr(self, 'initial_data'):
                 center_id = self.initial_data.get('center')
                 if center_id:
@@ -83,9 +92,9 @@ class BaseMealSerializer(serializers.ModelSerializer):
                         from apps.centers.models import Center
                         center = Center.objects.get(pk=center_id)
                         self.fields['restaurant'].queryset = Restaurant.objects.filter(
-                            center=center,
+                            centers__in=[center],
                             is_active=True
-                        )
+                        ).distinct()
                     except (Center.DoesNotExist, ValueError, TypeError):
                         pass
 
@@ -126,9 +135,10 @@ class BaseMealSerializer(serializers.ModelSerializer):
             center = self.instance.center
         
         if restaurant and center:
-            if restaurant.center != center:
+            if center not in restaurant.centers.all():
+                center_names = ', '.join([c.name for c in restaurant.centers.all()])
                 raise serializers.ValidationError({
-                    'restaurant': f'رستوران باید متعلق به مرکز "{center.name}" باشد. رستوران انتخاب شده متعلق به مرکز "{restaurant.center.name}" است.'
+                    'restaurant': f'رستوران باید متعلق به مرکز "{center.name}" باشد. رستوران انتخاب شده متعلق به مراکز "{center_names}" است.'
                 })
         
         return data
@@ -893,7 +903,7 @@ class DetailedReservationReportSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
     user_full_name = serializers.CharField(source='user.get_full_name', read_only=True)
     employee_number = serializers.CharField(source='user.employee_number', read_only=True)
-    center_name = serializers.CharField(source='daily_menu.center.name', read_only=True)
+    center_name = serializers.SerializerMethodField()
     meal_option_title = serializers.CharField(source='meal_option.title', read_only=True)
     base_meal_title = serializers.CharField(source='meal_option.base_meal.title', read_only=True)
     restaurant_name = serializers.SerializerMethodField()
@@ -916,6 +926,12 @@ class DetailedReservationReportSerializer(serializers.ModelSerializer):
         if obj.daily_menu and obj.daily_menu.date:
             return obj.daily_menu.date
         return None
+    
+    def get_center_name(self, obj):
+        """نام مرکز از طریق daily_menu.restaurant.centers"""
+        if obj.daily_menu and obj.daily_menu.restaurant and obj.daily_menu.restaurant.centers.exists():
+            return ', '.join([c.name for c in obj.daily_menu.restaurant.centers.all()])
+        return ''
     
     def get_restaurant_name(self, obj):
         if obj.meal_option and obj.meal_option.restaurant:

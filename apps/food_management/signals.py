@@ -31,7 +31,11 @@ def update_meal_option_on_guest_reservation_delete(sender, instance, **kwargs):
 @receiver(pre_delete, sender=DailyMenu)
 def save_daily_menu_info_before_delete(sender, instance, **kwargs):
     """ذخیره اطلاعات منو در رزروها قبل از حذف"""
-    center_name = instance.restaurant.center.name if instance.restaurant and instance.restaurant.center else 'بدون مرکز'
+    if instance.restaurant and instance.restaurant.centers.exists():
+        center_names = ', '.join([c.name for c in instance.restaurant.centers.all()])
+        center_name = center_names
+    else:
+        center_name = 'بدون مرکز'
     date_str = instance.date.strftime('%Y-%m-%d')
     menu_info = f"رستوران: {instance.restaurant.name if instance.restaurant else 'بدون رستوران'} - مرکز: {center_name} - تاریخ: {date_str}"
     

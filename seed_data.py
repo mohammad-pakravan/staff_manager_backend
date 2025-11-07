@@ -326,16 +326,20 @@ def create_restaurants(centers):
     
     restaurants = []
     for restaurant_data in restaurants_data:
+        center = restaurant_data.pop('center')  # حذف center از restaurant_data
         restaurant, created = Restaurant.objects.get_or_create(
             name=restaurant_data['name'],
-            center=restaurant_data['center'],
             defaults=restaurant_data
         )
+        # اضافه کردن مرکز به رستوران
+        if center not in restaurant.centers.all():
+            restaurant.centers.add(center)
         restaurants.append(restaurant)
+        center_name = center.name if center else 'بدون مرکز'
         if created:
-            print(f"✅ رستوران '{restaurant.name}' برای مرکز '{restaurant.center.name}' ایجاد شد")
+            print(f"✅ رستوران '{restaurant.name}' برای مرکز '{center_name}' ایجاد شد")
         else:
-            print(f"ℹ️ رستوران '{restaurant.name}' برای مرکز '{restaurant.center.name}' قبلاً وجود دارد")
+            print(f"ℹ️ رستوران '{restaurant.name}' برای مرکز '{center_name}' قبلاً وجود دارد")
     
     return restaurants
 
@@ -424,9 +428,10 @@ def create_meal_options(restaurants, base_meals):
     # نگاشت مرکز به رستوران
     center_restaurants = {}
     for restaurant in restaurants:
-        if restaurant.center not in center_restaurants:
-            center_restaurants[restaurant.center] = []
-        center_restaurants[restaurant.center].append(restaurant)
+        for center in restaurant.centers.all():
+            if center not in center_restaurants:
+                center_restaurants[center] = []
+            center_restaurants[center].append(restaurant)
     
     meal_options_data = []
     
@@ -596,10 +601,12 @@ def create_daily_menus(centers, meal_types, meal_options):
     # نگاشت مرکز به meal_options
     center_meal_options = {}
     for meal_option in meal_options:
-        center = meal_option.restaurant.center
-        if center not in center_meal_options:
-            center_meal_options[center] = []
-        center_meal_options[center].append(meal_option)
+        # گرفتن مراکز از طریق رستوران
+        if meal_option.restaurant and meal_option.restaurant.centers.exists():
+            for center in meal_option.restaurant.centers.all():
+                if center not in center_meal_options:
+                    center_meal_options[center] = []
+                center_meal_options[center].append(meal_option)
     
     daily_menus = []
     meal_type = meal_types[0]  # فقط ناهار

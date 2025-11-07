@@ -15,7 +15,7 @@ class Restaurant(models.Model):
     email = models.EmailField(blank=True, null=True, verbose_name='ایمیل')
     description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
-    center = models.ForeignKey(Center, on_delete=models.CASCADE, related_name='restaurants', verbose_name='مرکز')
+    centers = models.ManyToManyField(Center, related_name='restaurants', verbose_name='مراکز')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
 
@@ -25,7 +25,8 @@ class Restaurant(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} - {self.center.name if self.center else 'بدون مرکز'}"
+        center_names = ', '.join([c.name for c in self.centers.all()])
+        return f"{self.name} - {center_names if center_names else 'بدون مرکز'}"
 
 
 class BaseMeal(models.Model):
@@ -67,8 +68,10 @@ class DailyMenu(models.Model):
     
     @property
     def center(self):
-        """مرکز از طریق رستوران"""
-        return self.restaurant.center if self.restaurant else None
+        """مرکز از طریق رستوران (برای سازگاری با کدهای قبلی - اولین مرکز را برمی‌گرداند)"""
+        if self.restaurant and self.restaurant.centers.exists():
+            return self.restaurant.centers.first()
+        return None
 
     @property
     def available_spots(self):
@@ -193,9 +196,12 @@ class FoodReservation(models.Model):
         """ذخیره رزرو"""
         # ذخیره اطلاعات منو به صورت string
         if self.daily_menu:
-            center_name = self.daily_menu.center.name if self.daily_menu.center else 'بدون مرکز'
+            if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
+                center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
+            else:
+                center_names = 'بدون مرکز'
             date_str = self.daily_menu.date.strftime('%Y-%m-%d')
-            self.daily_menu_info = f"مرکز: {center_name} - تاریخ: {date_str}"
+            self.daily_menu_info = f"مرکز: {center_names} - تاریخ: {date_str}"
         elif not self.daily_menu_info and self.daily_menu is None:
             # اگر منو حذف شده و اطلاعات ذخیره نشده، اطلاعات قبلی را نگه دار
             pass
@@ -305,9 +311,12 @@ class GuestReservation(models.Model):
     def save(self, *args, **kwargs):
         # ذخیره اطلاعات منو به صورت string
         if self.daily_menu:
-            center_name = self.daily_menu.center.name if self.daily_menu.center else 'بدون مرکز'
+            if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
+                center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
+            else:
+                center_names = 'بدون مرکز'
             date_str = self.daily_menu.date.strftime('%Y-%m-%d')
-            self.daily_menu_info = f"مرکز: {center_name} - تاریخ: {date_str}"
+            self.daily_menu_info = f"مرکز: {center_names} - تاریخ: {date_str}"
         elif not self.daily_menu_info and self.daily_menu is None:
             # اگر منو حذف شده و اطلاعات ذخیره نشده، اطلاعات قبلی را نگه دار
             pass
