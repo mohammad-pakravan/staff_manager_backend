@@ -17,14 +17,17 @@ Meal = BaseMeal
 @admin.register(Restaurant)
 class RestaurantAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = ('name', 'get_centers_display', 'phone', 'is_active', 'jalali_created_at')
-    list_filter = ('centers', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')  # 'centers' temporarily removed until migration is applied
     search_fields = ('name', 'address', 'phone', 'email')
     ordering = ('name',)
     filter_horizontal = ('centers',)
     
     def get_centers_display(self, obj):
         """نمایش مراکز"""
-        return ', '.join([c.name for c in obj.centers.all()])
+        try:
+            return ', '.join([c.name for c in obj.centers.all()])
+        except Exception:
+            return '-'
     get_centers_display.short_description = 'مراکز'
     
     def jalali_created_at(self, obj):
@@ -72,8 +75,11 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                 restaurant = cleaned_data.get('restaurant')
                 
                 # تنظیم خودکار مرکز از رستوران (اولین مرکز)
-                if restaurant and restaurant.centers.exists():
-                    cleaned_data['center'] = restaurant.centers.first()
+                try:
+                    if restaurant and restaurant.centers.exists():
+                        cleaned_data['center'] = restaurant.centers.first()
+                except Exception:
+                    pass
                 
                 return cleaned_data
         
@@ -83,8 +89,11 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         """ذخیره مدل و تنظیم خودکار مرکز از رستوران"""
         # اگر رستوران انتخاب شده، مرکز را از رستوران بگیر (اولین مرکز)
-        if obj.restaurant and obj.restaurant.centers.exists():
-            obj.center = obj.restaurant.centers.first()
+        try:
+            if obj.restaurant and obj.restaurant.centers.exists():
+                obj.center = obj.restaurant.centers.first()
+        except Exception:
+            pass
         super().save_model(request, obj, form, change)
     
     def options_count(self, obj):
@@ -130,8 +139,8 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'restaurant', 'get_center_display', 'jalali_date', 'meal_options_count', 
         'max_reservations_per_meal', 'is_available'
     )
-    list_filter = ('date', 'is_available', 'restaurant', 'restaurant__centers')
-    search_fields = ('restaurant__name', 'restaurant__centers__name')
+    list_filter = ('date', 'is_available', 'restaurant')  # 'restaurant__centers' temporarily removed until migration is applied
+    search_fields = ('restaurant__name',)  # 'restaurant__centers__name' temporarily removed until migration is applied
     ordering = ('-date',)
     raw_id_fields = ('restaurant',)
     filter_horizontal = ('base_meals',)
@@ -140,8 +149,11 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     def get_center_display(self, obj):
         """نمایش مراکز از طریق رستوران"""
-        if obj.restaurant and obj.restaurant.centers.exists():
-            return ', '.join([c.name for c in obj.restaurant.centers.all()])
+        try:
+            if obj.restaurant and obj.restaurant.centers.exists():
+                return ', '.join([c.name for c in obj.restaurant.centers.all()])
+        except Exception:
+            pass
         return '-'
     get_center_display.short_description = 'مراکز'
     
@@ -560,7 +572,7 @@ class FoodReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'user', 'jalali_date', 'get_meal_option_title', 'quantity', 'status', 'amount', 
         'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
-    list_filter = ('status', 'reservation_date', 'daily_menu__restaurant__centers')
+    list_filter = ('status', 'reservation_date')  # 'daily_menu__restaurant__centers' temporarily removed until migration is applied
     search_fields = ('user__username', 'user__employee_number', 'meal_option__title', 'meal_option__base_meal__title', 'daily_menu_info', 'meal_option_info')
     ordering = ('-reservation_date',)
     raw_id_fields = ('user', 'daily_menu', 'meal_option')
@@ -620,7 +632,7 @@ class GuestReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'guest_first_name', 'guest_last_name', 'host_user', 'jalali_date', 'get_meal_option_title', 
         'status', 'amount', 'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
-    list_filter = ('status', 'reservation_date', 'daily_menu__restaurant__centers')
+    list_filter = ('status', 'reservation_date')  # 'daily_menu__restaurant__centers' temporarily removed until migration is applied
     search_fields = ('guest_first_name', 'guest_last_name', 'host_user__username', 'host_user__employee_number', 'meal_option__title', 'meal_option__base_meal__title', 'daily_menu_info', 'meal_option_info')
     ordering = ('-reservation_date',)
     raw_id_fields = ('host_user', 'daily_menu', 'meal_option')

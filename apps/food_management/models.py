@@ -25,8 +25,12 @@ class Restaurant(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        center_names = ', '.join([c.name for c in self.centers.all()])
-        return f"{self.name} - {center_names if center_names else 'بدون مرکز'}"
+        try:
+            center_names = ', '.join([c.name for c in self.centers.all()])
+            return f"{self.name} - {center_names if center_names else 'بدون مرکز'}"
+        except Exception:
+            # Fallback if database table doesn't exist yet (migration not applied)
+            return f"{self.name} - بدون مرکز"
 
 
 class BaseMeal(models.Model):
@@ -69,8 +73,11 @@ class DailyMenu(models.Model):
     @property
     def center(self):
         """مرکز از طریق رستوران (برای سازگاری با کدهای قبلی - اولین مرکز را برمی‌گرداند)"""
-        if self.restaurant and self.restaurant.centers.exists():
-            return self.restaurant.centers.first()
+        try:
+            if self.restaurant and self.restaurant.centers.exists():
+                return self.restaurant.centers.first()
+        except Exception:
+            pass
         return None
 
     @property
@@ -196,9 +203,12 @@ class FoodReservation(models.Model):
         """ذخیره رزرو"""
         # ذخیره اطلاعات منو به صورت string
         if self.daily_menu:
-            if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
-                center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
-            else:
+            try:
+                if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
+                    center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
+                else:
+                    center_names = 'بدون مرکز'
+            except Exception:
                 center_names = 'بدون مرکز'
             date_str = self.daily_menu.date.strftime('%Y-%m-%d')
             self.daily_menu_info = f"مرکز: {center_names} - تاریخ: {date_str}"
@@ -311,9 +321,12 @@ class GuestReservation(models.Model):
     def save(self, *args, **kwargs):
         # ذخیره اطلاعات منو به صورت string
         if self.daily_menu:
-            if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
-                center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
-            else:
+            try:
+                if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
+                    center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
+                else:
+                    center_names = 'بدون مرکز'
+            except Exception:
                 center_names = 'بدون مرکز'
             date_str = self.daily_menu.date.strftime('%Y-%m-%d')
             self.daily_menu_info = f"مرکز: {center_names} - تاریخ: {date_str}"
