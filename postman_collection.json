@@ -482,6 +482,196 @@
                   "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
                 }
               }
+            },
+            {
+              "name": "Get Restaurants for Food Admin",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/admin-food-restaurants/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "admin-food-restaurants", ""]
+                },
+                "description": "Get list of restaurants that belong to the food admin's centers. Food admin can see all restaurants of their assigned centers. No center parameter needed. System admin sees all restaurants. Returns simplified restaurant data (id, name, centers, is_active only)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Restaurants for Food Admin retrieved:', response.length);",
+                      "    response.forEach((restaurant, index) => {",
+                      "        console.log(`Restaurant ${index + 1}:`, {",
+                      "            id: restaurant.id,",
+                      "            name: restaurant.name,",
+                      "            centers: restaurant.centers?.map(c => c.name) || [],",
+                      "            is_active: restaurant.is_active",
+                      "        });",
+                      "    });",
+                      "    console.log('Note: Simplified response - only essential fields (id, name, centers, is_active)');",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Meals by Date for Food Admin",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/admin-food/meals-by-date/?date=2025-01-01",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "admin-food", "meals-by-date", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-01-01"
+                    }
+                  ]
+                },
+                "description": "Get list of meals that exist in daily menus for a specific date. Food admin can only see meals of restaurants that belong to their assigned centers. Returns only meal data without restaurant information. No pagination. Used for menu management: first select date, then show meals if they exist in menu for that date."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Meals by date retrieved:', response.length);",
+                      "    response.forEach((meal, index) => {",
+                      "        console.log(`Meal ${index + 1}:`, {",
+                      "            id: meal.id,",
+                      "            title: meal.title,",
+                      "            description: meal.description,",
+                      "            is_active: meal.is_active,",
+                      "            image_url: meal.image_url",
+                      "        });",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Daily Menu by Date for Food Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"restaurant_id\": 2,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج خارجی\",\n            \"description\": \"غذای خوشمزه با برنج خارجی\",\n            \"price\": 100000,\n            \"quantity\": 50\n        },\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"غذای خوشمزه با برنج ایرانی\",\n            \"price\": 120000,\n            \"quantity\": 30\n        }\n    ]\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/admin-food/meals-by-date/?date=2025-11-15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "admin-food", "meals-by-date", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-11-15"
+                    }
+                  ]
+                },
+                "description": "Add or update a single meal with its options in daily menu for a specific date. Requires restaurant_id, base_meal_id, and meal_options array with title, description (optional), price, and quantity. If the meal already exists in the menu, its options will be replaced. Food admin can only update menus for restaurants that belong to their assigned centers. System admin can update any restaurant's menu. Returns complete daily menu data with all meals and meal options."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Menu updated successfully!');",
+                      "    console.log('Daily Menu ID:', response.id);",
+                      "    console.log('Restaurant:', response.restaurant?.name);",
+                      "    console.log('Date:', response.date, '(Jalali:', response.jalali_date, ')');",
+                      "    console.log('Meals Count:', response.meals_count);",
+                      "    console.log('Meals:', response.meals);",
+                      "    console.log('Meal Options:', response.meal_options);",
+                      "    pm.environment.set('daily_menu_id', response.id);",
+                      "} else {",
+                      "    console.log('Error:', pm.response.json());",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Remove Meal from Daily Menu",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/admin-food/remove-meal-from-menu/?date=2025-11-15&restaurant_id=2&base_meal_id=1",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "admin-food", "remove-meal-from-menu", ""],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2025-11-15"
+                    },
+                    {
+                      "key": "restaurant_id",
+                      "value": "2"
+                    },
+                    {
+                      "key": "base_meal_id",
+                      "value": "1"
+                    }
+                  ]
+                },
+                "description": "Remove a base meal and all its meal options from daily menu for a specific date. Food admin can only remove meals from restaurants that belong to their assigned centers. System admin can remove meals from any restaurant. Returns complete daily menu data after removal."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Meal removed successfully!');",
+                      "    console.log('Message:', response.message);",
+                      "    console.log('Deleted Meal Options Count:', response.deleted_meal_options_count);",
+                      "    console.log('Updated Daily Menu:', response.daily_menu);",
+                      "} else {",
+                      "    console.log('Error:', pm.response.json());",
+                      "}"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },
@@ -628,6 +818,46 @@
                   "path": ["api", "food", "meals", "{{base_meal_id}}", ""]
                 }
               }
+            },
+            {
+              "name": "Get Meals by Restaurant",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/{{restaurant_id}}/meals/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", "{{restaurant_id}}", "meals", ""]
+                },
+                "description": "Get list of meals for a specific restaurant. Food admin can only see meals of restaurants that belong to their assigned centers. System admin sees all meals. Regular users see only meals of restaurants in their centers. Returns only meal data without restaurant information. No pagination."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Meals for restaurant retrieved:', response.length);",
+                      "    response.forEach((meal, index) => {",
+                      "        console.log(`Meal ${index + 1}:`, {",
+                      "            id: meal.id,",
+                      "            title: meal.title,",
+                      "            description: meal.description,",
+                      "            is_active: meal.is_active,",
+                      "            image_url: meal.image_url",
+                      "        });",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },
@@ -782,6 +1012,146 @@
                 },
                 "description": "Get simple meal statistics (legacy endpoint for backward compatibility)"
               }
+            },
+            {
+              "name": "Meal Statistics by Restaurant and Base Meal",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/meals-by-restaurant/?start_date=2025-10-01&end_date=2025-10-31",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", "meals-by-restaurant", ""],
+                  "query": [
+                    {
+                      "key": "start_date",
+                      "value": "2025-10-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2025-10-31"
+                    }
+                  ]
+                },
+                "description": "Get statistics of meals grouped by restaurant, base meal, and meal options. Shows reservation counts (reserved, served, cancelled, guest) for each meal option. Supports filters by center_id, restaurant_id, start_date, and end_date."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Meal statistics by restaurant retrieved:', response.length);",
+                      "    response.forEach((restaurant, index) => {",
+                      "        console.log(`Restaurant ${index + 1}:`, restaurant.restaurant.name);",
+                      "        console.log('Base Meals:', restaurant.base_meals.length);",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Reservations by Base Meal",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/reservations-by-base-meal/?base_meal_id=1&start_date=2025-10-01&end_date=2025-10-31",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", "reservations-by-base-meal", ""],
+                  "query": [
+                    {
+                      "key": "base_meal_id",
+                      "value": "1"
+                    },
+                    {
+                      "key": "start_date",
+                      "value": "2025-10-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2025-10-31"
+                    }
+                  ]
+                },
+                "description": "Get detailed statistics of reservations for a specific base meal. Shows users who ordered, meal options they ordered, details (quantity, amount, status), and restaurant information. Requires base_meal_id. Supports filters by center_id, start_date, and end_date."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Base Meal:', response.base_meal.title);",
+                      "    console.log('Users who ordered:', response.users.length);",
+                      "    response.users.forEach((user, index) => {",
+                      "        console.log(`User ${index + 1}:`, user.user.full_name, '- Reservations:', user.reservations.length);",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "User Statistics by Date Range",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/food/statistics/users-by-date-range/?start_date=2025-10-01&end_date=2025-10-31",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "statistics", "users-by-date-range", ""],
+                  "query": [
+                    {
+                      "key": "start_date",
+                      "value": "2025-10-01"
+                    },
+                    {
+                      "key": "end_date",
+                      "value": "2025-10-31"
+                    }
+                  ]
+                },
+                "description": "Get statistics of users and total amount they ordered within a date range. Shows users with their total order amounts, reservation counts, and guest reservation counts. Requires start_date and end_date. Supports filter by center_id. Results are sorted by total amount (descending)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    console.log('Date Range:', response.start_date, 'to', response.end_date);",
+                      "    console.log('Total Users:', response.total_users);",
+                      "    console.log('Total Amount:', response.total_amount);",
+                      "    response.users.slice(0, 5).forEach((user, index) => {",
+                      "        console.log(`User ${index + 1}:`, user.user.full_name, '- Total Amount:', user.total_amount);",
+                      "    });",
+                      "}"
+                    ]
+                  }
+                }
+              ]
             },
             {
               "name": "Get Center Reservations (Admin Only)",
@@ -1095,7 +1465,7 @@
                     }
                   ]
                 },
-                "description": "Get daily menus for employee's assigned centers on specific date (supports multiple centers). Response structure:\n- `restaurant`: Full restaurant object with nested `center`\n- `base_meals`: Simple list of base meals (id, title, description, is_active)\n- `meals`: Base meals with their options (each meal has an `options` array)\n- `meal_options`: Flat list of all meal options (id, base_meal_id, title, price)\n- `meals_count`: Total count of meal options"
+                "description": "Get simplified daily menus for employee's assigned centers on specific date (supports multiple centers). Returns only essential information: restaurant (id, name, center), date, jalali_date, is_available, and meals array. Each meal in meals array contains: id, title, and options array. Each option contains: id, title, price, quantity, and available_quantity. Clean and simple structure for easy frontend integration."
               },
               "event": [
                 {

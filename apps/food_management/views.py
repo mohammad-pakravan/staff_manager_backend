@@ -69,7 +69,10 @@ from .serializers import (
     SimpleFoodReservationSerializer, SimpleGuestReservationSerializer,
     MealOptionReportSerializer, BaseMealReportSerializer, UserReportSerializer,
     DateReportSerializer, DetailedReservationReportSerializer, ComprehensiveReportSerializer,
-    DailyMenuMealOptionSerializer as MealOptionSerializer
+    DailyMenuMealOptionSerializer as MealOptionSerializer,
+    SimpleBaseMealSerializer, SimpleRestaurantSerializer,
+    DailyMenuMealUpdateSerializer,
+    SimpleEmployeeDailyMenuSerializer
 )
 from .models import Restaurant
 
@@ -86,11 +89,11 @@ from .models import Restaurant
     post=extend_schema(
         operation_id='meal_create',
         summary='Create Meal',
-        description='Create new base meal (food group). After creation, add meal options (DailyMenuMealOption) via admin panel when creating/editing a DailyMenu. (only for food admins and system admins)',
+        description='Create new base meal (food group). After creation, add meal options (DailyMenuMealOption) via admin panel when creating/editing a DailyMenu. (only for food admins and system admins). Returns simplified meal data without restaurant details.',
         tags=['Meals'],
         request=MealSerializer,
         responses={
-            201: MealSerializer,
+            201: SimpleBaseMealSerializer,
             400: {'description': 'Validation error'},
             403: {'description': 'Permission denied'}
         }
@@ -104,41 +107,60 @@ class MealListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
-        # ادمین سیستم و ادمین غذا می‌توانند همه غذاها را ببینند
+        # ادمین سیستم همه غذاها را می‌بیند
+        # ادمین غذا فقط غذاهای رستوران‌های مراکز خود را می‌بیند
         # کاربران عادی فقط غذاهای مرکز خود را می‌بینند
         user = self.request.user
-        if user.role in ['sys_admin', 'admin_food']:
+        if user.role == 'sys_admin':
             return Meal.objects.all()
+        elif user.role == 'admin_food':
+            # ادمین غذا: فقط غذاهای رستوران‌هایی که به مراکز ادمین غذا متصل هستند
+            if user.centers.exists():
+                return Meal.objects.filter(
+                    restaurant__centers__in=user.centers.all()
+                ).distinct()
+            return Meal.objects.none()
         elif user.centers.exists():
             return Meal.objects.filter(is_active=True, center__in=user.centers.all())
         return Meal.objects.none()
     
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         # فقط ادمین‌های غذا و سیستم می‌توانند غذا ایجاد کنند
-        user = self.request.user
+        user = request.user
         if user.role not in ['admin_food', 'sys_admin']:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("فقط ادمین‌های غذا می‌توانند غذا ایجاد کنند")
         
-        # ادمین غذا و System Admin می‌توانند برای هر مرکزی غذا ایجاد کنند
-        serializer.save()
+        # استفاده از serializer کامل برای ایجاد
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        meal = serializer.save()
+        
+        # برگرداندن response با serializer ساده
+        response_serializer = SimpleBaseMealSerializer(meal, context={'request': request})
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 @extend_schema_view(
     get=extend_schema(
         operation_id='meal_detail',
         summary='Get Meal Details',
-        description='Get base meal details. Meal options (DailyMenuMealOption) are managed per DailyMenu via admin panel.',
-        tags=['Meals']
+        description='Get base meal details. Returns simplified meal data without restaurant information.',
+        tags=['Meals'],
+        responses={
+            200: SimpleBaseMealSerializer,
+            404: {'description': 'Meal not found'}
+        }
     ),
     put=extend_schema(
         operation_id='meal_update',
         summary='Update Meal',
-        description='Update base meal. Note: Meal options (DailyMenuMealOption) should be managed via admin panel when creating/editing a DailyMenu. (only for admins)',
+        description='Update base meal. Note: Meal options (DailyMenuMealOption) should be managed via admin panel when creating/editing a DailyMenu. (only for admins). Returns simplified meal data without restaurant information.',
         tags=['Meals'],
         request=MealSerializer,
         responses={
-            200: MealSerializer,
+            200: SimpleBaseMealSerializer,
             400: {'description': 'Validation error'},
             403: {'description': 'Permission denied'},
             404: {'description': 'Meal not found'}
@@ -147,11 +169,11 @@ class MealListCreateView(generics.ListCreateAPIView):
     patch=extend_schema(
         operation_id='meal_partial_update',
         summary='Partial Update Meal',
-        description='Partially update base meal. Note: Meal options (DailyMenuMealOption) should be managed via admin panel when creating/editing a DailyMenu. (only for admins)',
+        description='Partially update base meal. Note: Meal options (DailyMenuMealOption) should be managed via admin panel when creating/editing a DailyMenu. (only for admins). Returns simplified meal data without restaurant information.',
         tags=['Meals'],
         request=MealSerializer,
         responses={
-            200: MealSerializer,
+            200: SimpleBaseMealSerializer,
             400: {'description': 'Validation error'},
             403: {'description': 'Permission denied'},
             404: {'description': 'Meal not found'}
@@ -172,13 +194,111 @@ class MealDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role in ['admin_food', 'sys_admin']:
+        if user.role == 'sys_admin':
             return Meal.objects.all()
+        elif user.role == 'admin_food':
+            # ادمین غذا: فقط غذاهای رستوران‌هایی که به مراکز ادمین غذا متصل هستند
+            if user.centers.exists():
+                return Meal.objects.filter(
+                    restaurant__centers__in=user.centers.all()
+                ).distinct()
+            return Meal.objects.none()
         # کاربران عادی فقط غذاهای مرکز خود را می‌بینند
         elif user.centers.exists():
             return Meal.objects.filter(center__in=user.centers.all())
         else:
             return Meal.objects.none()
+    
+    def retrieve(self, request, *args, **kwargs):
+        """بازگرداندن جزئیات غذا با serializer ساده"""
+        instance = self.get_object()
+        serializer = SimpleBaseMealSerializer(instance, context={'request': request})
+        return Response(serializer.data)
+    
+    def update(self, request, *args, **kwargs):
+        """به‌روزرسانی کامل غذا"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        # استفاده از serializer کامل برای validation و update
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        meal = serializer.save()
+        
+        # برگرداندن response با serializer ساده
+        response_serializer = SimpleBaseMealSerializer(meal, context={'request': request})
+        return Response(response_serializer.data)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """به‌روزرسانی جزئی غذا"""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+
+# ========== Restaurant Meals ==========
+
+@extend_schema(
+    operation_id='restaurant_meals',
+    summary='Get Meals by Restaurant',
+    description='Get list of meals for a specific restaurant. Food admin can only see meals of restaurants that belong to their assigned centers. Returns only meal data without restaurant information. No pagination.',
+    tags=['Meals'],
+    parameters=[
+        {
+            'name': 'restaurant_id',
+            'in': 'path',
+            'description': 'ID of the restaurant',
+            'required': True,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    responses={
+        200: SimpleBaseMealSerializer(many=True),
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Restaurant not found'}
+    }
+)
+@api_view(['GET'])
+@permission_classes([FoodManagementPermission])
+def restaurant_meals(request, restaurant_id):
+    """لیست غذاهای یک رستوران خاص - فقط رستوران‌هایی که کاربر به آن‌ها دسترسی دارد"""
+    user = request.user
+    
+    # ساخت queryset بر اساس دسترسی کاربر
+    if user.role == 'sys_admin':
+        # System Admin به همه رستوران‌ها دسترسی دارد
+        restaurants_qs = Restaurant.objects.all()
+    elif user.role == 'admin_food':
+        # ادمین غذا: فقط رستوران‌هایی که به مراکز ادمین غذا متصل هستند
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        restaurants_qs = Restaurant.objects.filter(centers__in=user.centers.all()).distinct()
+    else:
+        # کاربران عادی: فقط رستوران‌های مراکز خود
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        restaurants_qs = Restaurant.objects.filter(centers__in=user.centers.all(), is_active=True).distinct()
+    
+    # بررسی اینکه رستوران در لیست رستوران‌های قابل دسترسی کاربر است
+    try:
+        restaurant = restaurants_qs.get(id=restaurant_id)
+    except Restaurant.DoesNotExist:
+        return Response({
+            'error': 'رستوران یافت نشد یا شما به این رستوران دسترسی ندارید'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # دریافت غذاهای رستوران
+    meals = Meal.objects.filter(restaurant=restaurant)
+    
+    # برای کاربران عادی فقط غذاهای فعال
+    if user.role not in ['sys_admin', 'admin_food']:
+        meals = meals.filter(is_active=True)
+    
+    # استفاده از serializer ساده (بدون اطلاعات رستوران)
+    serializer = SimpleBaseMealSerializer(meals, many=True, context={'request': request})
+    return Response(serializer.data)
 
 
 # ========== Meal Type Management ==========
@@ -286,6 +406,367 @@ class RestaurantDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ========== Weekly Menu Management ==========
+
+# ========== Admin Food Restaurants ==========
+
+@extend_schema(
+    operation_id='admin_food_restaurants',
+    summary='Get Restaurants for Food Admin',
+    description='Get list of restaurants that belong to the food admin\'s centers. Food admin can see all restaurants of their assigned centers. No center parameter needed. Returns simplified restaurant data.',
+    tags=['Food Management'],
+    responses={200: SimpleRestaurantSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsFoodAdminOrSystemAdmin])
+def admin_food_restaurants(request):
+    """لیست رستوران‌های مراکز ادمین غذا - خروجی ساده"""
+    user = request.user
+    
+    # بررسی اینکه کاربر ادمین غذا است
+    if user.role not in ['admin_food', 'sys_admin']:
+        return Response({
+            'error': 'دسترسی غیرمجاز'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # اگر sys_admin است، همه رستوران‌ها را برگردان
+    if user.role == 'sys_admin':
+        restaurants = Restaurant.objects.all()
+    else:
+        # برای admin_food، فقط رستوران‌های مراکز خودش
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        restaurants = Restaurant.objects.filter(
+            centers__in=user.centers.all()
+        ).distinct()
+    
+    # استفاده از serializer ساده
+    serializer = SimpleRestaurantSerializer(restaurants, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+# ========== Admin Food Meals by Date ==========
+
+@extend_schema(
+    operation_id='admin_food_meals_by_date',
+    summary='Get/Update Meals by Date for Food Admin',
+    description='GET: Get list of meals that exist in daily menus for a specific date. Food admin can only see meals of restaurants that belong to their assigned centers. Returns only meal data without restaurant information. No pagination.\n\nPOST: Add or update a single meal with its options in daily menu for a specific date. Requires restaurant_id, base_meal_id, and meal_options array (title, description, price, quantity).',
+    tags=['Food Management'],
+    parameters=[
+        {
+            'name': 'date',
+            'in': 'query',
+            'description': 'Date (format: YYYY-MM-DD or YYYY/MM/DD)',
+            'required': True,
+            'schema': {'type': 'string'}
+        }
+    ],
+    request=DailyMenuMealUpdateSerializer,
+    responses={
+        200: SimpleBaseMealSerializer(many=True),
+        201: DailyMenuSerializer,
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'}
+    }
+)
+@api_view(['GET', 'POST'])
+@permission_classes([IsFoodAdminOrSystemAdmin])
+def admin_food_meals_by_date(request):
+    """لیست و به‌روزرسانی غذاهای موجود در منو برای یک تاریخ مشخص - برای ادمین غذا"""
+    user = request.user
+    
+    # بررسی اینکه کاربر ادمین غذا است
+    if user.role not in ['admin_food', 'sys_admin']:
+        return Response({
+            'error': 'دسترسی غیرمجاز'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # دریافت تاریخ
+    date = request.query_params.get('date')
+    if not date:
+        return Response({
+            'error': 'تاریخ الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # تبدیل تاریخ شمسی یا میلادی به فرمت مناسب
+    parsed_date = parse_date_filter(date)
+    if not parsed_date:
+        return Response({
+            'error': 'فرمت تاریخ نامعتبر است. از فرمت میلادی (2025-10-24) یا شمسی (1404/08/02) استفاده کنید'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # GET: لیست غذاها
+    if request.method == 'GET':
+        # دریافت منوهای روزانه برای آن تاریخ
+        if user.role == 'sys_admin':
+            # System Admin: همه منوها
+            daily_menus = DailyMenu.objects.filter(date=parsed_date, is_available=True)
+        else:
+            # Food Admin: فقط منوهای رستوران‌های مراکز خود
+            if not user.centers.exists():
+                return Response({
+                    'error': 'کاربر مرکز مشخصی ندارد'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            daily_menus = DailyMenu.objects.filter(
+                date=parsed_date,
+                is_available=True,
+                restaurant__centers__in=user.centers.all()
+            ).distinct()
+        
+        # استخراج base_meal ها از meal_options موجود در منوها
+        meal_ids = set()
+        for daily_menu in daily_menus.select_related('restaurant').prefetch_related('menu_meal_options__base_meal'):
+            for meal_option in daily_menu.menu_meal_options.all():
+                if meal_option.base_meal:
+                    meal_ids.add(meal_option.base_meal.id)
+        
+        # دریافت غذاها
+        if meal_ids:
+            meals = Meal.objects.filter(id__in=meal_ids)
+        else:
+            meals = Meal.objects.none()
+        
+        # استفاده از serializer ساده (بدون اطلاعات رستوران)
+        serializer = SimpleBaseMealSerializer(meals, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    # POST: افزودن/ویرایش یک غذا در منو
+    elif request.method == 'POST':
+        # اعتبارسنجی داده‌ها
+        serializer = DailyMenuMealUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        restaurant_id = serializer.validated_data['restaurant_id']
+        base_meal_id = serializer.validated_data['base_meal_id']
+        meal_options_data = serializer.validated_data['meal_options']
+        
+        # بررسی دسترسی به رستوران
+        try:
+            restaurant = Restaurant.objects.get(id=restaurant_id)
+        except Restaurant.DoesNotExist:
+            return Response({
+                'error': 'رستوران یافت نشد'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # بررسی دسترسی ادمین غذا به رستوران
+        if user.role == 'admin_food':
+            if not user.centers.exists():
+                return Response({
+                    'error': 'کاربر مرکز مشخصی ندارد'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # بررسی اینکه رستوران به مراکز ادمین غذا متصل است
+            restaurant_centers = restaurant.centers.all()
+            user_centers = user.centers.all()
+            if not any(center in restaurant_centers for center in user_centers):
+                return Response({
+                    'error': 'شما به این رستوران دسترسی ندارید'
+                }, status=status.HTTP_403_FORBIDDEN)
+        
+        # بررسی وجود base_meal
+        try:
+            base_meal = BaseMeal.objects.get(id=base_meal_id)
+        except BaseMeal.DoesNotExist:
+            return Response({
+                'error': f'غذای پایه با شناسه {base_meal_id} یافت نشد'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # پیدا کردن یا ایجاد DailyMenu
+        daily_menu, created = DailyMenu.objects.get_or_create(
+            restaurant=restaurant,
+            date=parsed_date,
+            defaults={'is_available': True}
+        )
+        
+        # اضافه کردن base_meal به base_meals ManyToMany (اگر وجود نداشته باشد)
+        daily_menu.base_meals.add(base_meal)
+        
+        # حذف meal_options قدیمی برای این base_meal در این daily_menu
+        DailyMenuMealOption.objects.filter(
+            daily_menu=daily_menu,
+            base_meal=base_meal
+        ).delete()
+        
+        # ایجاد meal_options جدید
+        for option_data in meal_options_data:
+            DailyMenuMealOption.objects.create(
+                daily_menu=daily_menu,
+                base_meal=base_meal,
+                title=option_data['title'],
+                description=option_data.get('description', ''),
+                price=option_data['price'],
+                quantity=option_data['quantity'],
+                is_default=False,
+                sort_order=0
+            )
+        
+        # بارگذاری مجدد daily_menu با تمام روابط
+        daily_menu.refresh_from_db()
+        daily_menu = DailyMenu.objects.prefetch_related(
+            'menu_meal_options__base_meal',
+            'restaurant__centers'
+        ).get(id=daily_menu.id)
+        
+        # استفاده از DailyMenuSerializer برای برگرداندن داده‌های کامل
+        serializer = DailyMenuSerializer(daily_menu, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ========== Remove Meal from Daily Menu ==========
+
+@extend_schema(
+    operation_id='admin_food_remove_meal_from_menu',
+    summary='Remove Meal from Daily Menu',
+    description='Remove a base meal and all its meal options from daily menu for a specific date. Food admin can only remove meals from restaurants that belong to their assigned centers.',
+    tags=['Food Management'],
+    parameters=[
+        {
+            'name': 'date',
+            'in': 'query',
+            'description': 'Date (format: YYYY-MM-DD or YYYY/MM/DD)',
+            'required': True,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'restaurant_id',
+            'in': 'query',
+            'description': 'Restaurant ID',
+            'required': True,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'base_meal_id',
+            'in': 'query',
+            'description': 'Base Meal ID to remove',
+            'required': True,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    responses={
+        200: DailyMenuSerializer,
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Not found'}
+    }
+)
+@api_view(['DELETE'])
+@permission_classes([IsFoodAdminOrSystemAdmin])
+def admin_food_remove_meal_from_menu(request):
+    """حذف غذا از منوی روزانه - برای ادمین غذا"""
+    user = request.user
+    
+    # بررسی اینکه کاربر ادمین غذا است
+    if user.role not in ['admin_food', 'sys_admin']:
+        return Response({
+            'error': 'دسترسی غیرمجاز'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # دریافت پارامترها
+    date = request.query_params.get('date')
+    restaurant_id = request.query_params.get('restaurant_id')
+    base_meal_id = request.query_params.get('base_meal_id')
+    
+    if not date:
+        return Response({
+            'error': 'تاریخ الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not restaurant_id:
+        return Response({
+            'error': 'شناسه رستوران الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not base_meal_id:
+        return Response({
+            'error': 'شناسه غذای پایه الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # تبدیل تاریخ
+    parsed_date = parse_date_filter(date)
+    if not parsed_date:
+        return Response({
+            'error': 'فرمت تاریخ نامعتبر است. از فرمت میلادی (2025-10-24) یا شمسی (1404/08/02) استفاده کنید'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # تبدیل restaurant_id و base_meal_id
+    try:
+        restaurant_id = int(restaurant_id)
+        base_meal_id = int(base_meal_id)
+    except (ValueError, TypeError):
+        return Response({
+            'error': 'شناسه رستوران و غذای پایه باید عدد باشند'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # بررسی وجود رستوران
+    try:
+        restaurant = Restaurant.objects.get(id=restaurant_id)
+    except Restaurant.DoesNotExist:
+        return Response({
+            'error': 'رستوران یافت نشد'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # بررسی دسترسی ادمین غذا به رستوران
+    if user.role == 'admin_food':
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # بررسی اینکه رستوران به مراکز ادمین غذا متصل است
+        restaurant_centers = restaurant.centers.all()
+        user_centers = user.centers.all()
+        if not any(center in restaurant_centers for center in user_centers):
+            return Response({
+                'error': 'شما به این رستوران دسترسی ندارید'
+            }, status=status.HTTP_403_FORBIDDEN)
+    
+    # بررسی وجود base_meal
+    try:
+        base_meal = BaseMeal.objects.get(id=base_meal_id)
+    except BaseMeal.DoesNotExist:
+        return Response({
+            'error': 'غذای پایه یافت نشد'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # پیدا کردن DailyMenu
+    try:
+        daily_menu = DailyMenu.objects.get(
+            restaurant=restaurant,
+            date=parsed_date
+        )
+    except DailyMenu.DoesNotExist:
+        return Response({
+            'error': 'منوی روزانه برای این تاریخ و رستوران یافت نشد'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # حذف تمام meal_options مربوط به این base_meal
+    deleted_count = DailyMenuMealOption.objects.filter(
+        daily_menu=daily_menu,
+        base_meal=base_meal
+    ).delete()[0]
+    
+    # حذف base_meal از base_meals ManyToMany
+    daily_menu.base_meals.remove(base_meal)
+    
+    # بارگذاری مجدد daily_menu با تمام روابط
+    daily_menu.refresh_from_db()
+    daily_menu = DailyMenu.objects.prefetch_related(
+        'menu_meal_options__base_meal',
+        'restaurant__centers'
+    ).get(id=daily_menu.id)
+    
+    # استفاده از DailyMenuSerializer برای برگرداندن داده‌های کامل
+    serializer = DailyMenuSerializer(daily_menu, context={'request': request})
+    return Response({
+        'message': f'غذا و {deleted_count} اپشن آن با موفقیت از منو حذف شد',
+        'deleted_meal_options_count': deleted_count,
+        'daily_menu': serializer.data
+    }, status=status.HTTP_200_OK)
+
 
 # ========== Daily Menu Views ==========
 
@@ -884,6 +1365,604 @@ def meal_statistics(request):
     return comprehensive_statistics(request)
 
 
+# ========== New Statistics Endpoints ==========
+
+@extend_schema(
+    operation_id='meal_statistics_by_restaurant',
+    summary='Meal Statistics by Restaurant and Base Meal',
+    description='Get statistics of meals grouped by restaurant, base meal, and meal options. Shows reservation counts (reserved, served, cancelled, guest) for each meal option.',
+    tags=['Statistics'],
+    parameters=[
+        {
+            'name': 'center_id',
+            'in': 'query',
+            'description': 'فیلتر بر اساس مرکز',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'restaurant_id',
+            'in': 'query',
+            'description': 'فیلتر بر اساس رستوران',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'start_date',
+            'in': 'query',
+            'description': 'تاریخ شروع (فرمت: YYYY-MM-DD یا YYYY/MM/DD)',
+            'required': False,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'end_date',
+            'in': 'query',
+            'description': 'تاریخ پایان (فرمت: YYYY-MM-DD یا YYYY/MM/DD)',
+            'required': False,
+            'schema': {'type': 'string'}
+        },
+    ],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        403: {'description': 'Permission denied'}
+    }
+)
+@api_view(['GET'])
+@permission_classes([StatisticsPermission])
+def meal_statistics_by_restaurant(request):
+    """آمار غذاها بر اساس رستوران، غذای پایه و اپشن‌های غذا"""
+    user = request.user
+    
+    # اگر کاربر ادمین نیست، فقط آمار مراکز خودش را ببیند
+    if not user.is_admin:
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_403_FORBIDDEN)
+    
+    # دریافت فیلترها
+    center_id = request.query_params.get('center_id')
+    restaurant_id = request.query_params.get('restaurant_id')
+    start_date = parse_date_filter(request.query_params.get('start_date'))
+    end_date = parse_date_filter(request.query_params.get('end_date'))
+    
+    # فیلتر رزروها
+    reservations = FoodReservation.objects.select_related(
+        'meal_option', 'meal_option__base_meal', 'meal_option__daily_menu',
+        'meal_option__daily_menu__restaurant', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers').filter(meal_option__isnull=False)
+    
+    guest_reservations = GuestReservation.objects.select_related(
+        'meal_option', 'meal_option__base_meal', 'meal_option__daily_menu',
+        'meal_option__daily_menu__restaurant', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers').filter(meal_option__isnull=False)
+    
+    # فیلتر بر اساس مرکز
+    if center_id:
+        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+    elif not user.is_admin:
+        user_centers = user.centers.all()
+        if user_centers.exists():
+            reservations = reservations.filter(daily_menu__restaurant__centers__in=user_centers).distinct()
+            guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__in=user_centers).distinct()
+    
+    # فیلتر بر اساس رستوران
+    if restaurant_id:
+        reservations = reservations.filter(daily_menu__restaurant__id=restaurant_id).distinct()
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__id=restaurant_id).distinct()
+    
+    # فیلتر بر اساس تاریخ
+    if start_date:
+        reservations = reservations.filter(daily_menu__date__gte=start_date)
+        guest_reservations = guest_reservations.filter(daily_menu__date__gte=start_date)
+    
+    if end_date:
+        reservations = reservations.filter(daily_menu__date__lte=end_date)
+        guest_reservations = guest_reservations.filter(daily_menu__date__lte=end_date)
+    
+    # ساختار داده: رستوران -> غذای پایه -> اپشن‌های غذا
+    restaurants_data = {}
+    
+    # پردازش رزروهای معمولی
+    for reservation in reservations:
+        if not reservation.meal_option or not reservation.meal_option.base_meal:
+            continue
+        
+        restaurant = reservation.daily_menu.restaurant if reservation.daily_menu else None
+        if not restaurant:
+            continue
+        
+        base_meal = reservation.meal_option.base_meal
+        meal_option = reservation.meal_option
+        
+        # ساختار رستوران
+        if restaurant.id not in restaurants_data:
+            restaurants_data[restaurant.id] = {
+                'restaurant': {
+                    'id': restaurant.id,
+                    'name': restaurant.name,
+                    'centers': [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()]
+                },
+                'base_meals': {}
+            }
+        
+        # ساختار غذای پایه
+        if base_meal.id not in restaurants_data[restaurant.id]['base_meals']:
+            restaurants_data[restaurant.id]['base_meals'][base_meal.id] = {
+                'base_meal': {
+                    'id': base_meal.id,
+                    'title': base_meal.title,
+                    'description': base_meal.description or '',
+                    'is_active': base_meal.is_active
+                },
+                'meal_options': {}
+            }
+        
+        # ساختار اپشن غذا
+        if meal_option.id not in restaurants_data[restaurant.id]['base_meals'][base_meal.id]['meal_options']:
+            restaurants_data[restaurant.id]['base_meals'][base_meal.id]['meal_options'][meal_option.id] = {
+                'meal_option': {
+                    'id': meal_option.id,
+                    'title': meal_option.title,
+                    'description': meal_option.description or '',
+                    'price': float(meal_option.price)
+                },
+                'statistics': {
+                    'reserved_count': 0,
+                    'served_count': 0,
+                    'cancelled_count': 0,
+                    'guest_count': 0,
+                    'total_count': 0
+                }
+            }
+        
+        # به‌روزرسانی آمار
+        stats = restaurants_data[restaurant.id]['base_meals'][base_meal.id]['meal_options'][meal_option.id]['statistics']
+        stats['total_count'] += reservation.quantity
+        
+        if reservation.status == 'reserved':
+            stats['reserved_count'] += reservation.quantity
+        elif reservation.status == 'served':
+            stats['served_count'] += reservation.quantity
+        elif reservation.status == 'cancelled':
+            stats['cancelled_count'] += reservation.quantity
+    
+    # پردازش رزروهای مهمان
+    for guest_reservation in guest_reservations:
+        if not guest_reservation.meal_option or not guest_reservation.meal_option.base_meal:
+            continue
+        
+        restaurant = guest_reservation.daily_menu.restaurant if guest_reservation.daily_menu else None
+        if not restaurant:
+            continue
+        
+        base_meal = guest_reservation.meal_option.base_meal
+        meal_option = guest_reservation.meal_option
+        
+        if restaurant.id not in restaurants_data:
+            continue
+        
+        if base_meal.id not in restaurants_data[restaurant.id]['base_meals']:
+            continue
+        
+        if meal_option.id not in restaurants_data[restaurant.id]['base_meals'][base_meal.id]['meal_options']:
+            continue
+        
+        # به‌روزرسانی آمار مهمان
+        stats = restaurants_data[restaurant.id]['base_meals'][base_meal.id]['meal_options'][meal_option.id]['statistics']
+        stats['guest_count'] += 1
+        stats['total_count'] += 1
+        
+        if guest_reservation.status == 'reserved':
+            stats['reserved_count'] += 1
+        elif guest_reservation.status == 'served':
+            stats['served_count'] += 1
+        elif guest_reservation.status == 'cancelled':
+            stats['cancelled_count'] += 1
+    
+    # تبدیل به لیست
+    result = []
+    for restaurant_id, restaurant_data in restaurants_data.items():
+        base_meals_list = []
+        for base_meal_id, base_meal_data in restaurant_data['base_meals'].items():
+            meal_options_list = []
+            for meal_option_id, meal_option_data in base_meal_data['meal_options'].items():
+                meal_options_list.append(meal_option_data)
+            
+            base_meal_data['meal_options'] = meal_options_list
+            base_meals_list.append(base_meal_data)
+        
+        restaurant_data['base_meals'] = base_meals_list
+        result.append(restaurant_data)
+    
+    return Response(result)
+
+
+@extend_schema(
+    operation_id='reservations_by_base_meal',
+    summary='Reservations by Base Meal',
+    description='Get detailed statistics of reservations for a specific base meal. Shows users who ordered, meal options they ordered, details (quantity, amount, status), and restaurant information.',
+    tags=['Statistics'],
+    parameters=[
+        {
+            'name': 'base_meal_id',
+            'in': 'query',
+            'description': 'شناسه غذای پایه',
+            'required': True,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'center_id',
+            'in': 'query',
+            'description': 'فیلتر بر اساس مرکز',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'start_date',
+            'in': 'query',
+            'description': 'تاریخ شروع (فرمت: YYYY-MM-DD یا YYYY/MM/DD)',
+            'required': False,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'end_date',
+            'in': 'query',
+            'description': 'تاریخ پایان (فرمت: YYYY-MM-DD یا YYYY/MM/DD)',
+            'required': False,
+            'schema': {'type': 'string'}
+        },
+    ],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'}
+    }
+)
+@api_view(['GET'])
+@permission_classes([StatisticsPermission])
+def reservations_by_base_meal(request):
+    """آمار بر اساس غذا - کاربرانی که سفارش دادند"""
+    user = request.user
+    
+    # دریافت base_meal_id
+    base_meal_id = request.query_params.get('base_meal_id')
+    if not base_meal_id:
+        return Response({
+            'error': 'شناسه غذای پایه الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        base_meal_id = int(base_meal_id)
+    except (ValueError, TypeError):
+        return Response({
+            'error': 'شناسه غذای پایه باید عدد باشد'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # بررسی وجود base_meal
+    try:
+        base_meal = BaseMeal.objects.get(id=base_meal_id)
+    except BaseMeal.DoesNotExist:
+        return Response({
+            'error': 'غذای پایه یافت نشد'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # اگر کاربر ادمین نیست، فقط آمار مراکز خودش را ببیند
+    if not user.is_admin:
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_403_FORBIDDEN)
+    
+    # دریافت فیلترها
+    center_id = request.query_params.get('center_id')
+    start_date = parse_date_filter(request.query_params.get('start_date'))
+    end_date = parse_date_filter(request.query_params.get('end_date'))
+    
+    # فیلتر رزروها
+    reservations = FoodReservation.objects.select_related(
+        'user', 'meal_option', 'meal_option__daily_menu',
+        'meal_option__daily_menu__restaurant', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers', 'user__centers').filter(
+        meal_option__base_meal_id=base_meal_id
+    )
+    
+    guest_reservations = GuestReservation.objects.select_related(
+        'host_user', 'meal_option', 'meal_option__daily_menu',
+        'meal_option__daily_menu__restaurant', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers', 'host_user__centers').filter(
+        meal_option__base_meal_id=base_meal_id
+    )
+    
+    # فیلتر بر اساس مرکز
+    if center_id:
+        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+    elif not user.is_admin:
+        user_centers = user.centers.all()
+        if user_centers.exists():
+            reservations = reservations.filter(daily_menu__restaurant__centers__in=user_centers).distinct()
+            guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__in=user_centers).distinct()
+    
+    # فیلتر بر اساس تاریخ
+    if start_date:
+        reservations = reservations.filter(daily_menu__date__gte=start_date)
+        guest_reservations = guest_reservations.filter(daily_menu__date__gte=start_date)
+    
+    if end_date:
+        reservations = reservations.filter(daily_menu__date__lte=end_date)
+        guest_reservations = guest_reservations.filter(daily_menu__date__lte=end_date)
+    
+    # ساختار داده: کاربر -> رزروها
+    users_data = {}
+    
+    # پردازش رزروهای معمولی
+    for reservation in reservations:
+        user_obj = reservation.user
+        restaurant = reservation.daily_menu.restaurant if reservation.daily_menu else None
+        meal_option = reservation.meal_option
+        
+        if user_obj.id not in users_data:
+            users_data[user_obj.id] = {
+                'user': {
+                    'id': user_obj.id,
+                    'username': user_obj.username,
+                    'full_name': f"{user_obj.first_name} {user_obj.last_name}".strip(),
+                    'employee_number': getattr(user_obj, 'employee_number', '') or '',
+                    'centers': [{'id': c.id, 'name': c.name} for c in user_obj.centers.all()]
+                },
+                'base_meal': {
+                    'id': base_meal.id,
+                    'title': base_meal.title,
+                    'description': base_meal.description or ''
+                },
+                'reservations': []
+            }
+        
+        # افزودن رزرو
+        users_data[user_obj.id]['reservations'].append({
+            'id': reservation.id,
+            'restaurant': {
+                'id': restaurant.id if restaurant else None,
+                'name': restaurant.name if restaurant else None,
+                'centers': [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()] if restaurant else []
+            } if restaurant else None,
+            'meal_option': {
+                'id': meal_option.id if meal_option else None,
+                'title': meal_option.title if meal_option else None,
+                'description': meal_option.description or '' if meal_option else '',
+                'price': float(meal_option.price) if meal_option else 0
+            } if meal_option else None,
+            'quantity': reservation.quantity,
+            'amount': float(reservation.amount or 0),
+            'status': reservation.status,
+            'reservation_date': reservation.reservation_date.isoformat() if reservation.reservation_date else None,
+            'daily_menu_date': reservation.daily_menu.date.isoformat() if reservation.daily_menu and reservation.daily_menu.date else None
+        })
+    
+    # پردازش رزروهای مهمان
+    for guest_reservation in guest_reservations:
+        user_obj = guest_reservation.host_user
+        restaurant = guest_reservation.daily_menu.restaurant if guest_reservation.daily_menu else None
+        meal_option = guest_reservation.meal_option
+        
+        if user_obj.id not in users_data:
+            users_data[user_obj.id] = {
+                'user': {
+                    'id': user_obj.id,
+                    'username': user_obj.username,
+                    'full_name': f"{user_obj.first_name} {user_obj.last_name}".strip(),
+                    'employee_number': getattr(user_obj, 'employee_number', '') or '',
+                    'centers': [{'id': c.id, 'name': c.name} for c in user_obj.centers.all()]
+                },
+                'base_meal': {
+                    'id': base_meal.id,
+                    'title': base_meal.title,
+                    'description': base_meal.description or ''
+                },
+                'reservations': []
+            }
+        
+        # افزودن رزرو مهمان
+        users_data[user_obj.id]['reservations'].append({
+            'id': guest_reservation.id,
+            'guest_name': f"{guest_reservation.guest_first_name} {guest_reservation.guest_last_name}".strip(),
+            'restaurant': {
+                'id': restaurant.id if restaurant else None,
+                'name': restaurant.name if restaurant else None,
+                'centers': [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()] if restaurant else []
+            } if restaurant else None,
+            'meal_option': {
+                'id': meal_option.id if meal_option else None,
+                'title': meal_option.title if meal_option else None,
+                'description': meal_option.description or '' if meal_option else '',
+                'price': float(meal_option.price) if meal_option else 0
+            } if meal_option else None,
+            'quantity': 1,  # مهمان همیشه 1 است
+            'amount': float(guest_reservation.amount or 0),
+            'status': guest_reservation.status,
+            'reservation_date': guest_reservation.reservation_date.isoformat() if guest_reservation.reservation_date else None,
+            'daily_menu_date': guest_reservation.daily_menu.date.isoformat() if guest_reservation.daily_menu and guest_reservation.daily_menu.date else None,
+            'is_guest': True
+        })
+    
+    # تبدیل به لیست
+    result = list(users_data.values())
+    
+    return Response({
+        'base_meal': {
+            'id': base_meal.id,
+            'title': base_meal.title,
+            'description': base_meal.description or ''
+        },
+        'users': result
+    })
+
+
+@extend_schema(
+    operation_id='user_statistics_by_date_range',
+    summary='User Statistics by Date Range',
+    description='Get statistics of users and total amount they ordered within a date range. Shows users with their total order amounts.',
+    tags=['Statistics'],
+    parameters=[
+        {
+            'name': 'start_date',
+            'in': 'query',
+            'description': 'تاریخ شروع (فرمت: YYYY-MM-DD یا YYYY/MM/DD)',
+            'required': True,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'end_date',
+            'in': 'query',
+            'description': 'تاریخ پایان (فرمت: YYYY-MM-DD یا YYYY/MM/DD)',
+            'required': True,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'center_id',
+            'in': 'query',
+            'description': 'فیلتر بر اساس مرکز',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+    ],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'}
+    }
+)
+@api_view(['GET'])
+@permission_classes([StatisticsPermission])
+def user_statistics_by_date_range(request):
+    """آمار بر اساس بازه تاریخی - کاربران و جمع مبلغی که سفارش داشتند"""
+    user = request.user
+    
+    # دریافت تاریخ‌ها
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    
+    if not start_date or not end_date:
+        return Response({
+            'error': 'تاریخ شروع و پایان الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    parsed_start_date = parse_date_filter(start_date)
+    parsed_end_date = parse_date_filter(end_date)
+    
+    if not parsed_start_date or not parsed_end_date:
+        return Response({
+            'error': 'فرمت تاریخ نامعتبر است. از فرمت میلادی (2025-10-24) یا شمسی (1404/08/02) استفاده کنید'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if parsed_start_date > parsed_end_date:
+        return Response({
+            'error': 'تاریخ شروع باید قبل از تاریخ پایان باشد'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # اگر کاربر ادمین نیست، فقط آمار مراکز خودش را ببیند
+    if not user.is_admin:
+        if not user.centers.exists():
+            return Response({
+                'error': 'کاربر مرکز مشخصی ندارد'
+            }, status=status.HTTP_403_FORBIDDEN)
+    
+    # دریافت فیلترها
+    center_id = request.query_params.get('center_id')
+    
+    # فیلتر رزروها
+    reservations = FoodReservation.objects.select_related(
+        'user', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers', 'user__centers').filter(
+        daily_menu__date__gte=parsed_start_date,
+        daily_menu__date__lte=parsed_end_date
+    )
+    
+    guest_reservations = GuestReservation.objects.select_related(
+        'host_user', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers', 'host_user__centers').filter(
+        daily_menu__date__gte=parsed_start_date,
+        daily_menu__date__lte=parsed_end_date
+    )
+    
+    # فیلتر بر اساس مرکز
+    if center_id:
+        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+    elif not user.is_admin:
+        user_centers = user.centers.all()
+        if user_centers.exists():
+            reservations = reservations.filter(daily_menu__restaurant__centers__in=user_centers).distinct()
+            guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__in=user_centers).distinct()
+    
+    # ساختار داده: کاربر -> جمع مبلغ
+    users_data = {}
+    
+    # پردازش رزروهای معمولی
+    for reservation in reservations:
+        user_obj = reservation.user
+        
+        if user_obj.id not in users_data:
+            users_data[user_obj.id] = {
+                'user': {
+                    'id': user_obj.id,
+                    'username': user_obj.username,
+                    'full_name': f"{user_obj.first_name} {user_obj.last_name}".strip(),
+                    'employee_number': getattr(user_obj, 'employee_number', '') or '',
+                    'centers': [{'id': c.id, 'name': c.name} for c in user_obj.centers.all()]
+                },
+                'total_amount': 0.0,
+                'reservation_count': 0,
+                'guest_reservation_count': 0
+            }
+        
+        users_data[user_obj.id]['total_amount'] += float(reservation.amount or 0)
+        users_data[user_obj.id]['reservation_count'] += reservation.quantity
+    
+    # پردازش رزروهای مهمان
+    for guest_reservation in guest_reservations:
+        user_obj = guest_reservation.host_user
+        
+        if user_obj.id not in users_data:
+            users_data[user_obj.id] = {
+                'user': {
+                    'id': user_obj.id,
+                    'username': user_obj.username,
+                    'full_name': f"{user_obj.first_name} {user_obj.last_name}".strip(),
+                    'employee_number': getattr(user_obj, 'employee_number', '') or '',
+                    'centers': [{'id': c.id, 'name': c.name} for c in user_obj.centers.all()]
+                },
+                'total_amount': 0.0,
+                'reservation_count': 0,
+                'guest_reservation_count': 0
+            }
+        
+        users_data[user_obj.id]['total_amount'] += float(guest_reservation.amount or 0)
+        users_data[user_obj.id]['guest_reservation_count'] += 1
+    
+    # تبدیل به لیست و مرتب‌سازی بر اساس مبلغ
+    from decimal import Decimal
+    result = []
+    for user_data in users_data.values():
+        user_data['total_amount'] = Decimal(str(user_data['total_amount']))
+        result.append(user_data)
+    
+    # مرتب‌سازی بر اساس مبلغ (نزولی)
+    result.sort(key=lambda x: x['total_amount'], reverse=True)
+    
+    return Response({
+        'start_date': start_date,
+        'end_date': end_date,
+        'parsed_start_date': parsed_start_date.isoformat(),
+        'parsed_end_date': parsed_end_date.isoformat(),
+        'users': result,
+        'total_users': len(result),
+        'total_amount': sum([float(u['total_amount']) for u in result])
+    })
+
+
 @api_view(['GET'])
 @permission_classes([IsFoodAdminOrSystemAdmin])
 def center_reservations(request, center_id):
@@ -1200,13 +2279,17 @@ def user_reservations_summary(request):
 @extend_schema(
     operation_id='employee_daily_menus',
     summary='Get Daily Menus for Employee',
-    description='Get daily menus for employee\'s assigned centers on specific date (supports multiple centers). Response structure:\n- `restaurant`: Full restaurant object with nested `center`\n- `base_meals`: Simple list of base meals (id, title, description, is_active)\n- `meals`: Base meals with their options (each meal has an `options` array)\n- `meal_options`: Flat list of all meal options (id, base_meal_id, title, price)\n- `meals_count`: Total count of meal options',
-    tags=['Employee Management']
+    description='Get simplified daily menus for employee\'s assigned centers on specific date (supports multiple centers). Returns only essential information: restaurant (id, name, center), date, and meals with their options (id, title, price, quantity, available_quantity).',
+    tags=['Employee Management'],
+    responses={
+        200: SimpleEmployeeDailyMenuSerializer(many=True),
+        400: {'description': 'Validation error'}
+    }
 )
 @api_view(['GET'])
 @permission_classes([FoodManagementPermission])
 def employee_daily_menus(request):
-    """منوهای روزانه برای کارمند"""
+    """منوهای روزانه برای کارمند - خروجی ساده"""
     user = request.user
     
     # بررسی اینکه کاربر مرکز دارد
@@ -1237,12 +2320,13 @@ def employee_daily_menus(request):
         restaurant__centers__in=user.centers.all(),
         date=parsed_date,
         is_available=True
-    ).select_related('restaurant').prefetch_related('restaurant__centers',
+    ).select_related('restaurant').prefetch_related(
+        'restaurant__centers',
         'menu_meal_options', 
         'menu_meal_options__base_meal'
     )
     
-    serializer = DailyMenuSerializer(daily_menus, many=True, context={'request': request})
+    serializer = SimpleEmployeeDailyMenuSerializer(daily_menus, many=True, context={'request': request})
     return Response(serializer.data)
 
 

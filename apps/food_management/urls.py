@@ -5,6 +5,7 @@ urlpatterns = [
     # Meal Management
     path('meals/', views.MealListCreateView.as_view(), name='meal-list-create'),
     path('meals/<int:pk>/', views.MealDetailView.as_view(), name='meal-detail'),
+    path('restaurants/<int:restaurant_id>/meals/', views.restaurant_meals, name='restaurant-meals'),
     
     
     # Meal Options - حذف شد (از DailyMenuMealOption استفاده کنید)
@@ -12,6 +13,9 @@ urlpatterns = [
     # Restaurants
     path('restaurants/', views.RestaurantListCreateView.as_view(), name='restaurant-list-create'),
     path('restaurants/<int:pk>/', views.RestaurantDetailView.as_view(), name='restaurant-detail'),
+    path('admin-food-restaurants/', views.admin_food_restaurants, name='admin-food-restaurants'),
+    path('admin-food/meals-by-date/', views.admin_food_meals_by_date, name='admin-food-meals-by-date'),
+    path('admin-food/remove-meal-from-menu/', views.admin_food_remove_meal_from_menu, name='admin-food-remove-meal-from-menu'),
     
     # Daily Menus
     path('daily-menus/', views.DailyMenuListView.as_view(), name='daily-menu-list'),
@@ -31,6 +35,9 @@ urlpatterns = [
     # Statistics and Reports
     path('statistics/', views.comprehensive_statistics, name='comprehensive-statistics'),
     path('statistics/simple/', views.meal_statistics, name='meal-statistics'),  # برای سازگاری با کدهای قبلی
+    path('statistics/meals-by-restaurant/', views.meal_statistics_by_restaurant, name='meal-statistics-by-restaurant'),
+    path('statistics/reservations-by-base-meal/', views.reservations_by_base_meal, name='reservations-by-base-meal'),
+    path('statistics/users-by-date-range/', views.user_statistics_by_date_range, name='user-statistics-by-date-range'),
     path('centers/<int:center_id>/reservations/', views.center_reservations, name='center-reservations'),
     path('centers/<int:center_id>/export/excel/', views.export_reservations_excel, name='export-excel'),
     path('centers/<int:center_id>/export/pdf/', views.export_reservations_pdf, name='export-pdf'),

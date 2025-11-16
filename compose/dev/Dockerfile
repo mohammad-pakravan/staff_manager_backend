@@ -17,6 +17,9 @@ COPY . .
 # Create logs directory
 RUN mkdir -p /app/logs
 
+# Fix line endings (CRLF to LF) for entrypoint script
+RUN sed -i 's/\r$//' /app/compose/dev/django-entrypoint.sh
+
 # Make entrypoint script executable
 RUN chmod +x /app/compose/dev/django-entrypoint.sh
 
