@@ -1076,6 +1076,7 @@ class SimpleEmployeeDailyMenuSerializer(serializers.ModelSerializer):
         from .models import BaseMeal
         base_meals = BaseMeal.objects.filter(id__in=base_meal_ids)
         
+        request = self.context.get('request')
         meals_data = []
         for base_meal in base_meals:
             # دریافت options مرتبط با این base_meal
@@ -1092,9 +1093,18 @@ class SimpleEmployeeDailyMenuSerializer(serializers.ModelSerializer):
                     'available_quantity': max(0, option.quantity - option.reserved_quantity)
                 })
             
+            # دریافت URL تصویر غذای پایه
+            image_url = None
+            if base_meal.image:
+                if request:
+                    image_url = request.build_absolute_uri(base_meal.image.url)
+                else:
+                    image_url = base_meal.image.url
+            
             meals_data.append({
                 'id': base_meal.id,
                 'title': base_meal.title,
+                'image': image_url,
                 'options': options_data
             })
         

@@ -2279,7 +2279,7 @@ def user_reservations_summary(request):
 @extend_schema(
     operation_id='employee_daily_menus',
     summary='Get Daily Menus for Employee',
-    description='Get simplified daily menus for employee\'s assigned centers on specific date (supports multiple centers). Returns only essential information: restaurant (id, name, center), date, and meals with their options (id, title, price, quantity, available_quantity).',
+    description='Get simplified daily menus for employee\'s assigned centers on specific date (supports multiple centers). Returns only essential information: restaurant (id, name, center), date, and meals with their options (id, title, image, price, quantity, available_quantity).',
     tags=['Employee Management'],
     responses={
         200: SimpleEmployeeDailyMenuSerializer(many=True),
