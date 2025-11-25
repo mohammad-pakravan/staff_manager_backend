@@ -1,0 +1,916 @@
+{
+	"info": {
+		"_postman_id": "c6d60354-303a-478a-a5f8-7649ab84d4b4",
+		"name": "POST Collections - Employee",
+		"description": "مجموعه درخواست‌های POST برای کارمندان - شامل ایجاد رزرو غذا و رزرو مهمان",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "20290697",
+		"_collection_link": "https://planetary-meadow-788359.postman.co/workspace/414b05bd-ac86-4530-a9eb-9492bb9d61a6/collection/20290697-c6d60354-303a-478a-a5f8-7649ab84d4b4?action=share&source=collection_link&creator=20290697"
+	},
+	"item": [
+		{
+			"name": "0. احراز هویت",
+			"item": [
+				{
+					"name": "ورود کارمند",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"employee\",\n    \"password\": \"EmployeePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "ابتدا با کاربر کارمند لاگین کنید. بعد از پاسخ، از تب Cookies مقدار access_token را برداشته و در متغیر {{jwt_token}} قرار دهید."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. مشاهده منوی روزانه",
+			"item": [
+				{
+					"name": "مشاهده منو برای یک تاریخ",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/daily-menus/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"daily-menus",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "تاریخ منو (میلادی: YYYY-MM-DD یا شمسی: YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده منوی غذا برای یک تاریخ مشخص. کارمند می‌تواند منوهای مراکز خود را ببیند."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده منو با تاریخ شمسی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/daily-menus/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"daily-menus",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25",
+									"description": "تاریخ شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده منو با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. رزرو غذا برای خود",
+			"item": [
+				{
+					"name": "رزرو غذا با quantity = 1",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"daily_menu\": 1,\n    \"base_meal\": 1,\n    \"meal_option\": 1,\n    \"quantity\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"reservations",
+								""
+							]
+						},
+						"description": "رزرو یک عدد غذا برای خود. محدودیت تعداد رزرو وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				},
+				{
+					"name": "رزرو غذا با quantity بیشتر",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"daily_menu\": 1,\n    \"base_meal\": 1,\n    \"meal_option\": 1,\n    \"quantity\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"reservations",
+								""
+							]
+						},
+						"description": "رزرو چند عدد غذا برای خود. محدودیت تعداد رزرو وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				},
+				{
+					"name": "رزرو غذا از طریق Employee Endpoint",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"daily_menu\": 1,\n    \"base_meal\": 1,\n    \"meal_option\": 1,\n    \"quantity\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"reservations",
+								""
+							]
+						},
+						"description": "رزرو غذا از طریق endpoint مخصوص کارمندان. محدودیت تعداد رزرو وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. رزرو مهمان",
+			"item": [
+				{
+					"name": "رزرو مهمان - رزرو عادی",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"guest_first_name\": \"علی\",\n    \"guest_last_name\": \"احمدی\",\n    \"daily_menu\": 1,\n    \"base_meal\": 1,\n    \"meal_option\": 1,\n    \"description\": \"توضیحات اختیاری برای رزرو مهمان\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/guest-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"guest-reservations",
+								""
+							]
+						},
+						"description": "رزرو غذا برای مهمان (هر رزرو مهمان = 1 واحد). محدودیت تعداد رزرو مهمان وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				},
+				{
+					"name": "رزرو مهمان - از طریق Employee Endpoint",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"guest_first_name\": \"مریم\",\n    \"guest_last_name\": \"رضایی\",\n    \"daily_menu\": 1,\n    \"base_meal\": 1,\n    \"meal_option\": 1,\n    \"description\": \"توضیحات اختیاری برای رزرو مهمان\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/guest-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"guest-reservations",
+								""
+							]
+						},
+						"description": "رزرو مهمان از طریق endpoint مخصوص کارمندان. محدودیت تعداد رزرو مهمان وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				},
+				{
+					"name": "رزرو مهمان با نام کامل",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"guest_first_name\": \"محمد\",\n    \"guest_last_name\": \"کریمی\",\n    \"daily_menu\": 1,\n    \"base_meal\": 1,\n    \"meal_option\": 1,\n    \"description\": \"توضیحات اختیاری برای رزرو مهمان\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/guest-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"guest-reservations",
+								""
+							]
+						},
+						"description": "رزرو مهمان با نام و نام خانوادگی"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. گزارش رزروها و هزینه‌ها",
+			"item": [
+				{
+					"name": "مشاهده رزروهای شخصی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/user/reservations/?status=reserved",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"user",
+								"reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "reserved",
+									"description": "اختیاری - فیلتر وضعیت (reserved, cancelled, served)"
+								},
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "اختیاری - تاریخ میلادی (YYYY-MM-DD) یا شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "لیست رزروهای کارمند برای خودش. خروجی شامل اطلاعات وعده و وضعیت هر رزرو است."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده رزروهای شخصی با تاریخ شمسی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/user/reservations/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"user",
+								"reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25",
+									"description": "تاریخ شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده رزروهای شخصی با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده رزروهای مهمان",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/user/guest-reservations/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"user",
+								"guest-reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "اختیاری - فیلتر تاریخ میلادی (YYYY-MM-DD) یا شمسی (YYYY/MM/DD)"
+								},
+								{
+									"key": "status",
+									"value": "served",
+									"description": "اختیاری - وضعیت رزرو مهمان"
+								}
+							]
+						},
+						"description": "رزروهای مهمان ثبت‌شده توسط کارمند همراه با مبلغ هر رزرو و وضعیت لغو/سرو."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده رزروهای مهمان با تاریخ شمسی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/user/guest-reservations/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"user",
+								"guest-reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25",
+									"description": "تاریخ شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده رزروهای مهمان با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				},
+				{
+					"name": "خلاصه رزروها و هزینه‌ها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/user/reservations/summary/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"user",
+								"reservations",
+								"summary",
+								""
+							]
+						},
+						"description": "خلاصه رزروهای شخصی و مهمان با جزئیات کامل (تعداد، وضعیت‌ها، رزروهای امروز)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. رزرو دسر",
+			"item": [
+				{
+					"name": "رزرو دسر برای خود",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"daily_menu\": 1,\n    \"dessert\": 1,\n    \"quantity\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/dessert-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"dessert-reservations",
+								""
+							]
+						},
+						"description": "رزرو دسر برای خود. محدودیت تعداد رزرو وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				},
+				{
+					"name": "رزرو دسر مهمان",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"guest_first_name\": \"علی\",\n    \"guest_last_name\": \"احمدی\",\n    \"daily_menu\": 1,\n    \"dessert\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/guest-dessert-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"guest-dessert-reservations",
+								""
+							]
+						},
+						"description": "رزرو دسر برای مهمان. محدودیت تعداد رزرو وجود ندارد، فقط باید موجودی کافی باشد."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده رزروهای دسر",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/employee/dessert-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"employee",
+								"dessert-reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "اختیاری - تاریخ میلادی یا شمسی"
+								},
+								{
+									"key": "status",
+									"value": "reserved",
+									"description": "اختیاری - وضعیت رزرو"
+								}
+							]
+						},
+						"description": "مشاهده رزروهای دسر شخصی"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده رزروهای دسر مهمان",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/user/guest-dessert-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"user",
+								"guest-dessert-reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "اختیاری - تاریخ میلادی یا شمسی"
+								}
+							]
+						},
+						"description": "مشاهده رزروهای دسر مهمان"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. فرم بیمه و نظرات",
+			"item": [
+				{
+					"name": "ارسال فرم بیمه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "description",
+									"value": "توضیحات فرم بیمه",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/insurance-forms/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"insurance-forms",
+								""
+							]
+						},
+						"description": "ارسال فرم بیمه. فایل باید در form-data ارسال شود."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده فرم‌های بیمه من",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/insurance-forms/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"insurance-forms",
+								""
+							]
+						},
+						"description": "مشاهده فرم‌های بیمه ارسال شده توسط کارمند"
+					},
+					"response": []
+				},
+				{
+					"name": "ارسال نظر",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"نظر من درباره سیستم\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/feedbacks/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"feedbacks",
+								""
+							]
+						},
+						"description": "ارسال نظر و بازخورد"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده نظرات من",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/feedbacks/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"feedbacks",
+								""
+							]
+						},
+						"description": "مشاهده نظرات ارسال شده توسط کارمند"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "7. دفترچه تلفن",
+			"item": [
+				{
+					"name": "جستجو در دفترچه تلفن",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/phonebook/search/?search=بهزاد",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"phonebook",
+								"search",
+								""
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "بهزاد",
+									"description": "جستجو در عنوان یا شماره تلفن"
+								}
+							]
+						},
+						"description": "جستجو در دفترچه تلفن بر اساس عنوان یا شماره تلفن"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "daily_menu_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "base_meal_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "meal_option_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

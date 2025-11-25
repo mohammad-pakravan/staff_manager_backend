@@ -1,37 +1,33 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from drf_spectacular.utils import extend_schema_field
 from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """سریالایزر کاربر - خروجی مرتب و ساده"""
     role_display = serializers.CharField(source='get_role_display', read_only=True)
-    center_name = serializers.SerializerMethodField()
-    center_names = serializers.SerializerMethodField()
-    centers_detail = serializers.SerializerMethodField()
+    centers = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'role_display', 'centers', 'center_name', 'center_names', 'centers_detail',
-            'phone_number', 'is_active', 'date_joined', 'created_at'
+            'employee_number', 'role', 'role_display', 'centers',
+            'phone_number', 'max_reservations_per_day', 'max_guest_reservations_per_day',
+            'is_active', 'date_joined', 'created_at'
         ]
         read_only_fields = ['id', 'date_joined', 'created_at']
-
-    def get_center_name(self, obj):
-        """برای backward compatibility - نام اولین مرکز"""
-        center = obj.center
-        return center.name if center else None
-
-    def get_center_names(self, obj):
-        """لیست نام‌های تمام مراکز"""
-        return [center.name for center in obj.centers.all()]
-
-    def get_centers_detail(self, obj):
-        """جزئیات تمام مراکز"""
+    
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_centers(self, obj):
+        """برگرداندن لیست جزئیات مراکز"""
         from apps.centers.serializers import CenterListSerializer
-        return CenterListSerializer(obj.centers.all(), many=True).data
+        centers = obj.centers.all()
+        if centers.exists():
+            return CenterListSerializer(centers, many=True).data
+        return []
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -41,9 +37,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'username', 'email', 'first_name', 'last_name',
-            'password', 'password_confirm', 'role', 'centers', 'phone_number'
+            'username', 'email', 'first_name', 'last_name', 'employee_number',
+            'password', 'password_confirm', 'role', 'centers', 'phone_number',
+            'max_reservations_per_day', 'max_guest_reservations_per_day', 'is_active'
         ]
+        extra_kwargs = {
+            'employee_number': {'required': True},
+            'max_reservations_per_day': {'required': False},
+            'max_guest_reservations_per_day': {'required': False},
+            'is_active': {'required': False},
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -59,6 +62,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError("Passwords don't match.")
+        
+        # بررسی اینکه فقط یک مرکز ارسال شده باشد
+        centers_data = attrs.get('centers', [])
+        center = attrs.get('center', None)
+        
+        # برای backward compatibility - اگر center ارسال شد، آن را به centers اضافه می‌کنیم
+        centers_list = list(centers_data) if centers_data else []
+        if center and center not in centers_list:
+            centers_list.append(center)
+        
+        # فقط یک مرکز مجاز است
+        if len(centers_list) > 1:
+            raise serializers.ValidationError({
+                'centers': 'هر کاربر فقط می‌تواند یک مرکز داشته باشد. لطفاً فقط یک مرکز انتخاب کنید.'
+            })
+        
         return attrs
 
     def create(self, validated_data):
@@ -71,11 +90,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if center and center not in centers_list:
             centers_list.append(center)
         
+        # فقط یک مرکز را نگه می‌داریم
+        if len(centers_list) > 1:
+            centers_list = [centers_list[0]]
+        
         user = User.objects.create_user(**validated_data)
         
-        # اضافه کردن مراکز
+        # اضافه کردن مرکز (فقط یکی)
         if centers_list:
-            user.centers.set(centers_list)
+            user.centers.set(centers_list[:1])
         
         return user
 
@@ -98,5 +121,18 @@ class LoginSerializer(serializers.Serializer):
             return attrs
         else:
             raise serializers.ValidationError('Must include username and password.')
+
+
+class LoginResponseSerializer(serializers.ModelSerializer):
+    """Serializer ساده برای پاسخ لاگین - فقط فیلدهای ضروری"""
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'role', 'role_display'
+        ]
+        read_only_fields = ['id']
 
 

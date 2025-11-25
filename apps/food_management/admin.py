@@ -8,7 +8,8 @@ from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali, date2jalali
 from .models import (
     Restaurant, BaseMeal, DailyMenu, DailyMenuMealOption,
-    FoodReservation, FoodReport, GuestReservation
+    FoodReservation, FoodReport, GuestReservation,
+    Dessert, DessertReservation, GuestDessertReservation
 )
 # برای سازگاری با کدهای قبلی
 Meal = BaseMeal
@@ -16,9 +17,9 @@ Meal = BaseMeal
 
 @admin.register(Restaurant)
 class RestaurantAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('name', 'get_centers_display', 'phone', 'is_active', 'jalali_created_at')
-    list_filter = ('is_active', 'created_at')  # 'centers' temporarily removed until migration is applied
-    search_fields = ('name', 'address', 'phone', 'email')
+    list_display = ('name', 'get_centers_display', 'is_active', 'jalali_created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('name',)
     ordering = ('name',)
     filter_horizontal = ('centers',)
     
@@ -40,14 +41,14 @@ class RestaurantAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 
 @admin.register(BaseMeal)
 class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('title', 'center', 'restaurant', 'options_count', 'jalali_created_at', 'is_active', 'image_preview')
-    list_filter = ('center', 'restaurant', 'is_active', 'created_at')
-    search_fields = ('title', 'description')
+    list_display = ('title', 'restaurant', 'options_count', 'jalali_created_at', 'is_active', 'image_preview')
+    list_filter = ('restaurant', 'is_active', 'created_at')
+    search_fields = ('title', 'description', 'ingredients')
     ordering = ('title',)
     raw_id_fields = ('restaurant',)
     fieldsets = (
         ('اطلاعات پایه', {
-            'fields': ('title', 'description', 'image', 'restaurant', 'is_active')
+            'fields': ('title', 'description', 'ingredients', 'image', 'restaurant', 'is_active')
         }),
     )
     
@@ -70,30 +71,13 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             
             def clean(self):
                 cleaned_data = super().clean()
-                from django.core.exceptions import ValidationError
-                
-                restaurant = cleaned_data.get('restaurant')
-                
-                # تنظیم خودکار مرکز از رستوران (اولین مرکز)
-                try:
-                    if restaurant and restaurant.centers.exists():
-                        cleaned_data['center'] = restaurant.centers.first()
-                except Exception:
-                    pass
-                
                 return cleaned_data
         
         kwargs['form'] = BaseMealAdminForm
         return super().get_form(request, obj, **kwargs)
     
     def save_model(self, request, obj, form, change):
-        """ذخیره مدل و تنظیم خودکار مرکز از رستوران"""
-        # اگر رستوران انتخاب شده، مرکز را از رستوران بگیر (اولین مرکز)
-        try:
-            if obj.restaurant and obj.restaurant.centers.exists():
-                obj.center = obj.restaurant.centers.first()
-        except Exception:
-            pass
+        """ذخیره مدل"""
         super().save_model(request, obj, form, change)
     
     def options_count(self, obj):
@@ -131,6 +115,73 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 MealAdmin = BaseMealAdmin
 
 
+@admin.register(Dessert)
+class DessertAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = ('title', 'center', 'restaurant', 'jalali_created_at', 'is_active', 'image_preview')
+    list_filter = ('center', 'restaurant', 'is_active', 'created_at')
+    search_fields = ('title', 'description', 'ingredients')
+    ordering = ('title',)
+    raw_id_fields = ('restaurant',)
+    fieldsets = (
+        ('اطلاعات پایه', {
+            'fields': ('title', 'description', 'ingredients', 'image', 'restaurant', 'is_active')
+        }),
+    )
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'restaurant':
+            kwargs['queryset'] = Restaurant.objects.filter(is_active=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+    def get_form(self, request, obj=None, **kwargs):
+        from django import forms
+        from .models import Dessert
+        
+        class DessertAdminForm(forms.ModelForm):
+            class Meta:
+                model = Dessert
+                fields = '__all__'
+            
+            def clean(self):
+                cleaned_data = super().clean()
+                restaurant = cleaned_data.get('restaurant')
+                
+                try:
+                    if restaurant and restaurant.centers.exists():
+                        cleaned_data['center'] = restaurant.centers.first()
+                except Exception:
+                    pass
+                
+                return cleaned_data
+        
+        kwargs['form'] = DessertAdminForm
+        return super().get_form(request, obj, **kwargs)
+    
+    def save_model(self, request, obj, form, change):
+        try:
+            if obj.restaurant and obj.restaurant.centers.exists():
+                obj.center = obj.restaurant.centers.first()
+        except Exception:
+            pass
+        super().save_model(request, obj, form, change)
+    
+    def jalali_created_at(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_created_at.short_description = 'تاریخ ایجاد (شمسی)'
+    jalali_created_at.admin_order_field = 'created_at'
+    
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" width="50" height="50" style="border-radius: 5px;" />',
+                obj.image.url
+            )
+        return "بدون تصویر"
+    image_preview.short_description = 'تصویر'
+
+
 
 
 @admin.register(DailyMenu)
@@ -143,7 +194,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     search_fields = ('restaurant__name',)  # 'restaurant__centers__name' temporarily removed until migration is applied
     ordering = ('-date',)
     raw_id_fields = ('restaurant',)
-    filter_horizontal = ('base_meals',)
+    filter_horizontal = ('base_meals', 'desserts')
     change_form_template = 'admin/food_management/dailymenu/change_form.html'
     add_form_template = 'admin/food_management/dailymenu/change_form.html'
     
@@ -158,7 +209,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     get_center_display.short_description = 'مراکز'
     
     def formfield_for_manytomany(self, db_field, request, **kwargs):
-        """فیلتر کردن base_meals بر اساس رستوران"""
+        """فیلتر کردن base_meals و desserts بر اساس رستوران"""
         if db_field.name == 'base_meals':
             from .models import BaseMeal
             
@@ -186,6 +237,37 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     try:
                         restaurant = Restaurant.objects.get(pk=restaurant_id)
                         kwargs['queryset'] = BaseMeal.objects.filter(
+                            restaurant=restaurant,
+                            is_active=True
+                        )
+                    except (Restaurant.DoesNotExist, ValueError, TypeError):
+                        pass
+        
+        elif db_field.name == 'desserts':
+            # اگر در حال ویرایش یک DailyMenu هستیم
+            if hasattr(request, 'resolver_match') and request.resolver_match:
+                try:
+                    daily_menu_id = request.resolver_match.kwargs.get('object_id')
+                    if daily_menu_id:
+                        try:
+                            daily_menu = DailyMenu.objects.get(pk=daily_menu_id)
+                            if daily_menu.restaurant:
+                                kwargs['queryset'] = Dessert.objects.filter(
+                                    restaurant=daily_menu.restaurant,
+                                    is_active=True
+                                )
+                        except DailyMenu.DoesNotExist:
+                            pass
+                except Exception:
+                    pass
+            
+            # اگر در حال ایجاد DailyMenu جدید هستیم و restaurant از POST آمده
+            if not kwargs.get('queryset'):
+                restaurant_id = request.POST.get('restaurant')
+                if restaurant_id:
+                    try:
+                        restaurant = Restaurant.objects.get(pk=restaurant_id)
+                        kwargs['queryset'] = Dessert.objects.filter(
                             restaurant=restaurant,
                             is_active=True
                         )
@@ -566,6 +648,8 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     meal_options_count.short_description = 'تعداد غذاها'
 
 
+
+
 @admin.register(FoodReservation)
 class FoodReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = (
@@ -663,6 +747,126 @@ class GuestReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         return "بدون غذا"
     get_meal_option_title.short_description = 'گزینه غذا'
     get_meal_option_title.admin_order_field = 'meal_option__title'
+    
+    def jalali_reservation_date(self, obj):
+        if obj.reservation_date:
+            return datetime2jalali(obj.reservation_date).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_reservation_date.short_description = 'تاریخ رزرو (شمسی)'
+    jalali_reservation_date.admin_order_field = 'reservation_date'
+    
+    def jalali_cancellation_deadline(self, obj):
+        if obj.cancellation_deadline:
+            return datetime2jalali(obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_cancellation_deadline.short_description = 'مهلت لغو (شمسی)'
+    jalali_cancellation_deadline.admin_order_field = 'cancellation_deadline'
+    
+    def can_cancel_status(self, obj):
+        if obj.can_cancel():
+            return format_html('<span style="color: green;">✓ قابل لغو</span>')
+        else:
+            return format_html('<span style="color: red;">✗ غیرقابل لغو</span>')
+    can_cancel_status.short_description = 'وضعیت لغو'
+
+
+@admin.register(DessertReservation)
+class DessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = (
+        'user', 'jalali_date', 'get_dessert_title', 'quantity', 'status', 'amount', 
+        'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
+    )
+    list_filter = ('status', 'reservation_date')
+    search_fields = ('user__username', 'user__employee_number', 'dessert__title', 'dessert__dessert__title', 'daily_menu_info', 'dessert_info')
+    ordering = ('-reservation_date',)
+    raw_id_fields = ('user', 'daily_menu', 'dessert')
+    readonly_fields = ('daily_menu_info', 'dessert_info', 'reservation_date')
+    fieldsets = (
+        ('اطلاعات رزرو', {
+            'fields': ('user', 'daily_menu', 'daily_menu_info', 'dessert', 'dessert_info', 'quantity', 'status', 'amount')
+        }),
+        ('تاریخ‌ها', {
+            'fields': ('reservation_date', 'cancellation_deadline', 'cancelled_at')
+        }),
+    )
+    
+    def jalali_date(self, obj):
+        if obj.daily_menu and obj.daily_menu.date:
+            return date2jalali(obj.daily_menu.date).strftime('%Y/%m/%d')
+        elif obj.daily_menu_info:
+            return obj.daily_menu_info
+        return '-'
+    jalali_date.short_description = 'تاریخ شمسی'
+    jalali_date.admin_order_field = 'daily_menu__date'
+    
+    def get_dessert_title(self, obj):
+        if obj.dessert:
+            return obj.dessert.title
+        elif obj.dessert_info:
+            return obj.dessert_info
+        return "بدون دسر"
+    get_dessert_title.short_description = 'دسر'
+    get_dessert_title.admin_order_field = 'dessert__title'
+    
+    def jalali_reservation_date(self, obj):
+        if obj.reservation_date:
+            return datetime2jalali(obj.reservation_date).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_reservation_date.short_description = 'تاریخ رزرو (شمسی)'
+    jalali_reservation_date.admin_order_field = 'reservation_date'
+    
+    def jalali_cancellation_deadline(self, obj):
+        if obj.cancellation_deadline:
+            return datetime2jalali(obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_cancellation_deadline.short_description = 'مهلت لغو (شمسی)'
+    jalali_cancellation_deadline.admin_order_field = 'cancellation_deadline'
+    
+    def can_cancel_status(self, obj):
+        if obj.can_cancel():
+            return format_html('<span style="color: green;">✓ قابل لغو</span>')
+        else:
+            return format_html('<span style="color: red;">✗ غیرقابل لغو</span>')
+    can_cancel_status.short_description = 'وضعیت لغو'
+
+
+@admin.register(GuestDessertReservation)
+class GuestDessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = (
+        'guest_first_name', 'guest_last_name', 'host_user', 'jalali_date', 'get_dessert_title', 
+        'status', 'amount', 'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
+    )
+    list_filter = ('status', 'reservation_date')
+    search_fields = ('guest_first_name', 'guest_last_name', 'host_user__username', 'host_user__employee_number', 'dessert__title', 'dessert__dessert__title', 'daily_menu_info', 'dessert_info')
+    ordering = ('-reservation_date',)
+    raw_id_fields = ('host_user', 'daily_menu', 'dessert')
+    readonly_fields = ('daily_menu_info', 'dessert_info', 'reservation_date')
+    fieldsets = (
+        ('اطلاعات رزرو', {
+            'fields': ('host_user', 'guest_first_name', 'guest_last_name', 'daily_menu', 'daily_menu_info', 'dessert', 'dessert_info', 'status', 'amount')
+        }),
+        ('تاریخ‌ها', {
+            'fields': ('reservation_date', 'cancellation_deadline', 'cancelled_at')
+        }),
+    )
+    
+    def jalali_date(self, obj):
+        if obj.daily_menu and obj.daily_menu.date:
+            return date2jalali(obj.daily_menu.date).strftime('%Y/%m/%d')
+        elif obj.daily_menu_info:
+            return obj.daily_menu_info
+        return '-'
+    jalali_date.short_description = 'تاریخ شمسی'
+    jalali_date.admin_order_field = 'daily_menu__date'
+    
+    def get_dessert_title(self, obj):
+        if obj.dessert:
+            return obj.dessert.title
+        elif obj.dessert_info:
+            return obj.dessert_info
+        return "بدون دسر"
+    get_dessert_title.short_description = 'دسر'
+    get_dessert_title.admin_order_field = 'dessert__title'
     
     def jalali_reservation_date(self, obj):
         if obj.reservation_date:

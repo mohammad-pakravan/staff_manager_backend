@@ -30,7 +30,7 @@ from .serializers import CenterSerializer, CenterListSerializer
     )
 )
 class CenterListCreateView(generics.ListCreateAPIView):
-    queryset = Center.objects.filter(is_active=True)
+    queryset = Center.objects.filter(is_active=True).prefetch_related('users')
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
@@ -42,7 +42,7 @@ class CenterListCreateView(generics.ListCreateAPIView):
         # Only admins can see centers, regular users cannot see any centers
         user = self.request.user
         if user.is_admin:
-            return Center.objects.filter(is_active=True)
+            return Center.objects.filter(is_active=True).prefetch_related('users')
         return Center.objects.none()
 
     def perform_create(self, serializer):
@@ -103,7 +103,7 @@ class CenterListCreateView(generics.ListCreateAPIView):
     )
 )
 class CenterDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Center.objects.filter(is_active=True)
+    queryset = Center.objects.filter(is_active=True).prefetch_related('users')
     serializer_class = CenterSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -111,7 +111,7 @@ class CenterDetailView(generics.RetrieveUpdateDestroyAPIView):
         # Only admins can see centers, regular users cannot see any centers
         user = self.request.user
         if user.is_admin:
-            return Center.objects.filter(is_active=True)
+            return Center.objects.filter(is_active=True).prefetch_related('users')
         return Center.objects.none()
 
     def perform_update(self, serializer):

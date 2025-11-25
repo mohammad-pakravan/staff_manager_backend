@@ -1,0 +1,1117 @@
+{
+	"info": {
+		"_postman_id": "3cb06a43-8e36-4498-a7a7-50ee5f76fc15",
+		"name": "POST Collections - Food Admin",
+		"description": "مجموعه درخواست‌های POST برای ادمین غذا - شامل ایجاد غذا، دسر و مدیریت منوها (فقط برای مراکز خود)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "20290697",
+		"_collection_link": "https://planetary-meadow-788359.postman.co/workspace/414b05bd-ac86-4530-a9eb-9492bb9d61a6/collection/20290697-3cb06a43-8e36-4498-a7a7-50ee5f76fc15?action=share&source=collection_link&creator=20290697"
+	},
+	"item": [
+		{
+			"name": "0. احراز هویت",
+			"item": [
+				{
+					"name": "ورود ادمین غذا",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"food-admin\",\n    \"password\": \"FoodAdminPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "ابتدا با کاربر ادمین غذا لاگین کنید. بعد از پاسخ، از تب Cookies مقدار access_token را برداشته و در متغیر {{jwt_token}} قرار دهید. یا می‌توانید از response body استفاده کنید."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. مدیریت رستوران‌ها",
+			"item": [
+				{
+					"name": "لیست رستوران‌های مراکز من",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								""
+							]
+						},
+						"description": "دریافت لیست رستوران‌های مراکزی که Food Admin به آن‌ها دسترسی دارد"
+					},
+					"response": []
+				},
+				{
+					"name": "جزئیات رستوران",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "دریافت جزئیات یک رستوران (فقط رستوران‌های مراکز خود)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد رستوران جدید",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران سنتی تهران\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								""
+							]
+						},
+						"description": "ایجاد رستوران جدید. ادمین غذا می‌تواند رستوران برای مراکز خودش و مراکز دیگر ایجاد کند. استفاده از 'centers' array برای تخصیص چند مرکز"
+					},
+					"response": []
+				},
+				{
+					"name": "به‌روزرسانی کامل رستوران",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران سنتی - بروزرسانی شده\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "به‌روزرسانی کامل رستوران (فقط رستوران‌های مراکز خود). می‌توانید مراکز را به مراکز خودتان و مراکز دیگر تغییر دهید. استفاده از 'centers' array برای تخصیص چند مرکز"
+					},
+					"response": []
+				},
+				{
+					"name": "به‌روزرسانی جزئی رستوران",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران سنتی - به‌روزرسانی جزئی\",\n    \"centers\": [1],\n    \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "به‌روزرسانی جزئی رستوران. فقط فیلدهایی که می‌خواهید تغییر دهید را ارسال کنید (فقط رستوران‌های مراکز خود). می‌توانید مراکز را به مراکز خودتان و مراکز دیگر تغییر دهید"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. ایجاد غذای پایه",
+			"item": [
+				{
+					"name": "ایجاد غذای پایه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"قورمه سبزی\",\n    \"description\": \"قورمه سبزی با لوبیا و گوشت\",\n    \"ingredients\": \"سبزی قورمه، لوبیا قرمز، گوشت، لیمو عمانی\",\n    \"restaurant\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								""
+							]
+						},
+						"description": "ایجاد غذای پایه برای رستوران. غذا از طریق رستوران به مرکز متصل می‌شود"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد غذای پایه با جزئیات",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"زرشک پلو با مرغ\",\n    \"description\": \"زرشک پلو با مرغ و زعفران\",\n    \"ingredients\": \"برنج، مرغ، زرشک، زعفران، پیاز\",\n    \"restaurant\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								""
+							]
+						},
+						"description": "ایجاد غذای پایه با تمام جزئیات"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش کامل غذای پایه",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"قورمه سبزی - ویرایش شده\",\n    \"description\": \"قورمه سبزی با لوبیا و گوشت - به‌روزرسانی شده\",\n    \"ingredients\": \"سبزی قورمه، لوبیا قرمز، گوشت، لیمو عمانی، پیاز\",\n    \"restaurant\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/{{base_meal_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								"{{base_meal_id}}",
+								""
+							]
+						},
+						"description": "ویرایش کامل غذای پایه"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش جزئی غذای پایه",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"قورمه سبزی - به‌روزرسانی شده\",\n    \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/{{base_meal_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								"{{base_meal_id}}",
+								""
+							]
+						},
+						"description": "ویرایش جزئی غذای پایه. فقط فیلدهایی که می‌خواهید تغییر دهید را ارسال کنید"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف غذای پایه",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/{{base_meal_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								"{{base_meal_id}}",
+								""
+							]
+						},
+						"description": "حذف غذای پایه"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. ایجاد دسر",
+			"item": [
+				{
+					"name": "ایجاد دسر جدید",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"حلوا\",\n    \"description\": \"حلوا سنتی ایرانی\",\n    \"ingredients\": \"آرد، شکر، روغن، زعفران\",\n    \"restaurant\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								""
+							]
+						},
+						"description": "ایجاد دسر جدید برای رستوران‌های مراکز خود"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد دسر با جزئیات",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"شیر برنج\",\n    \"description\": \"شیر برنج با دارچین\",\n    \"ingredients\": \"شیر، برنج، شکر، دارچین، گلاب\",\n    \"restaurant\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								""
+							]
+						},
+						"description": "ایجاد دسر با جزئیات کامل"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش کامل دسر",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"حلوا - ویرایش شده\",\n    \"description\": \"حلوا سنتی ایرانی - به‌روزرسانی شده\",\n    \"ingredients\": \"آرد، شکر، روغن، زعفران، گلاب\",\n    \"restaurant\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/{{dessert_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								"{{dessert_id}}",
+								""
+							]
+						},
+						"description": "ویرایش کامل دسر"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش جزئی دسر",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"حلوا - به‌روزرسانی شده\",\n    \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/{{dessert_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								"{{dessert_id}}",
+								""
+							]
+						},
+						"description": "ویرایش جزئی دسر. فقط فیلدهایی که می‌خواهید تغییر دهید را ارسال کنید"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف دسر",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/{{dessert_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								"{{dessert_id}}",
+								""
+							]
+						},
+						"description": "حذف دسر"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. افزودن غذا به منوی روزانه",
+			"item": [
+				{
+					"name": "افزودن غذا با یک اپشن",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/meals-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"meals-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15"
+								}
+							]
+						},
+						"description": "افزودن غذا به منوی روزانه (فقط برای رستوران‌های مراکز خود)"
+					},
+					"response": []
+				},
+				{
+					"name": "افزودن غذا با چند اپشن",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60\n        },\n        {\n            \"title\": \"با برنج خارجی\",\n            \"description\": \"قورمه سبزی با برنج خارجی\",\n            \"price\": 190000,\n            \"quantity\": 40\n        },\n        {\n            \"title\": \"بدون برنج\",\n            \"description\": \"فقط قورمه سبزی\",\n            \"price\": 140000,\n            \"quantity\": 20\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/meals-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"meals-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15"
+								}
+							]
+						},
+						"description": "افزودن غذا با چند گزینه مختلف به منو"
+					},
+					"response": []
+				},
+				{
+					"name": "افزودن غذا با تاریخ شمسی",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"زرشک پلو با مرغ\",\n            \"price\": 170000,\n            \"quantity\": 50\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/meals-by-date/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"meals-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25"
+								}
+							]
+						},
+						"description": "افزودن غذا با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف غذا از منوی روزانه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/remove-meal-from-menu/?date=2025-01-15&restaurant_id=1&base_meal_id=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"remove-meal-from-menu",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "تاریخ منو (YYYY-MM-DD یا YYYY/MM/DD)"
+								},
+								{
+									"key": "restaurant_id",
+									"value": "1",
+									"description": "شناسه رستوران"
+								},
+								{
+									"key": "base_meal_id",
+									"value": "1",
+									"description": "شناسه غذای پایه برای حذف"
+								}
+							]
+						},
+						"description": "حذف غذا و تمام اپشن‌هایش از منوی روزانه"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. افزودن دسر به منوی روزانه",
+			"item": [
+				{
+					"name": "افزودن دسر به منو",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"dessert_id\": 1,\n    \"title\": \"حلوا سنتی\",\n    \"description\": \"حلوا سنتی ایرانی\",\n    \"price\": 55000,\n    \"quantity\": 100\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/desserts-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"desserts-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15"
+								}
+							]
+						},
+						"description": "افزودن دسر به منوی روزانه"
+					},
+					"response": []
+				},
+				{
+					"name": "افزودن دسر با تاریخ شمسی",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"dessert_id\": 1,\n    \"title\": \"شیر برنج\",\n    \"description\": \"شیر برنج با دارچین\",\n    \"price\": 45000,\n    \"quantity\": 90\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/desserts-by-date/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"desserts-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25"
+								}
+							]
+						},
+						"description": "افزودن دسر با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف دسر از منوی روزانه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/remove-dessert-from-menu/?date=2025-01-15&restaurant_id=1&dessert_id=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"remove-dessert-from-menu",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "تاریخ منو (YYYY-MM-DD یا YYYY/MM/DD)"
+								},
+								{
+									"key": "restaurant_id",
+									"value": "1",
+									"description": "شناسه رستوران"
+								},
+								{
+									"key": "dessert_id",
+									"value": "1",
+									"description": "شناسه دسر برای حذف"
+								}
+							]
+						},
+						"description": "حذف دسر از منوی روزانه"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. گزارش‌ها و خروجی مراکز",
+			"item": [
+				{
+					"name": "ورود ادمین غذا برای گزارش‌ها",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"food-admin\",\n    \"password\": \"FoodAdminPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "با کاربر ادمین غذا وارد شوید و از تب Cookies مقدار access_token را به {{jwt_token}} منتقل کنید."
+					},
+					"response": []
+				},
+				{
+					"name": "گزارش جامع مرکز (آمار کلی)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/statistics/?center_id={{center_id}}&start_date=2025-01-01&end_date=2025-01-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"statistics",
+								""
+							],
+							"query": [
+								{
+									"key": "center_id",
+									"value": "{{center_id}}",
+									"description": "شناسه مرکز خود ادمین غذا"
+								},
+								{
+									"key": "start_date",
+									"value": "2025-01-01",
+									"description": "تاریخ شروع (میلادی یا شمسی)"
+								},
+								{
+									"key": "end_date",
+									"value": "2025-01-31",
+									"description": "تاریخ پایان (میلادی یا شمسی)"
+								}
+							]
+						},
+						"description": "آمار کامل رزروها، غذاها، رستوران‌ها و هزینه‌ها برای مرکز انتخابی ادمین غذا."
+					},
+					"response": []
+				},
+				{
+					"name": "آمار کاربران در بازه زمانی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/statistics/users-by-date-range/?center_id={{center_id}}&start_date=2025-01-01&end_date=2025-01-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"statistics",
+								"users-by-date-range",
+								""
+							],
+							"query": [
+								{
+									"key": "center_id",
+									"value": "{{center_id}}"
+								},
+								{
+									"key": "start_date",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "end_date",
+									"value": "2025-01-31"
+								}
+							]
+						},
+						"description": "مقایسه مبلغ کل سفارش‌های هر کاربر در بازه زمانی مشخص برای مراکز ادمین غذا."
+					},
+					"response": []
+				},
+				{
+					"name": "جزئیات رزروهای مرکز",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/reports/detailed-reservations/?center_id={{center_id}}&status=reserved",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"reports",
+								"detailed-reservations",
+								""
+							],
+							"query": [
+								{
+									"key": "center_id",
+									"value": "{{center_id}}"
+								},
+								{
+									"key": "status",
+									"value": "reserved",
+									"description": "فیلتر وضعیت رزرو (reserved/cancelled/served)"
+								}
+							]
+						},
+						"description": "لیست کامل رزروها همراه با کاربر، مهمان، مبلغ و اطلاعات وعده برای مرکز انتخاب‌شده."
+					},
+					"response": []
+				},
+				{
+					"name": "دانلود اکسل رزروهای مرکز",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/centers/{{center_id}}/export/excel/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"centers",
+								"{{center_id}}",
+								"export",
+								"excel",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "اختیاری - تاریخ خاص برای خروجی"
+								}
+							]
+						},
+						"description": "دانلود فایل اکسل رزروهای مرکز برای آرشیو مالی یا اشتراک با مدیریت."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "restaurant_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "center_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "base_meal_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "dessert_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "restaurant_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

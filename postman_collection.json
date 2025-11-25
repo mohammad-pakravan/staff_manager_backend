@@ -414,7 +414,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"name\": \"رستوران سنتی\",\n    \"address\": \"خیابان اصلی، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"name\": \"رستوران سنتی\",\n    \"address\": \"خیابان اصلی، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
                 },
                 "url": {
                   "raw": "{{base_url}}/api/food/restaurants/",
@@ -457,13 +457,40 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"name\": \"رستوران سنتی - بروزرسانی شده\",\n    \"address\": \"خیابان اصلی، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی\",\n    \"center\": 1,\n    \"is_active\": true\n}"
+                  "raw": "{\n    \"name\": \"رستوران سنتی - بروزرسانی شده\",\n    \"address\": \"خیابان اصلی، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
                 },
+                "description": "Update restaurant completely. Use 'centers' array instead of 'center' to assign multiple centers (Food Admin & System Admin only)",
                 "url": {
                   "raw": "{{base_url}}/api/food/restaurants/{{restaurant_id}}/",
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
                 }
+              }
+            },
+            {
+              "name": "Partial Update Restaurant (Admin Only)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"رستوران سنتی - به‌روزرسانی جزئی\",\n    \"centers\": [1, 2],\n    \"is_active\": false\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/food/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
+                },
+                "description": "Partially update restaurant. You can send only the fields you want to update. Use 'centers' array to assign multiple centers (Food Admin & System Admin only)"
               }
             },
             {
@@ -481,6 +508,138 @@
                   "host": ["{{base_url}}"],
                   "path": ["api", "food", "restaurants", "{{restaurant_id}}", ""]
                 }
+              }
+            },
+            {
+              "name": "List Restaurants (/api/meals/restaurants/)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/meals/restaurants/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "meals", "restaurants", ""]
+                },
+                "description": "Get list of restaurants using /api/meals/ endpoint. Admins see all restaurants, employees see restaurants for all their assigned centers."
+              }
+            },
+            {
+              "name": "Create Restaurant (/api/meals/restaurants/)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"رستوران سنتی تهران\",\n    \"address\": \"خیابان ولیعصر، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی اصیل\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/meals/restaurants/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "meals", "restaurants", ""]
+                },
+                "description": "Create a new restaurant with multiple centers using /api/meals/ endpoint. Use 'centers' array to assign multiple centers (Admin only)"
+              }
+            },
+            {
+              "name": "Get Restaurant Details (/api/meals/restaurants/:id/)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "meals", "restaurants", "{{restaurant_id}}", ""]
+                },
+                "description": "Get details of a specific restaurant using /api/meals/ endpoint"
+              }
+            },
+            {
+              "name": "Update Restaurant (/api/meals/restaurants/:id/)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"رستوران سنتی تهران - بروزرسانی شده\",\n    \"address\": \"خیابان ولیعصر، پلاک 123\",\n    \"phone\": \"021-12345678\",\n    \"email\": \"restaurant@example.com\",\n    \"description\": \"رستوران سنتی با غذاهای ایرانی اصیل\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "meals", "restaurants", "{{restaurant_id}}", ""]
+                },
+                "description": "Update restaurant completely using /api/meals/ endpoint. Use 'centers' array to assign multiple centers (Food Admin & System Admin only)"
+              }
+            },
+            {
+              "name": "Partial Update Restaurant (/api/meals/restaurants/:id/)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"رستوران سنتی تهران - به‌روزرسانی جزئی\",\n    \"centers\": [1, 2],\n    \"is_active\": false\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "meals", "restaurants", "{{restaurant_id}}", ""]
+                },
+                "description": "Partially update restaurant using /api/meals/ endpoint. You can send only the fields you want to update. Use 'centers' array to assign multiple centers (Food Admin & System Admin only)"
+              }
+            },
+            {
+              "name": "Delete Restaurant (/api/meals/restaurants/:id/)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{jwt_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "meals", "restaurants", "{{restaurant_id}}", ""]
+                },
+                "description": "Delete restaurant using /api/meals/ endpoint (Food Admin & System Admin only)"
               }
             },
             {

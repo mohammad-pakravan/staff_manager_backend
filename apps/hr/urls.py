@@ -11,6 +11,19 @@ urlpatterns = [
     path('announcements/bulk/', views.create_bulk_announcement, name='create-bulk-announcement'),
     path('announcements/<int:announcement_id>/publish/', views.publish_announcement, name='publish-announcement'),
     path('announcements/<int:announcement_id>/unpublish/', views.unpublish_announcement, name='unpublish-announcement'),
+    
+    # Feedback URLs
+    path('feedbacks/', views.FeedbackListCreateView.as_view(), name='feedback-list-create'),
+    path('feedbacks/<int:pk>/', views.FeedbackDetailView.as_view(), name='feedback-detail'),
+    path('feedbacks/<int:pk>/update-status/', views.update_feedback_status, name='update-feedback-status'),
+    
+    # Insurance Form URLs
+    path('insurance-forms/', views.InsuranceFormListCreateView.as_view(), name='insurance-form-list-create'),
+    path('insurance-forms/<int:pk>/', views.InsuranceFormDetailView.as_view(), name='insurance-form-detail'),
+    path('insurance-forms/<int:pk>/update-status/', views.update_insurance_form_status, name='update-insurance-form-status'),
+    
+    # PhoneBook URLs
+    path('phonebook/search/', views.phonebook_search, name='phonebook-search'),
 ]
 
 

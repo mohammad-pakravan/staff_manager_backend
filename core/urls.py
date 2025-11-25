@@ -26,7 +26,10 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("apps.accounts.urls")),
     path("api/centers/", include("apps.centers.urls")),
-    path("api/food/", include("apps.food_management.urls")),
+    path("api/food/", include("apps.food_management.urls")),  # Legacy - will be removed
+    path("api/meals/", include("apps.meals.urls")),
+    path("api/reservations/", include("apps.reservations.urls")),
+    path("api/reports/", include("apps.reports.urls")),
     path("api/hr/", include("apps.hr.urls")),
     
     # Server Time

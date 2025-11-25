@@ -10,10 +10,6 @@ import jdatetime
 class Restaurant(models.Model):
     """مدل رستوران"""
     name = models.CharField(max_length=200, verbose_name='نام رستوران')
-    address = models.TextField(blank=True, null=True, verbose_name='آدرس')
-    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='تلفن')
-    email = models.EmailField(blank=True, null=True, verbose_name='ایمیل')
-    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     centers = models.ManyToManyField(Center, related_name='restaurants', verbose_name='مراکز')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
@@ -37,8 +33,8 @@ class BaseMeal(models.Model):
     """مدل غذای پایه"""
     title = models.CharField(max_length=200, verbose_name='عنوان')
     description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    ingredients = models.TextField(blank=True, null=True, verbose_name='محتویات')
     image = models.ImageField(upload_to='meals/', blank=True, null=True, verbose_name='تصویر')
-    center = models.ForeignKey(Center, on_delete=models.CASCADE, blank=True, null=True, verbose_name='مرکز')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='base_meals', verbose_name='رستوران')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
@@ -53,11 +49,41 @@ class BaseMeal(models.Model):
         return self.title
 
 
+class Dessert(models.Model):
+    """مدل دسر"""
+    title = models.CharField(max_length=200, verbose_name='عنوان')
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    ingredients = models.TextField(blank=True, null=True, verbose_name='محتویات')
+    image = models.ImageField(upload_to='desserts/', blank=True, null=True, verbose_name='تصویر')
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, blank=True, null=True, verbose_name='مرکز')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='desserts', verbose_name='رستوران')
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='قیمت')
+    quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
+    reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+    
+    @property
+    def available_quantity(self):
+        """تعداد موجود"""
+        return max(0, self.quantity - self.reserved_quantity)
+
+    class Meta:
+        verbose_name = 'دسر'
+        verbose_name_plural = 'دسرها'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
 class DailyMenu(models.Model):
     """منوی روزانه"""
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, verbose_name='رستوران')
     date = models.DateField(verbose_name='تاریخ')
     base_meals = models.ManyToManyField(BaseMeal, verbose_name='غذاهای پایه', blank=True, related_name='daily_menus')
+    desserts = models.ManyToManyField(Dessert, verbose_name='دسرها', blank=True, related_name='daily_menus')
     max_reservations_per_meal = models.PositiveIntegerField(default=100, verbose_name='حداکثر رزرو برای هر غذا')
     is_available = models.BooleanField(default=True, verbose_name='در دسترس')
 
@@ -89,6 +115,11 @@ class DailyMenu(models.Model):
     def meal_options(self):
         """اپشن‌های غذا برای این منو"""
         return DailyMenuMealOption.objects.filter(daily_menu=self)
+    
+    @property
+    def menu_desserts(self):
+        """دسرهای این منو"""
+        return self.desserts.all()
 
 
 class DailyMenuMealOption(models.Model):
@@ -245,6 +276,7 @@ class GuestReservation(models.Model):
     guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
     meal_option = models.ForeignKey('DailyMenuMealOption', on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     # فیلدهای ذخیره اطلاعات منو و غذا به صورت string (برای حفظ اطلاعات بعد از حذف)
     daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
     meal_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات غذا (حذف شده)')
@@ -356,6 +388,237 @@ class GuestReservation(models.Model):
                     meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
                     gregorian_meal_time = timezone.make_aware(meal_time)
                     self.cancellation_deadline = gregorian_meal_time - timezone.timedelta(hours=2)
+        super().save(*args, **kwargs)
+
+
+class DessertReservation(models.Model):
+    """رزرو دسر"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='شناسه کاربر')
+    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
+    dessert = models.ForeignKey('Dessert', on_delete=models.SET_NULL, verbose_name='دسر', null=True, blank=True)
+    # فیلدهای ذخیره اطلاعات منو و دسر به صورت string (برای حفظ اطلاعات بعد از حذف)
+    daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
+    dessert_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات دسر (حذف شده)')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='تعداد رزرو')
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('reserved', 'رزرو شده'),
+            ('cancelled', 'لغو شده'),
+            ('served', 'سرو شده'),
+        ],
+        default='reserved',
+        verbose_name='وضعیت'
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ')
+    reservation_date = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ رزرو')
+    cancellation_deadline = models.DateTimeField(verbose_name='مهلت لغو')
+    cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ لغو')
+
+    class Meta:
+        verbose_name = 'رزرو دسر'
+        verbose_name_plural = 'رزروهای دسر'
+        ordering = ['-reservation_date']
+
+    def __str__(self):
+        if self.dessert:
+            dessert_title = self.dessert.title
+        elif self.dessert_info:
+            dessert_title = self.dessert_info
+        else:
+            dessert_title = "بدون دسر"
+        return f"{self.user.username} - {dessert_title} - {self.quantity} عدد"
+
+    @classmethod
+    def get_user_daily_reservations_count(cls, user, daily_menu):
+        """تعداد کل رزروهای کاربر در یک منوی روزانه"""
+        return cls.objects.filter(
+            user=user,
+            daily_menu=daily_menu,
+            status='reserved'
+        ).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+    @classmethod
+    def get_user_date_reservations_count(cls, user, date):
+        """تعداد کل رزروهای کاربر در یک تاریخ مشخص"""
+        return cls.objects.filter(
+            user=user,
+            daily_menu__date=date,
+            status='reserved'
+        ).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+    @classmethod
+    def can_user_reserve(cls, user, daily_menu, requested_quantity=1):
+        """بررسی امکان رزرو برای کاربر"""
+        current_reservations = cls.get_user_daily_reservations_count(user, daily_menu)
+        return (current_reservations + requested_quantity) <= user.max_reservations_per_day
+
+    def can_cancel(self):
+        """بررسی امکان لغو رزرو"""
+        if self.status != 'reserved':
+            return False
+        return timezone.now() < self.cancellation_deadline
+
+    def cancel(self):
+        """لغو رزرو"""
+        if self.can_cancel():
+            # کاهش reserved_quantity
+            if self.dessert and self.status == 'reserved':
+                self.dessert.reserved_quantity = max(0, self.dessert.reserved_quantity - self.quantity)
+                self.dessert.save()
+            
+            self.status = 'cancelled'
+            self.cancelled_at = timezone.now()
+            self.save()
+            return True
+        return False
+
+    def save(self, *args, **kwargs):
+        """ذخیره رزرو"""
+        # ذخیره اطلاعات منو به صورت string
+        if self.daily_menu:
+            try:
+                if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
+                    center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
+                else:
+                    center_names = 'بدون مرکز'
+            except Exception:
+                center_names = 'بدون مرکز'
+            date_str = self.daily_menu.date.strftime('%Y-%m-%d')
+            self.daily_menu_info = f"مرکز: {center_names} - تاریخ: {date_str}"
+        elif not self.daily_menu_info and self.daily_menu is None:
+            pass
+        
+        # ذخیره اطلاعات دسر به صورت string
+        if self.dessert:
+            dessert_title = self.dessert.title
+            dessert_price = self.dessert.price if hasattr(self.dessert, 'price') else 'نامشخص'
+            self.dessert_info = f"عنوان: {dessert_title} - قیمت: {dessert_price}"
+        elif not self.dessert_info and self.dessert is None:
+            pass
+        
+        if not self.cancellation_deadline:
+            if self.daily_menu and self.daily_menu.date:
+                dessert_date = self.daily_menu.date
+                dessert_time = timezone.datetime.combine(dessert_date, timezone.datetime.min.time().replace(hour=12, minute=0))
+                self.cancellation_deadline = timezone.make_aware(dessert_time) - timezone.timedelta(hours=2)
+        super().save(*args, **kwargs)
+
+
+class GuestDessertReservation(models.Model):
+    """رزرو دسر برای مهمان"""
+    host_user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='کاربر میزبان')
+    guest_first_name = models.CharField(max_length=150, verbose_name='نام مهمان')
+    guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
+    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
+    dessert = models.ForeignKey('Dessert', on_delete=models.SET_NULL, verbose_name='دسر', null=True, blank=True)
+    # فیلدهای ذخیره اطلاعات منو و دسر به صورت string (برای حفظ اطلاعات بعد از حذف)
+    daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
+    dessert_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات دسر (حذف شده)')
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('reserved', 'رزرو شده'),
+            ('cancelled', 'لغو شده'),
+            ('served', 'سرو شده'),
+        ],
+        default='reserved',
+        verbose_name='وضعیت'
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ')
+    reservation_date = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ رزرو')
+    cancellation_deadline = models.DateTimeField(verbose_name='مهلت لغو')
+    cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ لغو')
+
+    class Meta:
+        verbose_name = 'رزرو دسر مهمان'
+        verbose_name_plural = 'رزروهای دسر مهمان'
+        ordering = ['-reservation_date']
+
+    def __str__(self):
+        if self.dessert:
+            dessert_title = self.dessert.title
+        elif self.dessert_info:
+            dessert_title = self.dessert_info
+        else:
+            dessert_title = "بدون دسر"
+        return f"{self.guest_first_name} {self.guest_last_name} - {dessert_title} (میزبان: {self.host_user.username})"
+
+    @classmethod
+    def get_user_daily_guest_reservations_count(cls, user, daily_menu):
+        """تعداد کل رزروهای مهمان کاربر در یک منوی روزانه"""
+        return cls.objects.filter(
+            host_user=user,
+            daily_menu=daily_menu,
+            status='reserved'
+        ).count()
+
+    @classmethod
+    def get_user_date_guest_reservations_count(cls, user, date):
+        """تعداد کل رزروهای مهمان کاربر در یک تاریخ مشخص"""
+        return cls.objects.filter(
+            host_user=user,
+            daily_menu__date=date,
+            status='reserved'
+        ).count()
+
+    @classmethod
+    def can_user_reserve_guest(cls, user, daily_menu):
+        """بررسی امکان رزرو مهمان برای کاربر"""
+        current_guest_reservations = cls.get_user_daily_guest_reservations_count(user, daily_menu)
+        return current_guest_reservations < user.max_guest_reservations_per_day
+
+    def can_cancel(self):
+        """بررسی امکان لغو رزرو"""
+        return (
+            self.status == 'reserved' and 
+            timezone.now() < self.cancellation_deadline
+        )
+
+    def cancel(self):
+        """لغو رزرو"""
+        if self.can_cancel():
+            # کاهش reserved_quantity
+            if self.dessert and self.status == 'reserved':
+                self.dessert.reserved_quantity = max(0, self.dessert.reserved_quantity - 1)
+                self.dessert.save()
+            
+            self.status = 'cancelled'
+            self.cancelled_at = timezone.now()
+            self.save()
+            return True
+        return False
+
+    def save(self, *args, **kwargs):
+        # ذخیره اطلاعات منو به صورت string
+        if self.daily_menu:
+            try:
+                if self.daily_menu.restaurant and self.daily_menu.restaurant.centers.exists():
+                    center_names = ', '.join([c.name for c in self.daily_menu.restaurant.centers.all()])
+                else:
+                    center_names = 'بدون مرکز'
+            except Exception:
+                center_names = 'بدون مرکز'
+            date_str = self.daily_menu.date.strftime('%Y-%m-%d')
+            self.daily_menu_info = f"مرکز: {center_names} - تاریخ: {date_str}"
+        elif not self.daily_menu_info and self.daily_menu is None:
+            pass
+        
+        # ذخیره اطلاعات دسر به صورت string
+        if self.dessert:
+            dessert_title = self.dessert.title
+            dessert_price = self.dessert.price if hasattr(self.dessert, 'price') else 'نامشخص'
+            self.dessert_info = f"عنوان: {dessert_title} - قیمت: {dessert_price}"
+        elif not self.dessert_info and self.dessert is None:
+            pass
+        
+        if not self.pk:  # اگر رزرو جدید است
+            if not self.cancellation_deadline:
+                if self.daily_menu and self.daily_menu.date:
+                    dessert_date = self.daily_menu.date
+                    dessert_time = timezone.datetime.combine(dessert_date, timezone.datetime.min.time().replace(hour=12, minute=0))
+                    gregorian_dessert_time = timezone.make_aware(dessert_time)
+                    self.cancellation_deadline = gregorian_dessert_time - timezone.timedelta(hours=2)
         super().save(*args, **kwargs)
 
 

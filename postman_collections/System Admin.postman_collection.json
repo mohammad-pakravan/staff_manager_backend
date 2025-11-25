@@ -1,0 +1,1119 @@
+{
+	"info": {
+		"_postman_id": "f9f7b11e-26f7-435a-baaf-e8f8faa9fbc8",
+		"name": "POST Collections - System Admin",
+		"description": "مجموعه درخواست‌های POST برای ادمین سیستم - شامل مدیریت مراکز، کاربران، رستوران‌ها و مشاهده غذا، دسر و منوها. System Admin فقط می‌تواند غذا، دسر و منوها را مشاهده کند (GET) و نمی‌تواند آن‌ها را مدیریت کند. اما می‌تواند از آمار و گزارش‌ها استفاده کند.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "20290697",
+		"_collection_link": "https://planetary-meadow-788359.postman.co/workspace/414b05bd-ac86-4530-a9eb-9492bb9d61a6/collection/20290697-f9f7b11e-26f7-435a-baaf-e8f8faa9fbc8?action=share&source=collection_link&creator=20290697"
+	},
+	"item": [
+		{
+			"name": "0. مدیریت مراکز",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - مدیریت مراکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "ابتدا با کاربر System Admin لاگین کنید. بعد از پاسخ، از تب Cookies مقدار access_token را برداشته و در متغیر {{jwt_token}} قرار دهید."
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد مرکز جدید",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"مرکز تهران\",\n    \"english_name\": \"Tehran Center\",\n    \"city\": \"تهران\",\n    \"address\": \"خیابان ولیعصر، پلاک 12\",\n    \"phone\": \"021-88990011\",\n    \"email\": \"tehran-center@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/centers/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"centers",
+								""
+							]
+						},
+						"description": "ایجاد مرکز جدید توسط System Admin. فیلدهای city، phone و email اختیاری هستند."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "0. مدیریت کاربران",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - مدیریت کاربران",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "قبل از ایجاد کاربر جدید لاگین کنید و مقدار access_token را به {{jwt_token}} منتقل نمایید."
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد کاربر جدید با مراکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"food-admin\",\n    \"email\": \"food-admin@example.com\",\n    \"first_name\": \"ادمین\",\n    \"last_name\": \"غذا\",\n    \"employee_number\": \"EMP-1001\",\n    \"password\": \"StrongPass123!\",\n    \"password_confirm\": \"StrongPass123!\",\n    \"role\": \"admin_food\",\n    \"phone_number\": \"09120000000\",\n    \"centers\": [1, 2],\n    \"max_reservations_per_day\": 2,\n    \"max_guest_reservations_per_day\": 1,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/users/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"users",
+								""
+							]
+						},
+						"description": "ایجاد کاربر جدید توسط System Admin و اتصال کاربر به چند مرکز. حتما نقش و شماره پرسنلی یکتا ارسال شود."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. ایجاد رستوران",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - ایجاد رستوران",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "با نقش System Admin وارد شوید تا بتوانید رستوران به مراکز مختلف اضافه کنید."
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد رستوران جدید",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران سنتی تهران\",\n    \"centers\": [1],\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								""
+							]
+						},
+						"description": "ایجاد رستوران جدید برای یک یا چند مرکز"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد رستوران با چند مرکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران مرکزی\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								""
+							]
+						},
+						"description": "ایجاد رستوران که به چند مرکز متصل است"
+					},
+					"response": []
+				},
+				{
+					"name": "لیست رستوران‌ها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								""
+							]
+						},
+						"description": "دریافت لیست همه رستوران‌ها (System Admin می‌تواند همه رستوران‌ها را ببیند)"
+					},
+					"response": []
+				},
+				{
+					"name": "جزئیات رستوران",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "دریافت جزئیات یک رستوران خاص"
+					},
+					"response": []
+				},
+				{
+					"name": "به‌روزرسانی کامل رستوران",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران سنتی تهران - بروزرسانی شده\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "به‌روزرسانی کامل اطلاعات رستوران. استفاده از 'centers' array برای تخصیص چند مرکز"
+					},
+					"response": []
+				},
+				{
+					"name": "به‌روزرسانی جزئی رستوران",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"رستوران سنتی تهران - به‌روزرسانی جزئی\",\n    \"centers\": [1, 2],\n    \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "به‌روزرسانی جزئی رستوران. فقط فیلدهایی که می‌خواهید تغییر دهید را ارسال کنید. استفاده از 'centers' array برای تغییر مراکز"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف رستوران",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								""
+							]
+						},
+						"description": "حذف رستوران (فقط System Admin می‌تواند رستوران را حذف کند)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. مشاهده غذاها",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - مشاهده غذاها",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "برای مشاهده غذاها ابتدا لاگین کنید. توجه: System Admin فقط می‌تواند غذاها را مشاهده کند و نمی‌تواند آن‌ها را ایجاد یا ویرایش کند."
+					},
+					"response": []
+				},
+				{
+					"name": "لیست غذاها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								""
+							]
+						},
+						"description": "دریافت لیست همه غذاها (System Admin می‌تواند همه غذاها را ببیند)"
+					},
+					"response": []
+				},
+				{
+					"name": "جزئیات غذا",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/meals/{{base_meal_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"meals",
+								"{{base_meal_id}}",
+								""
+							]
+						},
+						"description": "دریافت جزئیات یک غذای خاص"
+					},
+					"response": []
+				},
+				{
+					"name": "لیست غذاهای یک رستوران",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/meals/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								"meals",
+								""
+							]
+						},
+						"description": "دریافت لیست غذاهای یک رستوران خاص"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. مشاهده دسرها",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - مشاهده دسرها",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "برای مشاهده دسرها ابتدا لاگین کنید. توجه: System Admin فقط می‌تواند دسرها را مشاهده کند و نمی‌تواند آن‌ها را ایجاد یا ویرایش کند."
+					},
+					"response": []
+				},
+				{
+					"name": "لیست دسرها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								""
+							]
+						},
+						"description": "دریافت لیست همه دسرها (System Admin می‌تواند همه دسرها را ببیند)"
+					},
+					"response": []
+				},
+				{
+					"name": "جزئیات دسر",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/desserts/{{dessert_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"desserts",
+								"{{dessert_id}}",
+								""
+							]
+						},
+						"description": "دریافت جزئیات یک دسر خاص"
+					},
+					"response": []
+				},
+				{
+					"name": "لیست دسرهای یک رستوران",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/restaurants/{{restaurant_id}}/desserts/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"restaurants",
+								"{{restaurant_id}}",
+								"desserts",
+								""
+							]
+						},
+						"description": "دریافت لیست دسرهای یک رستوران خاص"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. مشاهده غذاهای منوی روزانه",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - مشاهده منوی روزانه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "ورود با کاربر ادمین سیستم برای مشاهده منوی روزانه. توجه: System Admin فقط می‌تواند غذاهای منو را مشاهده کند و نمی‌تواند آن‌ها را مدیریت کند."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده غذاهای منو برای یک تاریخ",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/meals-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"meals-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "تاریخ به فرمت میلادی (YYYY-MM-DD) یا شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده لیست غذاهای موجود در منو برای یک تاریخ مشخص"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده غذاهای منو با تاریخ شمسی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/meals-by-date/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"meals-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25",
+									"description": "تاریخ به فرمت شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده لیست غذاهای موجود در منو با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. مشاهده دسرهای منوی روزانه",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - مشاهده دسرهای منو",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "ورود برای مشاهده دسرهای منوی روزانه. توجه: System Admin فقط می‌تواند دسرهای منو را مشاهده کند و نمی‌تواند آن‌ها را مدیریت کند."
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده دسرهای منو برای یک تاریخ",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/desserts-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"desserts-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "تاریخ به فرمت میلادی (YYYY-MM-DD) یا شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده لیست دسرهای موجود در منو برای یک تاریخ مشخص"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده دسرهای منو با تاریخ شمسی",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/desserts-by-date/?date=1403/10/25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"desserts-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "1403/10/25",
+									"description": "تاریخ به فرمت شمسی (YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "مشاهده لیست دسرهای موجود در منو با استفاده از تاریخ شمسی"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. گزارش‌ها و خروجی سیستم ادمین",
+			"item": [
+				{
+					"name": "ورود ادمین سیستم - گزارش‌ها",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sysadmin\",\n    \"password\": \"StrongPass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login",
+								""
+							]
+						},
+						"description": "ابتدا وارد شوید و مقدار access_token را در {{jwt_token}} قرار دهید تا تمام گزارش‌ها و خروجی‌ها مجوز بگیرند."
+					},
+					"response": []
+				},
+				{
+					"name": "آمار جامع کل مراکز",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/statistics/?start_date=2025-01-01&end_date=2025-01-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"statistics",
+								""
+							],
+							"query": [
+								{
+									"key": "center_id",
+									"value": "",
+									"description": "اختیاری - فیلتر یک مرکز"
+								},
+								{
+									"key": "start_date",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "end_date",
+									"value": "2025-01-31"
+								}
+							]
+						},
+						"description": "گزارش جامع کلیه مراکز شامل تعداد رزرو، کاربران فعال، هزینه‌ها و تفکیک وضعیت."
+					},
+					"response": []
+				},
+				{
+					"name": "گزارش جامع تفکیک شده",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/reports/comprehensive/?center_id={{center_id}}&start_date=2025-01-01&end_date=2025-01-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"reports",
+								"comprehensive",
+								""
+							],
+							"query": [
+								{
+									"key": "center_id",
+									"value": "{{center_id}}"
+								},
+								{
+									"key": "start_date",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "end_date",
+									"value": "2025-01-31"
+								}
+							]
+						},
+						"description": "گزارش جامع با جزئیات بر اساس مرکز، کاربر، غذا و تاریخ برای دوره انتخابی."
+					},
+					"response": []
+				},
+				{
+					"name": "آمار غذا بر اساس رستوران",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/statistics/meals-by-restaurant/?center_id={{center_id}}&start_date=2025-01-01&end_date=2025-01-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"statistics",
+								"meals-by-restaurant",
+								""
+							],
+							"query": [
+								{
+									"key": "center_id",
+									"value": "{{center_id}}"
+								},
+								{
+									"key": "restaurant_id",
+									"value": "",
+									"description": "اختیاری"
+								},
+								{
+									"key": "start_date",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "end_date",
+									"value": "2025-01-31"
+								}
+							]
+						},
+						"description": "تفکیک هر رستوران و اپشن‌هایش همراه با تعداد رزروها و هزینه‌ها."
+					},
+					"response": []
+				},
+				{
+					"name": "آمار رزرو یک غذای پایه",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/statistics/reservations-by-base-meal/?base_meal_id={{base_meal_id}}&center_id={{center_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"statistics",
+								"reservations-by-base-meal",
+								""
+							],
+							"query": [
+								{
+									"key": "base_meal_id",
+									"value": "{{base_meal_id}}"
+								},
+								{
+									"key": "center_id",
+									"value": "{{center_id}}",
+									"description": "اختیاری"
+								}
+							]
+						},
+						"description": "لیست کاربران و مهمانانی که یک غذای پایه خاص را سفارش داده‌اند به همراه مقدار و وضعیت."
+					},
+					"response": []
+				},
+				{
+					"name": "دانلود PDF رزروهای مرکز",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/centers/{{center_id}}/export/pdf/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"centers",
+								"{{center_id}}",
+								"export",
+								"pdf",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15",
+									"description": "اختیاری - تاریخ مشخص برای گزارش PDF"
+								}
+							]
+						},
+						"description": "دانلود خروجی PDF رزروهای مرکز دلخواه برای ارائه مدیریتی."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:14532",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "restaurant_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "center_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "base_meal_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "dessert_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

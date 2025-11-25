@@ -1,0 +1,1043 @@
+{
+	"info": {
+		"_postman_id": "51aed0e0-bf9d-43a3-b540-0f499bb91c3f",
+		"name": "HR Admin",
+		"description": "مجموعه درخواست‌های کامل برای ادمین HR - شامل مشاهده، ایجاد، ویرایش و حذف اطلاعیه‌ها، ایجاد نظر و فرم بیمه",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "20290697",
+		"_collection_link": "https://planetary-meadow-788359.postman.co/workspace/414b05bd-ac86-4530-a9eb-9492bb9d61a6/collection/20290697-51aed0e0-bf9d-43a3-b540-0f499bb91c3f?action=share&source=collection_link&creator=20290697"
+	},
+	"item": [
+		{
+			"name": "0. مدیریت اطلاعیه‌ها",
+			"item": [
+				{
+					"name": "لیست همه اطلاعیه‌ها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?page=1&page_size=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								},
+								{
+									"key": "center",
+									"value": "",
+									"description": "فیلتر بر اساس مرکز (اختیاری)",
+									"disabled": true
+								},
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "فیلتر بر اساس وضعیت فعال/غیرفعال (true/false)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "مشاهده لیست همه اطلاعیه‌ها (فعال و غیرفعال) - فقط HR Admin و System Admin"
+					},
+					"response": []
+				},
+				{
+					"name": "لیست اطلاعیه‌های فعال",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?is_active=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "true"
+								}
+							]
+						},
+						"description": "مشاهده لیست فقط اطلاعیه‌های فعال"
+					},
+					"response": []
+				},
+				{
+					"name": "لیست اطلاعیه‌های غیرفعال",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?is_active=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "false"
+								}
+							]
+						},
+						"description": "مشاهده لیست فقط اطلاعیه‌های غیرفعال"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده جزئیات اطلاعیه",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								""
+							]
+						},
+						"description": "مشاهده جزئیات کامل یک اطلاعیه"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش کامل اطلاعیه (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه ویرایش شده\",\n    \"lead\": \"لید خبر ویرایش شده\",\n    \"content\": \"متن کامل اطلاعیه ویرایش شده\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								""
+							]
+						},
+						"description": "ویرایش کامل اطلاعیه (همه فیلدها باید ارسال شوند)"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش جزئی اطلاعیه (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"عنوان ویرایش شده\",\n    \"is_active\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								""
+							]
+						},
+						"description": "ویرایش جزئی اطلاعیه (فقط فیلدهای مورد نظر را ارسال کنید)"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش اطلاعیه با تصویر جدید (form-data)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "عنوان ویرایش شده",
+									"type": "text"
+								},
+								{
+									"key": "image",
+									"type": "file",
+									"src": [],
+									"description": "تصویر جدید برای اطلاعیه"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								""
+							]
+						},
+						"description": "ویرایش اطلاعیه با آپلود تصویر جدید (استفاده از form-data برای آپلود فایل)"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف اطلاعیه",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								""
+							]
+						},
+						"description": "حذف اطلاعیه - فقط HR Admin و System Admin می‌توانند حذف کنند"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. ایجاد اطلاعیه",
+			"item": [
+				{
+					"name": "ایجاد اطلاعیه برای یک مرکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه مهم - جلسه عمومی\",\n    \"lead\": \"جلسه عمومی هفته آینده برگزار می‌شود\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که جلسه عمومی در روز دوشنبه ساعت 10 صبح در سالن کنفرانس برگزار خواهد شد. حضور همه همکاران الزامی است.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1],\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه برای یک مرکز خاص"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه برای چند مرکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی - تعطیلات\",\n    \"lead\": \"اطلاعیه تعطیلات رسمی\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که به مناسبت تعطیلات رسمی، مراکز در تاریخ 25 دی ماه تعطیل خواهند بود.\",\n    \"publish_date\": \"2025-01-15T08:00:00Z\",\n    \"centers\": [1, 2, 3],\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه برای چند مرکز"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه ساده (بدون lead)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه کوتاه\",\n    \"content\": \"این یک اطلاعیه کوتاه است.\",\n    \"centers\": [1],\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه ساده بدون لید خبر"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه با تاریخ انتشار آینده",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه آینده\",\n    \"lead\": \"این اطلاعیه در آینده منتشر می‌شود\",\n    \"content\": \"این اطلاعیه در تاریخ مشخص شده منتشر خواهد شد.\",\n    \"publish_date\": \"2025-02-01T08:00:00Z\",\n    \"centers\": [1],\n    \"is_active\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه که در آینده منتشر می‌شود (is_active = false)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه با تصویر (form-data)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "اطلاعیه با تصویر",
+									"type": "text"
+								},
+								{
+									"key": "lead",
+									"value": "لید خبر برای اطلاعیه با تصویر",
+									"type": "text"
+								},
+								{
+									"key": "content",
+									"value": "این اطلاعیه شامل تصویر است و برای نمایش بهتر اطلاعیه استفاده می‌شود.",
+									"type": "text"
+								},
+								{
+									"key": "image",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "publish_date",
+									"value": "2025-01-20T08:00:00Z",
+									"type": "text"
+								},
+								{
+									"key": "centers",
+									"value": "[1]",
+									"type": "text",
+									"description": "لیست ID مراکز به صورت JSON array"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه با آپلود تصویر (استفاده از form-data برای آپلود فایل)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه با تصویر (ساده)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "اطلاعیه تصویری",
+									"type": "text"
+								},
+								{
+									"key": "content",
+									"value": "این اطلاعیه تصویر دارد.",
+									"type": "text"
+								},
+								{
+									"key": "image",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "centers",
+									"value": "[1]",
+									"type": "text"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه ساده با تصویر (بدون lead و publish_date)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. ایجاد اطلاعیه دسته‌جمعی",
+			"item": [
+				{
+					"name": "ایجاد اطلاعیه برای همه مراکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی - همه مراکز\",\n    \"lead\": \"اطلاعیه مهم برای همه مراکز\",\n    \"content\": \"به اطلاع همه همکاران عزیز در تمام مراکز می‌رساند که جلسه عمومی در هفته آینده برگزار خواهد شد.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/bulk/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"bulk",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه برای همه مراکز فعال (نیازی به مشخص کردن centers نیست)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه دسته‌جمعی ساده",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی\",\n    \"content\": \"این اطلاعیه برای همه مراکز ارسال می‌شود.\",\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/bulk/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"bulk",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه دسته‌جمعی ساده"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. انتشار و لغو انتشار اطلاعیه",
+			"item": [
+				{
+					"name": "انتشار اطلاعیه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/publish/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								"publish",
+								""
+							]
+						},
+						"description": "انتشار یک اطلاعیه (بدون نیاز به body)"
+					},
+					"response": []
+				},
+				{
+					"name": "لغو انتشار اطلاعیه",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/unpublish/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								"unpublish",
+								""
+							]
+						},
+						"description": "لغو انتشار یک اطلاعیه (بدون نیاز به body)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. ایجاد نظر (Feedback)",
+			"item": [
+				{
+					"name": "ایجاد نظر جدید",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"نظرات و پیشنهادات من در مورد سیستم:\""
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/feedbacks/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"feedbacks",
+								""
+							]
+						},
+						"description": "ایجاد نظر جدید (همه کاربران می‌توانند نظر ایجاد کنند)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد نظر با متن کامل",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"سیستم بسیار خوب است اما پیشنهاد می‌کنم قابلیت جستجو در منوها اضافه شود. همچنین امکان رزرو چند روزه غذا می‌تواند مفید باشد.\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/feedbacks/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"feedbacks",
+								""
+							]
+						},
+						"description": "ایجاد نظر با متن کامل"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. ایجاد فرم بیمه",
+			"item": [
+				{
+					"name": "ایجاد فرم بیمه با توضیحات",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "description",
+									"value": "فرم بیمه من - لطفا بررسی کنید",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/insurance-forms/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"insurance-forms",
+								""
+							]
+						},
+						"description": "ایجاد فرم بیمه با فایل و توضیحات (همه کاربران می‌توانند فرم بیمه ایجاد کنند)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد فرم بیمه بدون توضیحات",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/insurance-forms/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"insurance-forms",
+								""
+							]
+						},
+						"description": "ایجاد فرم بیمه فقط با فایل (بدون توضیحات)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. سناریوهای مختلف",
+			"item": [
+				{
+					"name": "سناریو: اطلاعیه + انتشار",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه فوری\",\n    \"content\": \"این اطلاعیه فوری است و باید فورا منتشر شود.\",\n    \"centers\": [1],\n    \"is_active\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ابتدا اطلاعیه را با is_active=false ایجاد کنید، سپس با publish endpoint آن را منتشر کنید"
+					},
+					"response": []
+				},
+				{
+					"name": "سناریو: اطلاعیه دسته‌جمعی برای تعطیلات",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"تعطیلات رسمی\",\n    \"lead\": \"اطلاعیه تعطیلات\",\n    \"content\": \"به اطلاع همه همکاران عزیز می‌رساند که به مناسبت تعطیلات رسمی، تمام مراکز در تاریخ 25 دی ماه تعطیل خواهند بود.\",\n    \"publish_date\": \"2025-01-15T08:00:00Z\",\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/bulk/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"bulk",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه دسته‌جمعی برای تعطیلات"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "announcement_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "center_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "feedback_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "insurance_form_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

@@ -35,6 +35,9 @@ LOCAL_APPS = [
     'apps.accounts',
     'apps.centers',
     'apps.food_management',
+    'apps.meals',
+    'apps.reservations',
+    'apps.reports',
     'apps.hr',
     'apps.core',
 ]

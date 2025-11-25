@@ -3,10 +3,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
 from .models import User
-from .serializers import UserSerializer, UserRegistrationSerializer, LoginSerializer
+from .serializers import UserSerializer, UserRegistrationSerializer, LoginSerializer, LoginResponseSerializer
 
 
 @extend_schema(
@@ -107,8 +108,8 @@ def refresh_token_view(request):
                             'id': 1,
                             'username': 'admin',
                             'email': 'admin@example.com',
-                            'first_name': 'Admin',
-                            'last_name': 'User',
+                            'first_name': 'محمد',
+                            'last_name': 'پاکروان',
                             'role': 'sys_admin',
                             'role_display': 'System Admin'
                         },
@@ -137,7 +138,7 @@ def login_view(request):
         
         # ساخت Response - توکن‌ها در cookies هستند، نه در response body
         response = Response({
-            'user': UserSerializer(user).data,
+            'user': LoginResponseSerializer(user).data,
             'message': 'لاگین با موفقیت انجام شد',
             'note': 'Tokens are stored in HttpOnly cookies and sent automatically with each request'
         })
@@ -240,3 +241,48 @@ def logout_view(request):
         response.delete_cookie('refresh_token', path='/')
         return response
 
+
+@extend_schema_view(
+    get=extend_schema(
+        summary='List Users',
+        description='لیست کاربران سیستم (فقط برای System Admin)',
+        tags=['Users'],
+        responses={200: UserSerializer(many=True)}
+    ),
+    post=extend_schema(
+        summary='Create User',
+        description='ایجاد کاربر جدید و تخصیص مراکز (فقط برای System Admin)',
+        tags=['Users'],
+        request=UserRegistrationSerializer,
+        responses={
+            201: UserSerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied'}
+        }
+    )
+)
+class UserListCreateView(generics.ListCreateAPIView):
+    queryset = User.objects.all().prefetch_related('centers')
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _ensure_sys_admin(self, user):
+        if user.role != User.Role.SYS_ADMIN:
+            raise PermissionDenied('Only System Admin can manage users.')
+
+    def get_queryset(self):
+        self._ensure_sys_admin(self.request.user)
+        return User.objects.all().prefetch_related('centers')
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return UserRegistrationSerializer
+        return UserSerializer
+
+    def create(self, request, *args, **kwargs):
+        self._ensure_sys_admin(request.user)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        output_serializer = UserSerializer(user, context=self.get_serializer_context())
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
