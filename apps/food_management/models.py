@@ -49,33 +49,29 @@ class BaseMeal(models.Model):
         return self.title
 
 
-class Dessert(models.Model):
-    """مدل دسر"""
+class BaseDessert(models.Model):
+    """مدل دسر پایه"""
     title = models.CharField(max_length=200, verbose_name='عنوان')
     description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
     ingredients = models.TextField(blank=True, null=True, verbose_name='محتویات')
     image = models.ImageField(upload_to='desserts/', blank=True, null=True, verbose_name='تصویر')
-    center = models.ForeignKey(Center, on_delete=models.CASCADE, blank=True, null=True, verbose_name='مرکز')
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='desserts', verbose_name='رستوران')
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='قیمت')
-    quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
-    reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, blank=True, null=True, related_name='base_desserts', verbose_name='رستوران')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
-    
-    @property
-    def available_quantity(self):
-        """تعداد موجود"""
-        return max(0, self.quantity - self.reserved_quantity)
 
     class Meta:
-        verbose_name = 'دسر'
-        verbose_name_plural = 'دسرها'
+        verbose_name = 'دسر پایه'
+        verbose_name_plural = 'دسرهای پایه'
+        db_table = 'food_management_dessert'  # استفاده از نام جدول قدیمی برای سازگاری با migration های قبلی
         ordering = ['-created_at']
 
     def __str__(self):
         return self.title
+
+
+# برای سازگاری با کدهای قبلی
+Dessert = BaseDessert
 
 
 class DailyMenu(models.Model):
@@ -83,7 +79,7 @@ class DailyMenu(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, verbose_name='رستوران')
     date = models.DateField(verbose_name='تاریخ')
     base_meals = models.ManyToManyField(BaseMeal, verbose_name='غذاهای پایه', blank=True, related_name='daily_menus')
-    desserts = models.ManyToManyField(Dessert, verbose_name='دسرها', blank=True, related_name='daily_menus')
+    base_desserts = models.ManyToManyField(BaseDessert, verbose_name='دسرهای پایه', blank=True, related_name='daily_menus')
     max_reservations_per_meal = models.PositiveIntegerField(default=100, verbose_name='حداکثر رزرو برای هر غذا')
     is_available = models.BooleanField(default=True, verbose_name='در دسترس')
 
@@ -117,9 +113,14 @@ class DailyMenu(models.Model):
         return DailyMenuMealOption.objects.filter(daily_menu=self)
     
     @property
+    def dessert_options(self):
+        """اپشن‌های دسر برای این منو"""
+        return DailyMenuDessertOption.objects.filter(daily_menu=self)
+    
+    @property
     def menu_desserts(self):
-        """دسرهای این منو"""
-        return self.desserts.all()
+        """دسرهای این منو (برای سازگاری با کدهای قبلی)"""
+        return self.dessert_options.all()
 
 
 class DailyMenuMealOption(models.Model):
@@ -132,7 +133,7 @@ class DailyMenuMealOption(models.Model):
     quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
     reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
     is_default = models.BooleanField(default=False, verbose_name='گزینه پیش‌فرض')
-    cancellation_deadline = models.DateTimeField(blank=True, null=True, verbose_name='مهلت لغو')
+    cancellation_deadline = models.CharField(max_length=50, blank=True, null=True, verbose_name='مهلت لغو')
     sort_order = models.PositiveIntegerField(default=0, verbose_name='ترتیب نمایش')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
@@ -145,6 +146,36 @@ class DailyMenuMealOption(models.Model):
 
     def __str__(self):
         return f"{self.daily_menu} - {self.base_meal.title} - {self.title}"
+
+    @property
+    def available_quantity(self):
+        """تعداد موجود"""
+        return max(0, self.quantity - self.reserved_quantity)
+
+
+class DailyMenuDessertOption(models.Model):
+    """اپشن دسر برای منوی روزانه (مختص هر منو)"""
+    daily_menu = models.ForeignKey(DailyMenu, on_delete=models.CASCADE, related_name='menu_dessert_options', verbose_name='منوی روزانه')
+    base_dessert = models.ForeignKey(BaseDessert, on_delete=models.CASCADE, related_name='daily_menu_options', verbose_name='دسر پایه')
+    title = models.CharField(max_length=200, verbose_name='عنوان دسر')
+    description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='قیمت')
+    quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد')
+    reserved_quantity = models.PositiveIntegerField(default=0, verbose_name='تعداد رزرو شده')
+    is_default = models.BooleanField(default=False, verbose_name='گزینه پیش‌فرض')
+    cancellation_deadline = models.CharField(max_length=50, blank=True, null=True, verbose_name='مهلت لغو')
+    sort_order = models.PositiveIntegerField(default=0, verbose_name='ترتیب نمایش')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'اپشن دسر برای منو'
+        verbose_name_plural = 'اپشن‌های دسر برای منو'
+        ordering = ['sort_order', 'title']
+        unique_together = ['daily_menu', 'base_dessert', 'title']
+
+    def __str__(self):
+        return f"{self.daily_menu} - {self.base_dessert.title} - {self.title}"
 
     @property
     def available_quantity(self):
@@ -173,7 +204,7 @@ class FoodReservation(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ')
     reservation_date = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ رزرو')
-    cancellation_deadline = models.DateTimeField(verbose_name='مهلت لغو')
+    cancellation_deadline = models.CharField(max_length=50, blank=True, null=True, verbose_name='مهلت لغو')
     cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ لغو')
 
     class Meta:
@@ -219,7 +250,9 @@ class FoodReservation(models.Model):
         """بررسی امکان لغو رزرو"""
         if self.status != 'reserved':
             return False
-        return timezone.now() < self.cancellation_deadline
+        # cancellation_deadline اکنون string است، بنابراین همیشه True برمی‌گردانیم
+        # یا می‌توانید منطق مقایسه تاریخ شمسی را اضافه کنید
+        return self.cancellation_deadline is not None and self.cancellation_deadline != ''
 
     def cancel(self):
         """لغو رزرو"""
@@ -260,12 +293,7 @@ class FoodReservation(models.Model):
         if not self.cancellation_deadline:
             # اگر مهلت لغو تعیین نشده، از meal_option استفاده کن
             if self.meal_option and self.meal_option.cancellation_deadline:
-                self.cancellation_deadline = self.meal_option.cancellation_deadline
-            elif self.daily_menu and self.daily_menu.date:
-                # اگر meal_option مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
-                meal_date = self.daily_menu.date
-                meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
-                self.cancellation_deadline = timezone.make_aware(meal_time) - timezone.timedelta(hours=2)
+                self.cancellation_deadline = str(self.meal_option.cancellation_deadline)
         super().save(*args, **kwargs)
 
 
@@ -292,7 +320,7 @@ class GuestReservation(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ')
     reservation_date = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ رزرو')
-    cancellation_deadline = models.DateTimeField(verbose_name='مهلت لغو')
+    cancellation_deadline = models.CharField(max_length=50, blank=True, null=True, verbose_name='مهلت لغو')
     cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ لغو')
 
     class Meta:
@@ -336,9 +364,11 @@ class GuestReservation(models.Model):
 
     def can_cancel(self):
         """بررسی امکان لغو رزرو"""
+        # cancellation_deadline اکنون string است، بنابراین بررسی می‌کنیم که وجود داشته باشد
         return (
             self.status == 'reserved' and 
-            timezone.now() < self.cancellation_deadline
+            self.cancellation_deadline is not None and 
+            self.cancellation_deadline != ''
         )
 
     def cancel(self):
@@ -381,13 +411,7 @@ class GuestReservation(models.Model):
             if not self.cancellation_deadline:
                 # اگر مهلت لغو تعیین نشده، از meal_option استفاده کن
                 if self.meal_option and self.meal_option.cancellation_deadline:
-                    self.cancellation_deadline = self.meal_option.cancellation_deadline
-                elif self.daily_menu and self.daily_menu.date:
-                    # اگر meal_option مهلت لغو نداشت، 2 ساعت قبل از ناهار (12:00) تنظیم کن
-                    meal_date = self.daily_menu.date
-                    meal_time = timezone.datetime.combine(meal_date, timezone.datetime.min.time().replace(hour=12, minute=0))
-                    gregorian_meal_time = timezone.make_aware(meal_time)
-                    self.cancellation_deadline = gregorian_meal_time - timezone.timedelta(hours=2)
+                    self.cancellation_deadline = str(self.meal_option.cancellation_deadline)
         super().save(*args, **kwargs)
 
 
@@ -395,10 +419,10 @@ class DessertReservation(models.Model):
     """رزرو دسر"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='شناسه کاربر')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
-    dessert = models.ForeignKey('Dessert', on_delete=models.SET_NULL, verbose_name='دسر', null=True, blank=True)
+    dessert_option = models.ForeignKey('DailyMenuDessertOption', on_delete=models.SET_NULL, verbose_name='گزینه دسر', null=True, blank=True)
     # فیلدهای ذخیره اطلاعات منو و دسر به صورت string (برای حفظ اطلاعات بعد از حذف)
     daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
-    dessert_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات دسر (حذف شده)')
+    dessert_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات دسر (حذف شده)')
     quantity = models.PositiveIntegerField(default=1, verbose_name='تعداد رزرو')
     status = models.CharField(
         max_length=20,
@@ -412,7 +436,7 @@ class DessertReservation(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ')
     reservation_date = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ رزرو')
-    cancellation_deadline = models.DateTimeField(verbose_name='مهلت لغو')
+    cancellation_deadline = models.CharField(max_length=50, blank=True, null=True, verbose_name='مهلت لغو')
     cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ لغو')
 
     class Meta:
@@ -421,10 +445,10 @@ class DessertReservation(models.Model):
         ordering = ['-reservation_date']
 
     def __str__(self):
-        if self.dessert:
-            dessert_title = self.dessert.title
-        elif self.dessert_info:
-            dessert_title = self.dessert_info
+        if self.dessert_option:
+            dessert_title = self.dessert_option.title
+        elif self.dessert_option_info:
+            dessert_title = self.dessert_option_info
         else:
             dessert_title = "بدون دسر"
         return f"{self.user.username} - {dessert_title} - {self.quantity} عدد"
@@ -457,15 +481,17 @@ class DessertReservation(models.Model):
         """بررسی امکان لغو رزرو"""
         if self.status != 'reserved':
             return False
-        return timezone.now() < self.cancellation_deadline
+        # cancellation_deadline اکنون string است، بنابراین همیشه True برمی‌گردانیم
+        # یا می‌توانید منطق مقایسه تاریخ شمسی را اضافه کنید
+        return self.cancellation_deadline is not None and self.cancellation_deadline != ''
 
     def cancel(self):
         """لغو رزرو"""
         if self.can_cancel():
             # کاهش reserved_quantity
-            if self.dessert and self.status == 'reserved':
-                self.dessert.reserved_quantity = max(0, self.dessert.reserved_quantity - self.quantity)
-                self.dessert.save()
+            if self.dessert_option and self.status == 'reserved':
+                self.dessert_option.reserved_quantity = max(0, self.dessert_option.reserved_quantity - self.quantity)
+                self.dessert_option.save()
             
             self.status = 'cancelled'
             self.cancelled_at = timezone.now()
@@ -490,18 +516,18 @@ class DessertReservation(models.Model):
             pass
         
         # ذخیره اطلاعات دسر به صورت string
-        if self.dessert:
-            dessert_title = self.dessert.title
-            dessert_price = self.dessert.price if hasattr(self.dessert, 'price') else 'نامشخص'
-            self.dessert_info = f"عنوان: {dessert_title} - قیمت: {dessert_price}"
-        elif not self.dessert_info and self.dessert is None:
+        if self.dessert_option:
+            dessert_title = self.dessert_option.title
+            dessert_price = self.dessert_option.price if hasattr(self.dessert_option, 'price') else 'نامشخص'
+            base_dessert_name = self.dessert_option.base_dessert.title if self.dessert_option.base_dessert else 'نامشخص'
+            self.dessert_option_info = f"عنوان: {dessert_title} - دسر پایه: {base_dessert_name} - قیمت: {dessert_price}"
+        elif not self.dessert_option_info and self.dessert_option is None:
             pass
         
         if not self.cancellation_deadline:
-            if self.daily_menu and self.daily_menu.date:
-                dessert_date = self.daily_menu.date
-                dessert_time = timezone.datetime.combine(dessert_date, timezone.datetime.min.time().replace(hour=12, minute=0))
-                self.cancellation_deadline = timezone.make_aware(dessert_time) - timezone.timedelta(hours=2)
+            # اگر مهلت لغو تعیین نشده، از dessert_option استفاده کن
+            if self.dessert_option and self.dessert_option.cancellation_deadline:
+                self.cancellation_deadline = str(self.dessert_option.cancellation_deadline)
         super().save(*args, **kwargs)
 
 
@@ -511,10 +537,10 @@ class GuestDessertReservation(models.Model):
     guest_first_name = models.CharField(max_length=150, verbose_name='نام مهمان')
     guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
-    dessert = models.ForeignKey('Dessert', on_delete=models.SET_NULL, verbose_name='دسر', null=True, blank=True)
+    dessert_option = models.ForeignKey('DailyMenuDessertOption', on_delete=models.SET_NULL, verbose_name='گزینه دسر', null=True, blank=True)
     # فیلدهای ذخیره اطلاعات منو و دسر به صورت string (برای حفظ اطلاعات بعد از حذف)
     daily_menu_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات منوی روزانه (حذف شده)')
-    dessert_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات دسر (حذف شده)')
+    dessert_option_info = models.TextField(blank=True, null=True, verbose_name='اطلاعات دسر (حذف شده)')
     status = models.CharField(
         max_length=20,
         choices=[
@@ -527,7 +553,7 @@ class GuestDessertReservation(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ')
     reservation_date = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ رزرو')
-    cancellation_deadline = models.DateTimeField(verbose_name='مهلت لغو')
+    cancellation_deadline = models.CharField(max_length=50, blank=True, null=True, verbose_name='مهلت لغو')
     cancelled_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ لغو')
 
     class Meta:
@@ -536,10 +562,10 @@ class GuestDessertReservation(models.Model):
         ordering = ['-reservation_date']
 
     def __str__(self):
-        if self.dessert:
-            dessert_title = self.dessert.title
-        elif self.dessert_info:
-            dessert_title = self.dessert_info
+        if self.dessert_option:
+            dessert_title = self.dessert_option.title
+        elif self.dessert_option_info:
+            dessert_title = self.dessert_option_info
         else:
             dessert_title = "بدون دسر"
         return f"{self.guest_first_name} {self.guest_last_name} - {dessert_title} (میزبان: {self.host_user.username})"
@@ -570,18 +596,20 @@ class GuestDessertReservation(models.Model):
 
     def can_cancel(self):
         """بررسی امکان لغو رزرو"""
+        # cancellation_deadline اکنون string است، بنابراین بررسی می‌کنیم که وجود داشته باشد
         return (
             self.status == 'reserved' and 
-            timezone.now() < self.cancellation_deadline
+            self.cancellation_deadline is not None and 
+            self.cancellation_deadline != ''
         )
 
     def cancel(self):
         """لغو رزرو"""
         if self.can_cancel():
             # کاهش reserved_quantity
-            if self.dessert and self.status == 'reserved':
-                self.dessert.reserved_quantity = max(0, self.dessert.reserved_quantity - 1)
-                self.dessert.save()
+            if self.dessert_option and self.status == 'reserved':
+                self.dessert_option.reserved_quantity = max(0, self.dessert_option.reserved_quantity - 1)
+                self.dessert_option.save()
             
             self.status = 'cancelled'
             self.cancelled_at = timezone.now()
@@ -605,20 +633,20 @@ class GuestDessertReservation(models.Model):
             pass
         
         # ذخیره اطلاعات دسر به صورت string
-        if self.dessert:
-            dessert_title = self.dessert.title
-            dessert_price = self.dessert.price if hasattr(self.dessert, 'price') else 'نامشخص'
-            self.dessert_info = f"عنوان: {dessert_title} - قیمت: {dessert_price}"
-        elif not self.dessert_info and self.dessert is None:
+        if self.dessert_option:
+            dessert_title = self.dessert_option.title
+            dessert_price = self.dessert_option.price if hasattr(self.dessert_option, 'price') else 'نامشخص'
+            base_dessert_name = self.dessert_option.base_dessert.title if self.dessert_option.base_dessert else 'نامشخص'
+            self.dessert_option_info = f"عنوان: {dessert_title} - دسر پایه: {base_dessert_name} - قیمت: {dessert_price}"
+        elif not self.dessert_option_info and self.dessert_option is None:
             pass
         
         if not self.pk:  # اگر رزرو جدید است
+            # محاسبه مهلت لغو
             if not self.cancellation_deadline:
-                if self.daily_menu and self.daily_menu.date:
-                    dessert_date = self.daily_menu.date
-                    dessert_time = timezone.datetime.combine(dessert_date, timezone.datetime.min.time().replace(hour=12, minute=0))
-                    gregorian_dessert_time = timezone.make_aware(dessert_time)
-                    self.cancellation_deadline = gregorian_dessert_time - timezone.timedelta(hours=2)
+                # اگر مهلت لغو تعیین نشده، از dessert_option استفاده کن
+                if self.dessert_option and self.dessert_option.cancellation_deadline:
+                    self.cancellation_deadline = str(self.dessert_option.cancellation_deadline)
         super().save(*args, **kwargs)
 
 

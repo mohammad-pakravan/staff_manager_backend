@@ -996,6 +996,304 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "7. مدیریت استوری‌ها",
+			"item": [
+				{
+					"name": "لیست همه استوری‌ها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/?page=1&page_size=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								},
+								{
+									"key": "center",
+									"value": "",
+									"description": "فیلتر بر اساس مرکز (اختیاری)",
+									"disabled": true
+								},
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "فیلتر بر اساس وضعیت فعال/غیرفعال (true/false)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "مشاهده لیست همه استوری‌ها (فعال و غیرفعال) - فقط HR Admin و System Admin"
+					},
+					"response": []
+				},
+				{
+					"name": "لیست استوری‌های فعال",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/?is_active=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								""
+							],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "true"
+								}
+							]
+						},
+						"description": "مشاهده لیست فقط استوری‌های فعال"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده جزئیات استوری",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/{{story_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								"{{story_id}}",
+								""
+							]
+						},
+						"description": "مشاهده جزئیات کامل یک استوری"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد استوری با عکس",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "text",
+									"value": "متن استوری با عکس",
+									"type": "text"
+								},
+								{
+									"key": "thumbnail_image",
+									"type": "file",
+									"src": [],
+									"description": "تصویر شاخص استوری"
+								},
+								{
+									"key": "content_file",
+									"type": "file",
+									"src": [],
+									"description": "محتوای قابل نمایش (عکس یا ویدیو)"
+								},
+								{
+									"key": "centers",
+									"value": "[1]",
+									"type": "text",
+									"description": "لیست ID مراکز به صورت JSON array"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								""
+							]
+						},
+						"description": "ایجاد استوری با عکس - فقط HR Admin و System Admin"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد استوری با ویدیو",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "text",
+									"value": "متن استوری با ویدیو",
+									"type": "text"
+								},
+								{
+									"key": "thumbnail_image",
+									"type": "file",
+									"src": [],
+									"description": "تصویر شاخص استوری"
+								},
+								{
+									"key": "content_file",
+									"type": "file",
+									"src": [],
+									"description": "ویدیو (mp4, avi, mov و غیره)"
+								},
+								{
+									"key": "centers",
+									"value": "[1, 2]",
+									"type": "text"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								""
+							]
+						},
+						"description": "ایجاد استوری با ویدیو - فقط HR Admin و System Admin"
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش استوری (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "text",
+									"value": "متن ویرایش شده استوری",
+									"type": "text"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/{{story_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								"{{story_id}}",
+								""
+							]
+						},
+						"description": "ویرایش جزئی استوری - فقط HR Admin و System Admin"
+					},
+					"response": []
+				},
+				{
+					"name": "حذف استوری",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/{{story_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								"{{story_id}}",
+								""
+							]
+						},
+						"description": "حذف استوری - فقط HR Admin و System Admin"
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"auth": {
@@ -1036,6 +1334,11 @@
 		},
 		{
 			"key": "insurance_form_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "story_id",
 			"value": "1",
 			"type": "string"
 		}

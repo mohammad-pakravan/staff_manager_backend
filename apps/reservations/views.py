@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
 from django.utils import timezone
+from collections import defaultdict
+from jalali_date import datetime2jalali, date2jalali
 from apps.food_management.permissions import FoodManagementPermission
 from apps.food_management.models import (
     FoodReservation, GuestReservation, DailyMenu,
@@ -20,7 +22,8 @@ from apps.reservations.serializers import (
     GuestReservationCreateSerializer, SimpleGuestReservationSerializer,
     DessertReservationSerializer, DessertReservationCreateSerializer,
     SimpleDessertReservationSerializer, GuestDessertReservationSerializer,
-    GuestDessertReservationCreateSerializer, SimpleGuestDessertReservationSerializer
+    GuestDessertReservationCreateSerializer, SimpleGuestDessertReservationSerializer,
+    CombinedReservationCreateSerializer, CombinedReservationResponseSerializer
 )
 from apps.meals.serializers import SimpleEmployeeDailyMenuSerializer
 
@@ -341,84 +344,229 @@ def user_guest_reservations(request):
 @extend_schema(
     operation_id='user_reservations_summary',
     summary='Get User Reservations Summary',
-    description='Get summary of user reservations and guest reservations with full details',
+    description='Get summary of user reservations and guest reservations with full details grouped by date and menu',
     tags=['User Reservations']
 )
 @api_view(['GET'])
 @permission_classes([FoodManagementPermission])
 def user_reservations_summary(request):
-    """خلاصه رزروهای کاربر با جزئیات کامل"""
+    """خلاصه رزروهای کاربر با جزئیات کامل - گروه‌بندی شده بر اساس تاریخ و منو"""
     user = request.user
     
-    # رزروهای شخصی
+    # رزروهای شخصی غذا
     personal_reservations = FoodReservation.objects.filter(user=user).select_related(
-        'daily_menu', 'meal_option', 'meal_option__base_meal', 'meal_option__base_meal__restaurant'
-    ).prefetch_related('meal_option__base_meal__restaurant__centers')
+        'daily_menu', 'meal_option', 'meal_option__base_meal', 'meal_option__base_meal__restaurant',
+        'daily_menu__restaurant'
+    ).prefetch_related('meal_option__base_meal__restaurant__centers', 'daily_menu__restaurant__centers')
+    
+    # رزروهای شخصی دسر
+    personal_dessert_reservations = DessertReservation.objects.filter(user=user).select_related(
+        'daily_menu', 'dessert_option', 'dessert_option__base_dessert',
+        'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers')
+    
+    # رزروهای مهمان غذا
+    guest_reservations = GuestReservation.objects.filter(host_user=user).select_related(
+        'daily_menu', 'meal_option', 'meal_option__base_meal', 'meal_option__base_meal__restaurant',
+        'daily_menu__restaurant'
+    ).prefetch_related('meal_option__base_meal__restaurant__centers', 'daily_menu__restaurant__centers')
+    
+    # رزروهای مهمان دسر
+    guest_dessert_reservations = GuestDessertReservation.objects.filter(host_user=user).select_related(
+        'daily_menu', 'dessert_option', 'dessert_option__base_dessert',
+        'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers')
+    
+    # گروه‌بندی بر اساس تاریخ و منو
+    def group_reservations_by_menu(reservations, dessert_reservations, request_obj=None, is_guest=False):
+        """گروه‌بندی رزروها بر اساس تاریخ و منو"""
+        grouped = defaultdict(lambda: {
+            'date': None,
+            'jalali_date': None,
+            'daily_menu': None,
+            'meals': [],
+            'desserts': []
+        })
+        
+        # تابع کمکی برای ساخت اطلاعات منو
+        def create_menu_info(daily_menu):
+            if not daily_menu:
+                return None
+            return {
+                'id': daily_menu.id,
+                'date': str(daily_menu.date),
+                'jalali_date': date2jalali(daily_menu.date).strftime('%Y/%m/%d'),
+                'restaurant': {
+                    'id': daily_menu.restaurant.id if daily_menu.restaurant else None,
+                    'name': daily_menu.restaurant.name if daily_menu.restaurant else None,
+                } if daily_menu.restaurant else None
+            }
+        
+        # گروه‌بندی رزروهای غذا
+        for reservation in reservations:
+            if not reservation.daily_menu:
+                continue
+                
+            menu_key = reservation.daily_menu.id
+            menu_date = reservation.daily_menu.date
+            
+            if menu_key not in grouped:
+                grouped[menu_key] = {
+                    'date': str(menu_date),
+                    'jalali_date': date2jalali(menu_date).strftime('%Y/%m/%d'),
+                    'daily_menu': create_menu_info(reservation.daily_menu),
+                    'meals': [],
+                    'desserts': []
+                }
+            
+            # ساخت اطلاعات کامل غذا
+            meal_option_data = None
+            base_meal_data = None
+            
+            if reservation.meal_option:
+                meal_option_data = {
+                    'id': reservation.meal_option.id,
+                    'title': reservation.meal_option.title,
+                    'price': float(reservation.meal_option.price) if reservation.meal_option.price else None,
+                    'description': reservation.meal_option.description or None
+                }
+                
+                if reservation.meal_option.base_meal:
+                    base_meal_data = {
+                        'id': reservation.meal_option.base_meal.id,
+                        'title': reservation.meal_option.base_meal.title,
+                        'image': request_obj.build_absolute_uri(reservation.meal_option.base_meal.image.url) if request_obj and reservation.meal_option.base_meal.image else (reservation.meal_option.base_meal.image.url if reservation.meal_option.base_meal.image else None)
+                    }
+            elif reservation.meal_info:
+                meal_option_data = {'title': reservation.meal_info}
+            
+            # افزودن غذا
+            meal_data = {
+                'id': reservation.id,
+                'quantity': getattr(reservation, 'quantity', 1),
+                'status': reservation.status,
+                'amount': float(reservation.amount) if reservation.amount else 0.0,
+                'reservation_date': reservation.reservation_date.isoformat() if reservation.reservation_date else None,
+                'jalali_reservation_date': datetime2jalali(reservation.reservation_date).strftime('%Y/%m/%d %H:%M') if reservation.reservation_date else None,
+                'meal_option': meal_option_data,
+                'base_meal': base_meal_data
+            }
+            
+            if is_guest:
+                meal_data['guest_name'] = f"{reservation.guest_first_name} {reservation.guest_last_name}".strip()
+            
+            grouped[menu_key]['meals'].append(meal_data)
+        
+        # گروه‌بندی رزروهای دسر
+        for reservation in dessert_reservations:
+            if not reservation.daily_menu:
+                continue
+                
+            menu_key = reservation.daily_menu.id
+            
+            if menu_key not in grouped:
+                menu_date = reservation.daily_menu.date
+                grouped[menu_key] = {
+                    'date': str(menu_date),
+                    'jalali_date': date2jalali(menu_date).strftime('%Y/%m/%d'),
+                    'daily_menu': create_menu_info(reservation.daily_menu),
+                    'meals': [],
+                    'desserts': []
+                }
+            
+            # ساخت اطلاعات کامل دسر
+            dessert_option_data = None
+            base_dessert_data = None
+            
+            if reservation.dessert_option:
+                # اگر dessert_option موجود است، اطلاعات کامل را استخراج کن
+                dessert_option_data = {
+                    'id': reservation.dessert_option.id,
+                    'title': reservation.dessert_option.title,
+                    'price': float(reservation.dessert_option.price) if reservation.dessert_option.price else 0.0,
+                    'description': reservation.dessert_option.description if reservation.dessert_option.description else None
+                }
+                
+                if reservation.dessert_option.base_dessert:
+                    base_dessert_data = {
+                        'id': reservation.dessert_option.base_dessert.id,
+                        'title': reservation.dessert_option.base_dessert.title,
+                        'image': request_obj.build_absolute_uri(reservation.dessert_option.base_dessert.image.url) if request_obj and reservation.dessert_option.base_dessert.image else (reservation.dessert_option.base_dessert.image.url if reservation.dessert_option.base_dessert.image else None)
+                    }
+            elif reservation.dessert_option_info:
+                # اگر فقط dessert_option_info موجود است (حذف شده)
+                dessert_option_data = {
+                    'id': None,
+                    'title': reservation.dessert_option_info,
+                    'price': None,
+                    'description': None
+                }
+            
+            # افزودن دسر
+            dessert_data = {
+                'id': reservation.id,
+                'quantity': getattr(reservation, 'quantity', 1),
+                'status': reservation.status,
+                'amount': float(reservation.amount) if reservation.amount else 0.0,
+                'reservation_date': reservation.reservation_date.isoformat() if reservation.reservation_date else None,
+                'jalali_reservation_date': datetime2jalali(reservation.reservation_date).strftime('%Y/%m/%d %H:%M') if reservation.reservation_date else None,
+                'dessert_option': dessert_option_data,
+                'base_dessert': base_dessert_data
+            }
+            
+            if is_guest:
+                dessert_data['guest_name'] = f"{reservation.guest_first_name} {reservation.guest_last_name}".strip()
+            
+            grouped[menu_key]['desserts'].append(dessert_data)
+        
+        # تبدیل به لیست و مرتب‌سازی بر اساس تاریخ
+        result = list(grouped.values())
+        result.sort(key=lambda x: x['date'], reverse=True)
+        
+        return result
+    
+    # گروه‌بندی رزروهای شخصی
+    personal_grouped = group_reservations_by_menu(personal_reservations, personal_dessert_reservations, request_obj=request, is_guest=False)
+    
+    # گروه‌بندی رزروهای مهمان
+    guest_grouped = group_reservations_by_menu(guest_reservations, guest_dessert_reservations, request_obj=request, is_guest=True)
+    
+    # آمار کلی
     personal_count = personal_reservations.count()
+    personal_dessert_count = personal_dessert_reservations.count()
+    guest_count = guest_reservations.count()
+    guest_dessert_count = guest_dessert_reservations.count()
+    
     personal_reserved = personal_reservations.filter(status='reserved').count()
     personal_cancelled = personal_reservations.filter(status='cancelled').count()
     personal_served = personal_reservations.filter(status='served').count()
     
-    # جزئیات کامل رزروهای شخصی
-    personal_reserved_items = personal_reservations.filter(status='reserved')
-    personal_cancelled_items = personal_reservations.filter(status='cancelled')
-    personal_served_items = personal_reservations.filter(status='served')
-    personal_all_items = personal_reservations.all()
-    
-    # رزروهای مهمان
-    guest_reservations = GuestReservation.objects.filter(host_user=user).select_related(
-        'daily_menu', 'meal_option', 'meal_option__base_meal', 'meal_option__base_meal__restaurant'
-    ).prefetch_related('meal_option__base_meal__restaurant__centers')
-    guest_count = guest_reservations.count()
     guest_reserved = guest_reservations.filter(status='reserved').count()
     guest_cancelled = guest_reservations.filter(status='cancelled').count()
     guest_served = guest_reservations.filter(status='served').count()
     
-    # جزئیات کامل رزروهای مهمان
-    guest_reserved_items = guest_reservations.filter(status='reserved')
-    guest_cancelled_items = guest_reservations.filter(status='cancelled')
-    guest_served_items = guest_reservations.filter(status='served')
-    guest_all_items = guest_reservations.all()
-    
-    # رزروهای امروز
     today = timezone.now().date()
     today_personal = personal_reservations.filter(daily_menu__date=today).count()
     today_guest = guest_reservations.filter(daily_menu__date=today).count()
-    today_personal_items = personal_reservations.filter(daily_menu__date=today)
-    today_guest_items = guest_reservations.filter(daily_menu__date=today)
-    
-    # استفاده از serializer برای جزئیات کامل
-    personal_serializer = SimpleFoodReservationSerializer
-    guest_serializer = SimpleGuestReservationSerializer
     
     return Response({
         'personal_reservations': {
             'total': personal_count,
+            'dessert_total': personal_dessert_count,
             'reserved': personal_reserved,
             'cancelled': personal_cancelled,
             'served': personal_served,
             'today': today_personal,
-            'items': {
-                'all': personal_serializer(personal_all_items, many=True, context={'request': request}).data,
-                'reserved': personal_serializer(personal_reserved_items, many=True, context={'request': request}).data,
-                'cancelled': personal_serializer(personal_cancelled_items, many=True, context={'request': request}).data,
-                'served': personal_serializer(personal_served_items, many=True, context={'request': request}).data,
-                'today': personal_serializer(today_personal_items, many=True, context={'request': request}).data
-            }
+            'grouped_by_menu': personal_grouped
         },
         'guest_reservations': {
             'total': guest_count,
+            'dessert_total': guest_dessert_count,
             'reserved': guest_reserved,
             'cancelled': guest_cancelled,
             'served': guest_served,
             'today': today_guest,
-            'items': {
-                'all': guest_serializer(guest_all_items, many=True, context={'request': request}).data,
-                'reserved': guest_serializer(guest_reserved_items, many=True, context={'request': request}).data,
-                'cancelled': guest_serializer(guest_cancelled_items, many=True, context={'request': request}).data,
-                'served': guest_serializer(guest_served_items, many=True, context={'request': request}).data,
-                'today': guest_serializer(today_guest_items, many=True, context={'request': request}).data
-            }
+            'grouped_by_menu': guest_grouped
         },
         'total_today': today_personal + today_guest,
         'total_all': personal_count + guest_count
@@ -467,6 +615,7 @@ def employee_daily_menus(request):
         )
     
     # دریافت منوهای روزانه برای مرکز کاربر در تاریخ مشخص
+    # استفاده از distinct() برای جلوگیری از تکرار منوها وقتی یک رستوران به چندین مرکز متصل است
     daily_menus = DailyMenu.objects.filter(
         restaurant__centers__in=user.centers.all(),
         date=parsed_date,
@@ -475,8 +624,9 @@ def employee_daily_menus(request):
         'restaurant__centers',
         'menu_meal_options', 
         'menu_meal_options__base_meal',
-        'desserts'
-    )
+        'menu_dessert_options',
+        'menu_dessert_options__base_dessert'
+    ).distinct().order_by('restaurant__name', 'date')
     
     serializer = SimpleEmployeeDailyMenuSerializer(daily_menus, many=True, context={'request': request})
     return Response(serializer.data)
@@ -874,9 +1024,9 @@ def cancel_dessert_reservation(request, reservation_id):
         
         if reservation.cancel():
             # به‌روزرسانی reserved_quantity
-            if reservation.dessert:
-                reservation.dessert.reserved_quantity = max(0, reservation.dessert.reserved_quantity - reservation.quantity)
-                reservation.dessert.save()
+            if reservation.dessert_option:
+                reservation.dessert_option.reserved_quantity = max(0, reservation.dessert_option.reserved_quantity - reservation.quantity)
+                reservation.dessert_option.save()
             
             return Response({
                 'message': 'رزرو دسر با موفقیت لغو شد.'
@@ -890,6 +1040,59 @@ def cancel_dessert_reservation(request, reservation_id):
         return Response({
             'error': 'رزرو مورد نظر یافت نشد.'
         }, status=status.HTTP_404_NOT_FOUND)
+
+
+# ========== Combined Reservation View ==========
+
+@extend_schema(
+    operation_id='combined_reservation_create',
+    summary='Create Combined Food and Dessert Reservation',
+    description='Create food and/or dessert reservation in a single request. At least one of meal_option or dessert_option must be provided.',
+    tags=['Reservations'],
+    request=CombinedReservationCreateSerializer,
+    responses={
+        201: {
+            'description': 'Reservations created successfully',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'meal_reservation': {'type': 'object', 'nullable': True},
+                            'dessert_reservation': {'type': 'object', 'nullable': True}
+                        }
+                    }
+                }
+            }
+        },
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'}
+    }
+)
+@api_view(['POST'])
+@permission_classes([FoodManagementPermission])
+def combined_reservation_create(request):
+    """ایجاد رزرو یکپارچه غذا و دسر"""
+    serializer = CombinedReservationCreateSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
+        daily_menu = serializer.validated_data['daily_menu']
+        restaurant_centers = daily_menu.restaurant.centers.all() if daily_menu.restaurant else []
+        
+        if not any(request.user.has_center(center) for center in restaurant_centers):
+            return Response(
+                {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # ایجاد رزروها
+        results = serializer.save()
+        
+        # ساخت response با serializer ساده
+        response_serializer = CombinedReservationResponseSerializer(results)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ========== Guest Dessert Reservation Views ==========
@@ -1004,9 +1207,9 @@ def cancel_guest_dessert_reservation(request, reservation_id):
         
         if reservation.cancel():
             # به‌روزرسانی reserved_quantity
-            if reservation.dessert:
-                reservation.dessert.reserved_quantity = max(0, reservation.dessert.reserved_quantity - 1)
-                reservation.dessert.save()
+            if reservation.dessert_option:
+                reservation.dessert_option.reserved_quantity = max(0, reservation.dessert_option.reserved_quantity - 1)
+                reservation.dessert_option.save()
             
             return Response({
                 'message': 'رزرو دسر مهمان با موفقیت لغو شد.'
@@ -1305,9 +1508,9 @@ def employee_cancel_dessert_reservation(request, reservation_id):
         )
     
     if reservation.cancel():
-        if reservation.dessert:
-            reservation.dessert.reserved_quantity = max(0, reservation.dessert.reserved_quantity - reservation.quantity)
-            reservation.dessert.save()
+        if reservation.dessert_option:
+            reservation.dessert_option.reserved_quantity = max(0, reservation.dessert_option.reserved_quantity - reservation.quantity)
+            reservation.dessert_option.save()
         
         response_serializer = SimpleDessertReservationSerializer(reservation)
         return Response(response_serializer.data)
@@ -1339,9 +1542,9 @@ def employee_cancel_guest_dessert_reservation(request, guest_reservation_id):
         )
     
     if guest_reservation.cancel():
-        if guest_reservation.dessert:
-            guest_reservation.dessert.reserved_quantity = max(0, guest_reservation.dessert.reserved_quantity - 1)
-            guest_reservation.dessert.save()
+        if guest_reservation.dessert_option:
+            guest_reservation.dessert_option.reserved_quantity = max(0, guest_reservation.dessert_option.reserved_quantity - 1)
+            guest_reservation.dessert_option.save()
         
         response_serializer = SimpleGuestDessertReservationSerializer(guest_reservation)
         return Response(response_serializer.data)

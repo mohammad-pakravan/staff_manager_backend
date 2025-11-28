@@ -11,6 +11,9 @@ urlpatterns = [
     path('reservations/<int:reservation_id>/cancel/', views.cancel_reservation, name='cancel-reservation'),
     path('reservations/limits/', views.user_reservation_limits, name='user-reservation-limits'),
     
+    # Combined Reservations (Food + Dessert)
+    path('combined-reservations/', views.combined_reservation_create, name='combined-reservation-create'),
+    
     # Guest Reservations
     path('guest-reservations/', views.GuestReservationListCreateView.as_view(), name='guest-reservation-list-create'),
     path('guest-reservations/<int:pk>/', views.GuestReservationDetailView.as_view(), name='guest-reservation-detail'),

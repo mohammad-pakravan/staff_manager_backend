@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 import jdatetime
+from jalali_date import datetime2jalali, date2jalali
 from django.http import HttpResponse
 from io import BytesIO
 from apps.core.pagination import CustomPageNumberPagination
@@ -814,7 +815,16 @@ class DailyMenuListView(generics.ListAPIView):
             week_end = week_start + timedelta(days=6)
             queryset = queryset.filter(date__range=[week_start, week_end])
         
-        return queryset.order_by('date')
+        # بهینه‌سازی با prefetch_related برای جلوگیری از تکرار query ها
+        queryset = queryset.select_related('restaurant').prefetch_related(
+            'restaurant__centers',
+            'menu_meal_options',
+            'menu_meal_options__base_meal',
+            'menu_dessert_options',
+            'menu_dessert_options__base_dessert'
+        )
+        
+        return queryset.order_by('date', 'restaurant__name')
 
 
 # ========== Food Reservation Views ==========
@@ -2323,6 +2333,7 @@ def employee_daily_menus(request):
         )
     
     # دریافت منوهای روزانه برای مرکز کاربر در تاریخ مشخص
+    # استفاده از distinct() برای جلوگیری از تکرار منوها وقتی یک رستوران به چندین مرکز متصل است
     daily_menus = DailyMenu.objects.filter(
         restaurant__centers__in=user.centers.all(),
         date=parsed_date,
@@ -2331,8 +2342,9 @@ def employee_daily_menus(request):
         'restaurant__centers',
         'menu_meal_options', 
         'menu_meal_options__base_meal',
-        'desserts'
-    )
+        'menu_dessert_options',
+        'menu_dessert_options__base_dessert'
+    ).distinct().order_by('restaurant__name', 'date')
     
     serializer = SimpleEmployeeDailyMenuSerializer(daily_menus, many=True, context={'request': request})
     return Response(serializer.data)
@@ -3096,7 +3108,7 @@ def report_by_date(request):
         if date not in dates_data:
             dates_data[date] = {
                 'date': date,
-                'jalali_date': jdatetime.date.fromgregorian(date=date).strftime('%Y/%m/%d'),
+                'jalali_date': date2jalali(date).strftime('%Y/%m/%d'),
                 'total_reservations': 0,
                 'total_guest_reservations': 0,
                 'reserved_count': 0,
@@ -3140,7 +3152,7 @@ def report_by_date(request):
         if date not in dates_data:
             dates_data[date] = {
                 'date': date,
-                'jalali_date': jdatetime.date.fromgregorian(date=date).strftime('%Y/%m/%d'),
+                'jalali_date': date2jalali(date).strftime('%Y/%m/%d'),
                 'total_reservations': 0,
                 'total_guest_reservations': 0,
                 'reserved_count': 0,
@@ -3476,7 +3488,7 @@ def comprehensive_report(request):
         if date not in dates_data:
             dates_data[date] = {
                 'date': date,
-                'jalali_date': jdatetime.date.fromgregorian(date=date).strftime('%Y/%m/%d'),
+                'jalali_date': date2jalali(date).strftime('%Y/%m/%d'),
                 'total_reservations': 0,
                 'total_guest_reservations': 0,
                 'reserved_count': 0,
@@ -3520,7 +3532,7 @@ def comprehensive_report(request):
         if date not in dates_data:
             dates_data[date] = {
                 'date': date,
-                'jalali_date': jdatetime.date.fromgregorian(date=date).strftime('%Y/%m/%d'),
+                'jalali_date': date2jalali(date).strftime('%Y/%m/%d'),
                 'total_reservations': 0,
                 'total_guest_reservations': 0,
                 'reserved_count': 0,

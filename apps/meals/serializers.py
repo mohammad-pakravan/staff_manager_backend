@@ -4,11 +4,13 @@ Serializers for meals app
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 from datetime import datetime
-import jdatetime
+from jalali_date import datetime2jalali, date2jalali
 from apps.food_management.models import (
     Restaurant, BaseMeal, DailyMenu, DailyMenuMealOption,
-    Dessert
+    BaseDessert, DailyMenuDessertOption
 )
+# برای سازگاری با کدهای قبلی
+Dessert = BaseDessert
 from apps.centers.models import Center
 # برای سازگاری با کدهای قبلی
 Meal = BaseMeal
@@ -113,13 +115,13 @@ class RestaurantSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
 
 
@@ -166,20 +168,20 @@ class BaseMealSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
     
     @extend_schema_field(serializers.CharField())
     def get_jalali_cancellation_deadline(self, obj):
-        """مهلت لغو به شمسی"""
+        """مهلت لغو (به صورت string)"""
         if obj.cancellation_deadline:
-            return jdatetime.datetime.fromgregorian(datetime=obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+            return str(obj.cancellation_deadline)
         return None
     
     def validate(self, data):
@@ -268,20 +270,102 @@ class DailyMenuMealOptionSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
     
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
     
     @extend_schema_field(serializers.CharField())
     def get_jalali_cancellation_deadline(self, obj):
-        """مهلت لغو به شمسی"""
+        """مهلت لغو (به صورت string)"""
         if obj.cancellation_deadline:
-            return jdatetime.datetime.fromgregorian(datetime=obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+            return str(obj.cancellation_deadline)
+        return None
+
+
+class DailyMenuDessertOptionSerializer(serializers.ModelSerializer):
+    """سریالایزر برای DailyMenuDessertOption"""
+    base_dessert_title = serializers.CharField(source='base_dessert.title', read_only=True)
+    base_dessert_image = serializers.SerializerMethodField()
+    restaurant_name = serializers.SerializerMethodField()
+    restaurant_id = serializers.SerializerMethodField()
+    restaurant_detail = serializers.SerializerMethodField()
+    jalali_created_at = serializers.SerializerMethodField()
+    jalali_updated_at = serializers.SerializerMethodField()
+    jalali_cancellation_deadline = serializers.SerializerMethodField()
+    
+    available_quantity = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = DailyMenuDessertOption
+        fields = [
+            'id', 'base_dessert', 'base_dessert_title', 'base_dessert_image', 
+            'restaurant_id', 'restaurant_name', 'restaurant_detail', 'title', 'description', 
+            'price', 'quantity', 'reserved_quantity', 'available_quantity',
+            'is_default', 'cancellation_deadline', 'jalali_cancellation_deadline',
+            'created_at', 'jalali_created_at', 'updated_at', 'jalali_updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'reserved_quantity']
+    
+    def get_restaurant_name(self, obj):
+        """نام رستوران از طریق base_dessert یا daily_menu"""
+        if obj.base_dessert and obj.base_dessert.restaurant:
+            return obj.base_dessert.restaurant.name
+        if obj.daily_menu and obj.daily_menu.restaurant:
+            return obj.daily_menu.restaurant.name
+        return None
+    
+    def get_restaurant_id(self, obj):
+        """ID رستوران از طریق base_dessert یا daily_menu"""
+        if obj.base_dessert and obj.base_dessert.restaurant:
+            return obj.base_dessert.restaurant.id
+        if obj.daily_menu and obj.daily_menu.restaurant:
+            return obj.daily_menu.restaurant.id
+        return None
+    
+    def get_restaurant_detail(self, obj):
+        """جزئیات رستوران از طریق base_dessert یا daily_menu"""
+        restaurant = None
+        if obj.base_dessert and obj.base_dessert.restaurant:
+            restaurant = obj.base_dessert.restaurant
+        elif obj.daily_menu and obj.daily_menu.restaurant:
+            restaurant = obj.daily_menu.restaurant
+        
+        if restaurant:
+            return RestaurantSerializer(restaurant).data
+        return None
+    
+    @extend_schema_field(serializers.CharField())
+    def get_base_dessert_image(self, obj):
+        """تصویر دسر پایه"""
+        if obj.base_dessert and obj.base_dessert.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.base_dessert.image.url)
+            return obj.base_dessert.image.url
+        return None
+    
+    @extend_schema_field(serializers.CharField())
+    def get_jalali_created_at(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
+        return None
+    
+    @extend_schema_field(serializers.CharField())
+    def get_jalali_updated_at(self, obj):
+        if obj.updated_at:
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
+        return None
+    
+    @extend_schema_field(serializers.CharField())
+    def get_jalali_cancellation_deadline(self, obj):
+        """مهلت لغو (به صورت string)"""
+        if obj.cancellation_deadline:
+            return str(obj.cancellation_deadline)
         return None
 
 
@@ -407,27 +491,45 @@ class DailyMenuSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.ListField())
     def get_desserts(self, obj):
-        """دسرهای این منو - ساختار ساده"""
-        desserts = obj.desserts.all().order_by('title')
+        """BaseDessert ها با DessertOption های مرتبط - ساختار ساده و استاندارد"""
+        base_dessert_ids = obj.menu_dessert_options.values_list('base_dessert_id', flat=True).distinct()
+        from apps.food_management.models import BaseDessert
+        base_desserts = BaseDessert.objects.filter(id__in=base_dessert_ids).select_related('restaurant')
+        
         request = self.context.get('request')
         desserts_data = []
-        for dessert in desserts:
-            # دریافت URL تصویر دسر
+        for base_dessert in base_desserts:
+            # دریافت options مرتبط با این base_dessert
+            options = obj.menu_dessert_options.filter(base_dessert=base_dessert).order_by('title')
+            
+            # ساخت options ساده با available_quantity
+            options_data = []
+            for option in options:
+                available_quantity = max(0, option.quantity - option.reserved_quantity)
+                options_data.append({
+                    'id': option.id,
+                    'title': option.title,
+                    'description': option.description or '',
+                    'price': float(option.price),
+                    'quantity': option.quantity,
+                    'available_quantity': available_quantity
+                })
+            
+            # دریافت URL تصویر دسر پایه
             image_url = None
-            if dessert.image:
+            if base_dessert.image:
                 if request:
-                    image_url = request.build_absolute_uri(dessert.image.url)
+                    image_url = request.build_absolute_uri(base_dessert.image.url)
                 else:
-                    image_url = dessert.image.url
+                    image_url = base_dessert.image.url
             
             desserts_data.append({
-                'id': dessert.id,
-                'title': dessert.title,
-                'description': dessert.description or '',
-                'price': float(dessert.price),
-                'quantity': dessert.quantity,
-                'available_quantity': dessert.available_quantity,
-                'image_url': image_url
+                'id': base_dessert.id,
+                'title': base_dessert.title,
+                'description': base_dessert.description or '',
+                'ingredients': base_dessert.ingredients or '',
+                'image_url': image_url,
+                'options': options_data
             })
         
         return desserts_data
@@ -435,7 +537,7 @@ class DailyMenuSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_date(self, obj):
         if obj.date:
-            return jdatetime.date.fromgregorian(date=obj.date).strftime('%Y/%m/%d')
+            return date2jalali(obj.date).strftime('%Y/%m/%d')
         return None
 
 
@@ -466,31 +568,30 @@ class SimpleBaseMealSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
 
 
 # ========== Dessert Serializers ==========
 
-class DessertSerializer(serializers.ModelSerializer):
-    """سریالایزر دسر"""
-    center_name = serializers.CharField(source='center.name', read_only=True)
+class BaseDessertSerializer(serializers.ModelSerializer):
+    """سریالایزر دسر پایه"""
     restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
     restaurant_detail = RestaurantSerializer(source='restaurant', read_only=True)
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
     
     class Meta:
-        model = Dessert
+        model = BaseDessert
         fields = [
             'id', 'title', 'description', 'ingredients', 'image', 
-            'center', 'center_name', 'restaurant', 'restaurant_name', 'restaurant_detail', 
+            'restaurant', 'restaurant_name', 'restaurant_detail', 
             'is_active',
             'created_at', 'jalali_created_at', 'updated_at', 'jalali_updated_at'
         ]
@@ -498,74 +599,57 @@ class DessertSerializer(serializers.ModelSerializer):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # فیلتر کردن queryset رستوران‌ها - فقط رستوران‌های فعال
         if 'restaurant' in self.fields:
-            if self.instance and not hasattr(self.instance, '__iter__') and hasattr(self.instance, 'centers'):
-                if self.instance.centers.exists():
-                    self.fields['restaurant'].queryset = Restaurant.objects.filter(
-                        centers__in=self.instance.centers.all(),
-                        is_active=True
-                    ).distinct()
-            elif hasattr(self, 'initial_data'):
-                center_id = self.initial_data.get('center')
-                if center_id:
-                    try:
-                        from apps.centers.models import Center
-                        center = Center.objects.get(pk=center_id)
-                        self.fields['restaurant'].queryset = Restaurant.objects.filter(
-                            centers__in=[center],
-                            is_active=True
-                        ).distinct()
-                    except (Center.DoesNotExist, ValueError, TypeError):
-                        pass
+            self.fields['restaurant'].queryset = Restaurant.objects.filter(is_active=True)
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
     
     def validate(self, data):
-        """بررسی محدودیت مرکز"""
+        """بررسی محدودیت رستوران"""
         restaurant = data.get('restaurant')
-        center = data.get('center')
         
+        # اگر از instance باشد (در زمان update)
         if not restaurant and self.instance:
             restaurant = self.instance.restaurant
-        if not center and self.instance:
-            center = self.instance.center
         
-        if restaurant and center:
-            if center not in restaurant.centers.all():
-                center_names = ', '.join([c.name for c in restaurant.centers.all()])
-                raise serializers.ValidationError({
-                    'restaurant': f'رستوران باید متعلق به مرکز "{center.name}" باشد. رستوران انتخاب شده متعلق به مراکز "{center_names}" است.'
-                })
+        # رستوران باید انتخاب شود
+        if not restaurant:
+            raise serializers.ValidationError({
+                'restaurant': 'رستوران باید انتخاب شود.'
+            })
         
         return data
 
 
-class SimpleDessertSerializer(serializers.ModelSerializer):
-    """سریالایزر ساده برای دسر"""
+# برای سازگاری با کدهای قبلی
+DessertSerializer = BaseDessertSerializer
+
+
+class SimpleBaseDessertSerializer(serializers.ModelSerializer):
+    """سریالایزر ساده برای دسر پایه"""
     image_url = serializers.SerializerMethodField()
-    available_quantity = serializers.IntegerField(read_only=True)
     jalali_created_at = serializers.SerializerMethodField()
     jalali_updated_at = serializers.SerializerMethodField()
     
     class Meta:
-        model = Dessert
+        model = BaseDessert
         fields = [
             'id', 'title', 'description', 'ingredients', 'image', 'image_url', 
-            'price', 'quantity', 'reserved_quantity', 'available_quantity',
             'is_active', 'created_at', 'jalali_created_at', 
             'updated_at', 'jalali_updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'reserved_quantity']
+        read_only_fields = ['created_at', 'updated_at']
     
     def get_image_url(self, obj):
         """URL تصویر"""
@@ -579,14 +663,18 @@ class SimpleDessertSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         if obj.created_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.created_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_updated_at(self, obj):
         if obj.updated_at:
-            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime('%Y/%m/%d %H:%M')
+            return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d %H:%M')
         return None
+
+
+# برای سازگاری با کدهای قبلی
+SimpleDessertSerializer = SimpleBaseDessertSerializer
 
 
 
@@ -603,6 +691,7 @@ class MealOptionUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     price = serializers.DecimalField(max_digits=10, decimal_places=2)
     quantity = serializers.IntegerField(min_value=0)
+    cancellation_deadline = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class DailyMenuMealUpdateSerializer(serializers.Serializer):
@@ -645,7 +734,7 @@ class SimpleEmployeeDailyMenuSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_jalali_date(self, obj):
         if obj.date:
-            return jdatetime.date.fromgregorian(date=obj.date).strftime('%Y/%m/%d')
+            return date2jalali(obj.date).strftime('%Y/%m/%d')
         return None
     
     @extend_schema_field(serializers.ListField())
@@ -692,28 +781,42 @@ class SimpleEmployeeDailyMenuSerializer(serializers.ModelSerializer):
     
     @extend_schema_field(serializers.ListField())
     def get_desserts(self, obj):
-        """لیست دسرهای موجود در منو - ساختار ساده"""
-        desserts = obj.desserts.all().order_by('title')
+        """لیست دسرها با اپشن‌هایشان - ساختار ساده"""
+        base_dessert_ids = obj.menu_dessert_options.values_list('base_dessert_id', flat=True).distinct()
+        from apps.food_management.models import BaseDessert
+        base_desserts = BaseDessert.objects.filter(id__in=base_dessert_ids)
         
         request = self.context.get('request')
         desserts_data = []
-        for dessert in desserts:
-            # دریافت URL تصویر دسر
+        for base_dessert in base_desserts:
+            # دریافت options مرتبط با این base_dessert
+            options = obj.menu_dessert_options.filter(base_dessert=base_dessert).order_by('title')
+            
+            # ساخت options ساده
+            options_data = []
+            for option in options:
+                options_data.append({
+                    'id': option.id,
+                    'title': option.title,
+                    'price': float(option.price),
+                    'quantity': option.quantity,
+                    'available_quantity': max(0, option.quantity - option.reserved_quantity)
+                })
+            
+            # دریافت URL تصویر دسر پایه
             image_url = None
-            if dessert.image:
+            if base_dessert.image:
                 if request:
-                    image_url = request.build_absolute_uri(dessert.image.url)
+                    image_url = request.build_absolute_uri(base_dessert.image.url)
                 else:
-                    image_url = dessert.image.url
+                    image_url = base_dessert.image.url
             
             desserts_data.append({
-                'id': dessert.id,
-                'title': dessert.title,
-                'description': dessert.description or '',
-                'price': float(dessert.price),
-                'quantity': dessert.quantity,
-                'available_quantity': max(0, dessert.quantity - dessert.reserved_quantity),
-                'image': image_url
+                'id': base_dessert.id,
+                'title': base_dessert.title,
+                'ingredients': base_dessert.ingredients or '',
+                'image': image_url,
+                'options': options_data
             })
         
         return desserts_data

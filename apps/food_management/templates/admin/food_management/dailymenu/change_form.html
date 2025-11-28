@@ -218,9 +218,13 @@
             var dailyMenuId = '{% if original.pk %}{{ original.pk }}{% else %}{% endif %}';
             var $restaurantField = $('#id_restaurant');
             var $baseMealsField = $('#id_base_meals');
+            var $baseDessertsField = $('#id_base_desserts');
             var selectedBaseMeals = [];
+            var selectedBaseDesserts = [];
             var mealOptions = [];
+            var dessertOptions = [];
             var editingOptionId = null;
+            var editingDessertOptionId = null;
             
             // Debug: Check if fields exist
             if (!$restaurantField.length) {
@@ -250,17 +254,27 @@
             
             // URLs
             var baseMealsUrl = '{% url "admin:food_management_dailymenu_base_meals_by_restaurant" %}';
+            var baseDessertsUrl = '{% url "admin:food_management_dailymenu_base_desserts_by_restaurant" %}';
             var mealOptionsUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/' : '';
             var createOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/create/' : '';
             var updateOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/update/' : '';
             var deleteOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/delete/' : '';
+            var dessertOptionsUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/' : '';
+            var createDessertOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/create/' : '';
+            var updateDessertOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/0/update/' : '';
+            var deleteDessertOptionUrl = dailyMenuId ? '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/0/delete/' : '';
             
             // Modal elements
             var $modal = $('<div class="modal" id="mealOptionModal"><div class="modal-content"><span class="close">&times;</span><h2>افزودن/ویرایش اپشن غذا</h2><form id="mealOptionForm"></form></div></div>');
+            var $dessertModal = $('<div class="modal" id="dessertOptionModal"><div class="modal-content"><span class="close">&times;</span><h2>افزودن/ویرایش اپشن دسر</h2><form id="dessertOptionForm"></form></div></div>');
             $('body').append($modal);
+            $('body').append($dessertModal);
             
             // Meal options section
             var $mealOptionsSection = $('<div class="meal-options-section" id="mealOptionsSection" style="display:none;"><div class="meal-options-header"><h3>اپشن‌های غذا</h3><button type="button" class="btn btn-primary" id="addMealOptionBtn">افزودن اپشن</button></div><div class="meal-options-list" id="mealOptionsList"></div></div>');
+            
+            // Dessert options section
+            var $dessertOptionsSection = $('<div class="meal-options-section" id="dessertOptionsSection" style="display:none;"><div class="meal-options-header"><h3>اپشن‌های دسر</h3><button type="button" class="btn btn-primary" id="addDessertOptionBtn">افزودن اپشن</button></div><div class="meal-options-list" id="dessertOptionsList"></div></div>');
             
             // Find the base_meals field container
             var $baseMealsContainer = $baseMealsField.closest('.form-row, .form-group, fieldset');
@@ -269,6 +283,15 @@
             } else {
                 // Fallback: append after base meals field
                 $baseMealsField.after($mealOptionsSection);
+            }
+            
+            // Find the base_desserts field container
+            var $baseDessertsContainer = $baseDessertsField.closest('.form-row, .form-group, fieldset');
+            if ($baseDessertsContainer.length) {
+                $baseDessertsContainer.after($dessertOptionsSection);
+            } else {
+                // Fallback: append after base desserts field
+                $baseDessertsField.after($dessertOptionsSection);
             }
             
             // Update URLs when daily menu is saved
@@ -283,7 +306,195 @@
                 createOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/create/';
                 updateOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/update/';
                 deleteOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/meal-options/0/delete/';
+                dessertOptionsUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/';
+                createDessertOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/create/';
+                updateDessertOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/0/update/';
+                deleteDessertOptionUrl = '/admin/food_management/dailymenu/' + dailyMenuId + '/dessert-options/0/delete/';
                 console.log('URLs updated with dailyMenuId:', dailyMenuId);
+            }
+            
+            // Get selected base desserts
+            function getSelectedBaseDesserts() {
+                var selected = [];
+                $('#id_base_desserts_to option').each(function() {
+                    selected.push({
+                        id: $(this).val(),
+                        title: $(this).text()
+                    });
+                });
+                return selected;
+            }
+            
+            // Load dessert options
+            function loadDessertOptions() {
+                if (!dailyMenuId) return;
+                
+                $.ajax({
+                    url: dessertOptionsUrl,
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.options) {
+                            dessertOptions = data.options;
+                            renderDessertOptions();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading dessert options:', error);
+                    }
+                });
+            }
+            
+            // Render dessert options
+            function renderDessertOptions() {
+                var $list = $('#dessertOptionsList');
+                $list.empty();
+                
+                if (dessertOptions.length === 0) {
+                    $list.html('<p>هیچ اپشنی اضافه نشده است.</p>');
+                    return;
+                }
+                
+                dessertOptions.forEach(function(option) {
+                    var $item = $('<div class="meal-option-item"></div>');
+                    var $info = $('<div class="meal-option-info"></div>');
+                    $info.append('<strong>' + option.base_dessert_title + ' - ' + option.title + '</strong><br>');
+                    if (option.description) {
+                        $info.append('<small>' + option.description + '</small><br>');
+                    }
+                    $info.append('<small>قیمت: ' + option.price + ' | تعداد: ' + option.quantity + '</small>');
+                    $item.append($info);
+                    
+                    var $actions = $('<div class="meal-option-actions"></div>');
+                    $actions.append('<button type="button" class="btn btn-success btn-edit-dessert" data-id="' + option.id + '">ویرایش</button>');
+                    $actions.append('<button type="button" class="btn btn-danger btn-delete-dessert" data-id="' + option.id + '">حذف</button>');
+                    $item.append($actions);
+                    
+                    $list.append($item);
+                });
+            }
+            
+            // Update base desserts based on restaurant
+            function updateBaseDesserts() {
+                var restaurantId = $restaurantField.val();
+                if (!restaurantId) {
+                    $('#id_base_desserts_from').empty();
+                    $('#id_base_desserts_to').empty();
+                    if (typeof SelectBox !== 'undefined') {
+                        var fromId = 'id_base_desserts_from';
+                        var toId = 'id_base_desserts_to';
+                        if (SelectBox.cache[fromId]) {
+                            SelectBox.cache[fromId] = [];
+                            SelectBox.redisplay(fromId);
+                        }
+                        if (SelectBox.cache[toId]) {
+                            SelectBox.cache[toId] = [];
+                            SelectBox.redisplay(toId);
+                        }
+                    }
+                    return;
+                }
+                
+                var selectedBaseDessertIds = [];
+                $('#id_base_desserts_to option').each(function() {
+                    selectedBaseDessertIds.push($(this).val());
+                });
+                
+                $.ajax({
+                    url: baseDessertsUrl,
+                    method: 'GET',
+                    data: { restaurant_id: restaurantId },
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.options) {
+                            var $fromBox = $('#id_base_desserts_from');
+                            var $toBox = $('#id_base_desserts_to');
+                            
+                            $fromBox.empty();
+                            $toBox.empty();
+                            
+                            data.options.forEach(function(option) {
+                                var $option = $('<option></option>')
+                                    .attr('value', option.id)
+                                    .text(option.title);
+                                
+                                if (selectedBaseDessertIds.indexOf(option.id.toString()) !== -1) {
+                                    $toBox.append($option);
+                                } else {
+                                    $fromBox.append($option);
+                                }
+                            });
+                            
+                            if (typeof SelectBox !== 'undefined') {
+                                var fromId = 'id_base_desserts_from';
+                                var toId = 'id_base_desserts_to';
+                                
+                                SelectBox.cache[fromId] = [];
+                                $fromBox.find('option').each(function() {
+                                    SelectBox.cache[fromId].push({
+                                        value: $(this).val(),
+                                        text: $(this).text(),
+                                        displayed: 1
+                                    });
+                                });
+                                
+                                SelectBox.cache[toId] = [];
+                                $toBox.find('option').each(function() {
+                                    SelectBox.cache[toId].push({
+                                        value: $(this).val(),
+                                        text: $(this).text(),
+                                        displayed: 1
+                                    });
+                                });
+                                
+                                setTimeout(function() {
+                                    SelectBox.redisplay(fromId);
+                                    SelectBox.redisplay(toId);
+                                }, 100);
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading base desserts:', error);
+                    }
+                });
+            }
+            
+            // Show/hide dessert options section
+            function toggleDessertOptionsSection() {
+                var selected = getSelectedBaseDesserts();
+                var $section = $('#dessertOptionsSection');
+                
+                if (!$section.length) {
+                    console.error('Dessert options section not found!');
+                    return;
+                }
+                
+                if (selected.length > 0) {
+                    $section.show();
+                    if (dailyMenuId) {
+                        loadDessertOptions();
+                    } else {
+                        $('#dessertOptionsList').html('<p>لطفاً ابتدا منو را ذخیره کنید تا بتوانید اپشن‌ها را اضافه کنید.</p>');
+                    }
+                } else {
+                    $section.hide();
+                }
+            }
+            
+            // Watch for base desserts changes
+            function watchBaseDessertsChanges() {
+                var $baseDessertsTo = $('#id_base_desserts_to');
+                if ($baseDessertsTo.length) {
+                    var observer = new MutationObserver(function() {
+                        setTimeout(toggleDessertOptionsSection, 100);
+                    });
+                    observer.observe($baseDessertsTo[0], { childList: true, subtree: true });
+                    
+                    $baseDessertsTo.on('change', function() {
+                        setTimeout(toggleDessertOptionsSection, 100);
+                    });
+                }
             }
             
             // Get selected base meals
@@ -486,9 +697,11 @@
             // Watch for restaurant changes
             $restaurantField.on('change', function() {
                 updateBaseMeals();
+                updateBaseDesserts();
                 // After updating base meals, check if we should show options section
                 setTimeout(function() {
                     toggleMealOptionsSection();
+                    toggleDessertOptionsSection();
                 }, 500);
             });
             
@@ -496,13 +709,195 @@
             setTimeout(function() {
                 // Always initialize, whether editing or adding
                 toggleMealOptionsSection();
+                toggleDessertOptionsSection();
                 watchBaseMealsChanges();
+                watchBaseDessertsChanges();
                 
                 // If adding new menu, update base meals when restaurant is selected
                 if (!dailyMenuId && $restaurantField.val()) {
                     updateBaseMeals();
+                    updateBaseDesserts();
                 }
             }, 1000);
+            
+            // Dessert Modal functions (similar to meal modal)
+            function openDessertModal(option) {
+                editingDessertOptionId = option ? option.id : null;
+                var $form = $('#dessertOptionForm');
+                $form.empty();
+                
+                var selectedBaseDesserts = getSelectedBaseDesserts();
+                
+                var $baseDessertSelect = $('<div class="form-group"><label>دسر پایه *:</label><select name="base_dessert_id" id="modal_base_dessert_id" required></select></div>');
+                var $select = $baseDessertSelect.find('select');
+                $select.append('<option value="">-- انتخاب کنید --</option>');
+                selectedBaseDesserts.forEach(function(baseDessert) {
+                    var selected = (option && option.base_dessert_id == baseDessert.id) ? 'selected' : '';
+                    $select.append('<option value="' + baseDessert.id + '" ' + selected + '>' + baseDessert.title + '</option>');
+                });
+                $form.append($baseDessertSelect);
+                
+                $form.append('<div class="form-group"><label>عنوان اپشن *:</label><input type="text" name="title" value="' + (option ? option.title : '') + '" required></div>');
+                $form.append('<div class="form-group"><label>توضیحات:</label><textarea name="description">' + (option ? (option.description || '') : '') + '</textarea></div>');
+                $form.append('<div class="form-group"><label>قیمت *:</label><input type="number" name="price" step="0.01" value="' + (option ? option.price : '0') + '" required></div>');
+                $form.append('<div class="form-group"><label>تعداد:</label><input type="number" name="quantity" value="' + (option ? option.quantity : '0') + '" min="0"></div>');
+                
+                // Cancellation deadline (same as meal)
+                var cancellationDeadlineDate = '';
+                // تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+                var cancellationDeadlineGregorian = '';
+                if (option && option.cancellation_deadline) {
+                    // تاریخ را مستقیماً استفاده می‌کنیم (بدون تبدیل)
+                    cancellationDeadlineDate = String(option.cancellation_deadline);
+                    cancellationDeadlineGregorian = String(option.cancellation_deadline);
+                }
+                
+                var $deadlineGroup = $('<div class="form-group"><label>مهلت لغو:</label></div>');
+                var $dateInput = $('<input type="text" id="dessert_cancellation_deadline_date" class="persian-date-input" data-jdp placeholder="تاریخ و زمان شمسی (مثال: 1403/09/15 14:30)" value="' + cancellationDeadlineDate + '">');
+                var $deadlineHidden = $('<input type="hidden" name="cancellation_deadline" id="dessert_cancellation_deadline_hidden" value="' + cancellationDeadlineGregorian + '">');
+                
+                $deadlineGroup.append($dateInput);
+                $deadlineGroup.append($deadlineHidden);
+                $form.append($deadlineGroup);
+                
+                setTimeout(function() {
+                    if (typeof jalaliDatepicker !== 'undefined') {
+                        jalaliDatepicker.startWatch({
+                            time: true,
+                            hasSecond: false,
+                            autoClose: true,
+                            todayButton: true,
+                            clearButton: true
+                        });
+                        
+                        $('#dessert_cancellation_deadline_date').on('change', function() {
+                            updateDessertCancellationDeadline();
+                        });
+                    }
+                }, 300);
+                
+                // تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+                function updateDessertCancellationDeadline() {
+                    var dateValue = $('#dessert_cancellation_deadline_date').val();
+                    
+                    if (dateValue) {
+                        // تاریخ را مستقیماً (بدون تبدیل) در hidden field قرار می‌دهیم
+                        $('#dessert_cancellation_deadline_hidden').val(dateValue.trim());
+                    } else {
+                        $('#dessert_cancellation_deadline_hidden').val('');
+                    }
+                }
+                
+                var $actions = $('<div class="form-actions"></div>');
+                $actions.append('<button type="button" class="btn btn-secondary" id="cancelDessertBtn">انصراف</button>');
+                $actions.append('<button type="submit" class="btn btn-primary">ذخیره</button>');
+                $form.append($actions);
+                
+                $('#dessertOptionModal').show();
+            }
+            
+            function closeDessertModal() {
+                if ($('#dessert_cancellation_deadline_date').length && $('#dessert_cancellation_deadline_date').data('jalaliDatepicker')) {
+                    try {
+                        $('#dessert_cancellation_deadline_date').jalaliDatepicker('destroy');
+                    } catch(e) {
+                        console.error('Error destroying date picker:', e);
+                    }
+                }
+                $('#dessertOptionModal').hide();
+                editingDessertOptionId = null;
+            }
+            
+            // Dessert event handlers
+            $(document).on('click', '#dessertOptionModal .close', closeDessertModal);
+            $(document).on('click', '#cancelDessertBtn', closeDessertModal);
+            $(window).on('click', function(event) {
+                if ($(event.target).is('#dessertOptionModal')) {
+                    closeDessertModal();
+                }
+            });
+            
+            $('#addDessertOptionBtn').on('click', function() {
+                var selected = getSelectedBaseDesserts();
+                if (selected.length === 0) {
+                    alert('لطفاً ابتدا دسر پایه را انتخاب کنید.');
+                    return;
+                }
+                openDessertModal(null);
+            });
+            
+            $(document).on('click', '.btn-edit-dessert', function() {
+                var optionId = $(this).data('id');
+                var option = dessertOptions.find(function(o) { return o.id == optionId; });
+                if (option) {
+                    openDessertModal(option);
+                }
+            });
+            
+            $(document).on('click', '.btn-delete-dessert', function() {
+                if (!confirm('آیا از حذف این اپشن مطمئن هستید؟')) {
+                    return;
+                }
+                var optionId = $(this).data('id');
+                $.ajax({
+                    url: deleteDessertOptionUrl.replace('0', optionId),
+                    method: 'POST',
+                    data: {csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()},
+                    success: function() {
+                        loadDessertOptions();
+                    },
+                    error: function(xhr, status, error) {
+                        alert('خطا در حذف اپشن: ' + error);
+                    }
+                });
+            });
+            
+            $('#dessertOptionForm').on('submit', function(e) {
+                e.preventDefault();
+                var formData = new FormData(this);
+                formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+                
+                if (!dailyMenuId || dailyMenuId === 'change' || dailyMenuId === 'add' || isNaN(parseInt(dailyMenuId))) {
+                    alert('خطا: منو را ابتدا ذخیره کنید.');
+                    return;
+                }
+                
+                var url = editingDessertOptionId ? updateDessertOptionUrl.replace('0', editingDessertOptionId) : createDessertOptionUrl;
+                
+                if (!url || url.indexOf('change') !== -1 || url.indexOf('add') !== -1) {
+                    alert('خطا: منو را ابتدا ذخیره کنید.');
+                    return;
+                }
+                
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        if (data.success) {
+                            closeDessertModal();
+                            loadDessertOptions();
+                        } else {
+                            var errorMsg = data.error || 'خطای نامشخص';
+                            alert('خطا: ' + errorMsg);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        var errorMsg = 'خطا در ذخیره اپشن';
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            if (response.error) {
+                                errorMsg = response.error;
+                            }
+                        } catch(e) {
+                            console.error('Error parsing response:', e);
+                        }
+                        alert('خطا: ' + errorMsg);
+                    }
+                });
+            });
             
             // Modal functions
             function openModal(option) {
@@ -529,32 +924,13 @@
                 $form.append('<div class="form-group"><label>تعداد:</label><input type="number" name="quantity" value="' + (option ? option.quantity : '0') + '" min="0"></div>');
                 
                 // Cancellation deadline field with Jalali Date Picker (with time)
+                // تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
                 var cancellationDeadlineDate = '';
                 var cancellationDeadlineGregorian = '';
                 if (option && option.cancellation_deadline) {
-                    // Convert from 'YYYY-MM-DDTHH:MM' to Jalali date and time
-                    try {
-                        var dateTime = new Date(option.cancellation_deadline);
-                        if (!isNaN(dateTime.getTime())) {
-                            // Manual conversion
-                            var gy = dateTime.getFullYear();
-                            var gm = dateTime.getMonth() + 1;
-                            var gd = dateTime.getDate();
-                            var jalali = gregorian_to_jalali(gy, gm, gd);
-                            var hours = String(dateTime.getHours()).padStart(2, '0');
-                            var minutes = String(dateTime.getMinutes()).padStart(2, '0');
-                            cancellationDeadlineDate = jalali[0] + '/' + 
-                                                       String(jalali[1]).padStart(2, '0') + '/' + 
-                                                       String(jalali[2]).padStart(2, '0') + ' ' +
-                                                       hours + ':' + minutes;
-                            cancellationDeadlineGregorian = option.cancellation_deadline;
-                        } else {
-                            cancellationDeadlineGregorian = option.cancellation_deadline;
-                        }
-                    } catch(e) {
-                        console.error('Error converting date:', e);
-                        cancellationDeadlineGregorian = option.cancellation_deadline;
-                    }
+                    // تاریخ را مستقیماً استفاده می‌کنیم (بدون تبدیل)
+                    cancellationDeadlineDate = String(option.cancellation_deadline);
+                    cancellationDeadlineGregorian = String(option.cancellation_deadline);
                 }
                 
                 var $deadlineGroup = $('<div class="form-group"><label>مهلت لغو:</label></div>');
@@ -620,58 +996,15 @@
                 }
                 
                 // Function to update hidden field (with time)
+                // تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
                 function updateCancellationDeadline() {
                     var dateValue = $('#cancellation_deadline_date').val();
                     
                     if (dateValue) {
-                        try {
-                            // Parse Jalali date and time (format: YYYY/MM/DD HH:mm)
-                            var parts = dateValue.split(' ');
-                            if (parts.length >= 1) {
-                                var dateParts = parts[0].split('/');
-                                if (dateParts.length === 3) {
-                                    var jy = parseInt(dateParts[0]);
-                                    var jm = parseInt(dateParts[1]);
-                                    var jd = parseInt(dateParts[2]);
-                                    
-                                    // Convert Jalali to Gregorian
-                                    var gregorian = jalali_to_gregorian(jy, jm, jd);
-                                    var gregorianDate = new Date(gregorian[0], gregorian[1] - 1, gregorian[2]);
-                                    
-                                    // Parse time if available (format: HH:mm)
-                                    if (parts.length >= 2) {
-                                        var timeParts = parts[1].split(':');
-                                        if (timeParts.length >= 2) {
-                                            var hours = parseInt(timeParts[0]) || 12;
-                                            var minutes = parseInt(timeParts[1]) || 0;
-                                            gregorianDate.setHours(hours);
-                                            gregorianDate.setMinutes(minutes);
-                                        } else {
-                                            // Default time if not provided
-                                            gregorianDate.setHours(12);
-                                            gregorianDate.setMinutes(0);
-                                        }
-                                    } else {
-                                        // Default time if not provided
-                                        gregorianDate.setHours(12);
-                                        gregorianDate.setMinutes(0);
-                                    }
-                                    
-                                    gregorianDate.setSeconds(0);
-                                    gregorianDate.setMilliseconds(0);
-                                    
-                                    // Format as YYYY-MM-DDTHH:mm
-                                    var formatted = gregorianDate.getFullYear() + '-' + 
-                                                  String(gregorianDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                                                  String(gregorianDate.getDate()).padStart(2, '0') + 'T' + 
-                                                  String(gregorianDate.getHours()).padStart(2, '0') + ':' + 
-                                                  String(gregorianDate.getMinutes()).padStart(2, '0');
-                                    $('#cancellation_deadline_hidden').val(formatted);
-                                }
-                            }
-                        } catch(e) {
-                            console.error('Error updating cancellation deadline:', e);
-                        }
+                        // تاریخ را مستقیماً (بدون تبدیل) در hidden field قرار می‌دهیم
+                        $('#cancellation_deadline_hidden').val(dateValue.trim());
+                    } else {
+                        $('#cancellation_deadline_hidden').val('');
                     }
                 }
                 
@@ -850,6 +1183,7 @@
                         if (newId && !isNaN(parseInt(newId)) && newId !== dailyMenuId) {
                             updateUrls(newId);
                             toggleMealOptionsSection();
+                            toggleDessertOptionsSection();
                         }
                     }
                 }, 1000);

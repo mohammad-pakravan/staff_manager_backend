@@ -9,10 +9,11 @@ from jalali_date import datetime2jalali, date2jalali
 from .models import (
     Restaurant, BaseMeal, DailyMenu, DailyMenuMealOption,
     FoodReservation, FoodReport, GuestReservation,
-    Dessert, DessertReservation, GuestDessertReservation
+    BaseDessert, DailyMenuDessertOption, DessertReservation, GuestDessertReservation
 )
 # برای سازگاری با کدهای قبلی
 Meal = BaseMeal
+Dessert = BaseDessert
 
 
 @admin.register(Restaurant)
@@ -115,10 +116,10 @@ class BaseMealAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 MealAdmin = BaseMealAdmin
 
 
-@admin.register(Dessert)
-class DessertAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('title', 'center', 'restaurant', 'jalali_created_at', 'is_active', 'image_preview')
-    list_filter = ('center', 'restaurant', 'is_active', 'created_at')
+@admin.register(BaseDessert)
+class BaseDessertAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = ('title', 'restaurant', 'options_count', 'jalali_created_at', 'is_active', 'image_preview')
+    list_filter = ('restaurant', 'is_active', 'created_at')
     search_fields = ('title', 'description', 'ingredients')
     ordering = ('title',)
     raw_id_fields = ('restaurant',)
@@ -129,41 +130,38 @@ class DessertAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     )
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """فیلتر کردن رستوران‌های فعال"""
         if db_field.name == 'restaurant':
+            # فقط رستوران‌های فعال را نمایش بده
             kwargs['queryset'] = Restaurant.objects.filter(is_active=True)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
     
     def get_form(self, request, obj=None, **kwargs):
+        """استفاده از ModelForm سفارشی برای validation"""
         from django import forms
-        from .models import Dessert
+        from .models import BaseDessert
         
-        class DessertAdminForm(forms.ModelForm):
+        class BaseDessertAdminForm(forms.ModelForm):
             class Meta:
-                model = Dessert
+                model = BaseDessert
                 fields = '__all__'
             
             def clean(self):
                 cleaned_data = super().clean()
-                restaurant = cleaned_data.get('restaurant')
-                
-                try:
-                    if restaurant and restaurant.centers.exists():
-                        cleaned_data['center'] = restaurant.centers.first()
-                except Exception:
-                    pass
-                
                 return cleaned_data
         
-        kwargs['form'] = DessertAdminForm
+        kwargs['form'] = BaseDessertAdminForm
         return super().get_form(request, obj, **kwargs)
     
     def save_model(self, request, obj, form, change):
-        try:
-            if obj.restaurant and obj.restaurant.centers.exists():
-                obj.center = obj.restaurant.centers.first()
-        except Exception:
-            pass
+        """ذخیره مدل"""
         super().save_model(request, obj, form, change)
+    
+    def options_count(self, obj):
+        """تعداد dessert options مرتبط با این base dessert در تمام daily menus"""
+        from .models import DailyMenuDessertOption
+        return DailyMenuDessertOption.objects.filter(base_dessert=obj).count()
+    options_count.short_description = 'تعداد گزینه‌ها'
     
     def jalali_created_at(self, obj):
         if obj.created_at:
@@ -182,6 +180,10 @@ class DessertAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     image_preview.short_description = 'تصویر'
 
 
+# برای سازگاری با کدهای قبلی
+DessertAdmin = BaseDessertAdmin
+
+
 
 
 @admin.register(DailyMenu)
@@ -194,7 +196,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     search_fields = ('restaurant__name',)  # 'restaurant__centers__name' temporarily removed until migration is applied
     ordering = ('-date',)
     raw_id_fields = ('restaurant',)
-    filter_horizontal = ('base_meals', 'desserts')
+    filter_horizontal = ('base_meals', 'base_desserts')
     change_form_template = 'admin/food_management/dailymenu/change_form.html'
     add_form_template = 'admin/food_management/dailymenu/change_form.html'
     
@@ -243,7 +245,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     except (Restaurant.DoesNotExist, ValueError, TypeError):
                         pass
         
-        elif db_field.name == 'desserts':
+        elif db_field.name == 'base_desserts':
             # اگر در حال ویرایش یک DailyMenu هستیم
             if hasattr(request, 'resolver_match') and request.resolver_match:
                 try:
@@ -252,7 +254,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                         try:
                             daily_menu = DailyMenu.objects.get(pk=daily_menu_id)
                             if daily_menu.restaurant:
-                                kwargs['queryset'] = Dessert.objects.filter(
+                                kwargs['queryset'] = BaseDessert.objects.filter(
                                     restaurant=daily_menu.restaurant,
                                     is_active=True
                                 )
@@ -267,7 +269,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                 if restaurant_id:
                     try:
                         restaurant = Restaurant.objects.get(pk=restaurant_id)
-                        kwargs['queryset'] = Dessert.objects.filter(
+                        kwargs['queryset'] = BaseDessert.objects.filter(
                             restaurant=restaurant,
                             is_active=True
                         )
@@ -281,10 +283,15 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path('base-meals-by-restaurant/', self.admin_site.admin_view(self.get_base_meals_by_restaurant), name='food_management_dailymenu_base_meals_by_restaurant'),
+            path('base-desserts-by-restaurant/', self.admin_site.admin_view(self.get_base_desserts_by_restaurant), name='food_management_dailymenu_base_desserts_by_restaurant'),
             path('<int:object_id>/meal-options/', self.admin_site.admin_view(self.get_meal_options), name='food_management_dailymenu_meal_options'),
             path('<int:object_id>/meal-options/create/', self.admin_site.admin_view(self.create_meal_option), name='food_management_dailymenu_meal_option_create'),
             path('<int:object_id>/meal-options/<int:option_id>/update/', self.admin_site.admin_view(self.update_meal_option), name='food_management_dailymenu_meal_option_update'),
             path('<int:object_id>/meal-options/<int:option_id>/delete/', self.admin_site.admin_view(self.delete_meal_option), name='food_management_dailymenu_meal_option_delete'),
+            path('<int:object_id>/dessert-options/', self.admin_site.admin_view(self.get_dessert_options), name='food_management_dailymenu_dessert_options'),
+            path('<int:object_id>/dessert-options/create/', self.admin_site.admin_view(self.create_dessert_option), name='food_management_dailymenu_dessert_option_create'),
+            path('<int:object_id>/dessert-options/<int:option_id>/update/', self.admin_site.admin_view(self.update_dessert_option), name='food_management_dailymenu_dessert_option_update'),
+            path('<int:object_id>/dessert-options/<int:option_id>/delete/', self.admin_site.admin_view(self.delete_dessert_option), name='food_management_dailymenu_dessert_option_delete'),
         ]
         return custom_urls + urls
     
@@ -317,6 +324,35 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     
+    def get_base_desserts_by_restaurant(self, request):
+        """API endpoint برای دریافت base_desserts بر اساس restaurant_id"""
+        restaurant_id = request.GET.get('restaurant_id')
+        if not restaurant_id:
+            return JsonResponse({'error': 'restaurant_id required'}, status=400)
+        
+        try:
+            from .models import BaseDessert
+            restaurant = Restaurant.objects.get(pk=restaurant_id)
+            base_desserts = BaseDessert.objects.filter(
+                restaurant=restaurant,
+                is_active=True
+            ).order_by('title')
+            
+            options_data = [
+                {
+                    'id': base_dessert.id,
+                    'text': base_dessert.title,
+                    'title': base_dessert.title
+                }
+                for base_dessert in base_desserts
+            ]
+            
+            return JsonResponse({'options': options_data})
+        except Restaurant.DoesNotExist:
+            return JsonResponse({'error': 'Restaurant not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
     def get_meal_options(self, request, object_id):
         """دریافت لیست اپشن‌های غذا برای یک منو"""
         try:
@@ -335,7 +371,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     'quantity': option.quantity,
                     'reserved_quantity': option.reserved_quantity,
                     'is_default': option.is_default,
-                    'cancellation_deadline': option.cancellation_deadline.strftime('%Y-%m-%dT%H:%M') if option.cancellation_deadline else '',
+                    'cancellation_deadline': str(option.cancellation_deadline) if option.cancellation_deadline else '',
                 }
                 for option in meal_options
             ]
@@ -396,18 +432,12 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             except OverflowError:
                 return JsonResponse({'error': 'تعداد خیلی بزرگ است'}, status=400)
             
-            from django.utils.dateparse import parse_datetime
-            from django.utils import timezone
-            
-            # Parse cancellation_deadline
-            cancellation_deadline_dt = None
+            # تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+            cancellation_deadline_str = None
             if cancellation_deadline:
-                try:
-                    cancellation_deadline_dt = parse_datetime(cancellation_deadline)
-                    if cancellation_deadline_dt and not timezone.is_aware(cancellation_deadline_dt):
-                        cancellation_deadline_dt = timezone.make_aware(cancellation_deadline_dt)
-                except (ValueError, TypeError):
-                    pass
+                cancellation_deadline_str = str(cancellation_deadline).strip() if cancellation_deadline else None
+                if cancellation_deadline_str == '':
+                    cancellation_deadline_str = None
             
             try:
                 meal_option = DailyMenuMealOption.objects.create(
@@ -418,7 +448,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     price=price_decimal,
                     quantity=quantity_int,
                     is_default=is_default,
-                    cancellation_deadline=cancellation_deadline_dt,
+                    cancellation_deadline=cancellation_deadline_str,
                     sort_order=0
                 )
             except Exception as e:
@@ -442,7 +472,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     'price': str(meal_option.price),
                     'quantity': meal_option.quantity,
                     'is_default': meal_option.is_default,
-                    'cancellation_deadline': meal_option.cancellation_deadline.strftime('%Y-%m-%dT%H:%M') if meal_option.cancellation_deadline else '',
+                    'cancellation_deadline': str(meal_option.cancellation_deadline) if meal_option.cancellation_deadline else '',
                 }
             })
         except DailyMenu.DoesNotExist:
@@ -514,17 +544,13 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             meal_option.is_default = False
             
             if 'cancellation_deadline' in request.POST:
-                from django.utils.dateparse import parse_datetime
-                from django.utils import timezone
                 cancellation_deadline = request.POST.get('cancellation_deadline', '')
+                # تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
                 if cancellation_deadline:
-                    try:
-                        cancellation_deadline_dt = parse_datetime(cancellation_deadline)
-                        if cancellation_deadline_dt and not timezone.is_aware(cancellation_deadline_dt):
-                            cancellation_deadline_dt = timezone.make_aware(cancellation_deadline_dt)
-                        meal_option.cancellation_deadline = cancellation_deadline_dt
-                    except (ValueError, TypeError):
-                        pass
+                    cancellation_deadline = str(cancellation_deadline).strip() if cancellation_deadline else None
+                    if cancellation_deadline == '':
+                        cancellation_deadline = None
+                    meal_option.cancellation_deadline = cancellation_deadline
                 else:
                     meal_option.cancellation_deadline = None
             
@@ -554,7 +580,7 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                     'price': str(meal_option.price),
                     'quantity': meal_option.quantity,
                     'is_default': meal_option.is_default,
-                    'cancellation_deadline': meal_option.cancellation_deadline.strftime('%Y-%m-%dT%H:%M') if meal_option.cancellation_deadline else '',
+                    'cancellation_deadline': str(meal_option.cancellation_deadline) if meal_option.cancellation_deadline else '',
                 }
             })
         except DailyMenu.DoesNotExist:
@@ -596,6 +622,274 @@ class DailyMenuAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             return JsonResponse({'error': 'DailyMenu not found'}, status=404)
         except DailyMenuMealOption.DoesNotExist:
             return JsonResponse({'error': 'MealOption not found'}, status=404)
+        except ValueError as e:
+            return JsonResponse({'error': f'Invalid ID: {str(e)}'}, status=400)
+        except Exception as e:
+            import traceback
+            return JsonResponse({'error': str(e), 'traceback': traceback.format_exc()}, status=500)
+    
+    def get_dessert_options(self, request, object_id):
+        """دریافت لیست اپشن‌های دسر برای یک منو"""
+        try:
+            daily_menu = DailyMenu.objects.get(pk=object_id)
+            from .models import DailyMenuDessertOption
+            dessert_options = DailyMenuDessertOption.objects.filter(daily_menu=daily_menu).select_related('base_dessert').order_by('title')
+            
+            from django.utils import timezone
+            options_data = [
+                {
+                    'id': option.id,
+                    'base_dessert_id': option.base_dessert.id,
+                    'base_dessert_title': option.base_dessert.title,
+                    'title': option.title,
+                    'description': option.description or '',
+                    'price': str(option.price),
+                    'quantity': option.quantity,
+                    'reserved_quantity': option.reserved_quantity,
+                    'is_default': option.is_default,
+                    'cancellation_deadline': str(option.cancellation_deadline) if option.cancellation_deadline else '',
+                }
+                for option in dessert_options
+            ]
+            
+            return JsonResponse({'options': options_data})
+        except DailyMenu.DoesNotExist:
+            return JsonResponse({'error': 'DailyMenu not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    def create_dessert_option(self, request, object_id):
+        """ایجاد اپشن دسر جدید برای منو"""
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+        try:
+            daily_menu = DailyMenu.objects.get(pk=object_id)
+            from .models import BaseDessert, DailyMenuDessertOption
+            base_dessert_id = request.POST.get('base_dessert_id')
+            title = request.POST.get('title')
+            description = request.POST.get('description', '')
+            price = request.POST.get('price', '0')
+            quantity = request.POST.get('quantity', '0')
+            is_default = False
+            cancellation_deadline = request.POST.get('cancellation_deadline', '')
+            
+            if not base_dessert_id:
+                return JsonResponse({'error': 'base_dessert_id الزامی است'}, status=400)
+            if not title or not title.strip():
+                return JsonResponse({'error': 'عنوان اپشن الزامی است'}, status=400)
+            
+            try:
+                base_dessert = BaseDessert.objects.get(pk=base_dessert_id)
+            except BaseDessert.DoesNotExist:
+                return JsonResponse({'error': 'دسر پایه پیدا نشد'}, status=404)
+            
+            # Validate price
+            try:
+                price_decimal = float(price)
+                if price_decimal < 0:
+                    return JsonResponse({'error': 'قیمت نمی‌تواند منفی باشد'}, status=400)
+                if price_decimal > 99999999.99:
+                    return JsonResponse({'error': 'قیمت نمی‌تواند بیشتر از 99,999,999.99 باشد'}, status=400)
+            except (ValueError, TypeError):
+                return JsonResponse({'error': 'قیمت نامعتبر است'}, status=400)
+            
+            # Validate quantity
+            try:
+                quantity_int = int(quantity)
+                if quantity_int < 0:
+                    return JsonResponse({'error': 'تعداد نمی‌تواند منفی باشد'}, status=400)
+                if quantity_int > 2147483647:
+                    return JsonResponse({'error': 'تعداد نمی‌تواند بیشتر از 2,147,483,647 باشد'}, status=400)
+            except (ValueError, TypeError):
+                return JsonResponse({'error': 'تعداد نامعتبر است'}, status=400)
+            except OverflowError:
+                return JsonResponse({'error': 'تعداد خیلی بزرگ است'}, status=400)
+            
+            # تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+            cancellation_deadline_str = None
+            if cancellation_deadline:
+                cancellation_deadline_str = str(cancellation_deadline).strip() if cancellation_deadline else None
+                if cancellation_deadline_str == '':
+                    cancellation_deadline_str = None
+            
+            try:
+                dessert_option = DailyMenuDessertOption.objects.create(
+                    daily_menu=daily_menu,
+                    base_dessert=base_dessert,
+                    title=title.strip(),
+                    description=description.strip() if description else '',
+                    price=price_decimal,
+                    quantity=quantity_int,
+                    is_default=is_default,
+                    cancellation_deadline=cancellation_deadline_str,
+                    sort_order=0
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if 'numeric field overflow' in error_msg.lower() or 'overflow' in error_msg.lower():
+                    return JsonResponse({
+                        'error': 'مقدار عددی خیلی بزرگ است. لطفاً مقادیر را کاهش دهید.',
+                        'details': error_msg
+                    }, status=400)
+                raise
+            
+            return JsonResponse({
+                'success': True,
+                'option': {
+                    'id': dessert_option.id,
+                    'base_dessert_id': dessert_option.base_dessert.id,
+                    'base_dessert_title': dessert_option.base_dessert.title,
+                    'title': dessert_option.title,
+                    'description': dessert_option.description or '',
+                    'price': str(dessert_option.price),
+                    'quantity': dessert_option.quantity,
+                    'is_default': dessert_option.is_default,
+                    'cancellation_deadline': str(dessert_option.cancellation_deadline) if dessert_option.cancellation_deadline else '',
+                }
+            })
+        except DailyMenu.DoesNotExist:
+            return JsonResponse({'error': 'منوی روزانه پیدا نشد'}, status=404)
+        except ValueError as e:
+            import traceback
+            return JsonResponse({
+                'error': f'مقدار نامعتبر: {str(e)}',
+                'traceback': traceback.format_exc()
+            }, status=400)
+        except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"Error in create_dessert_option: {str(e)}")
+            print(f"Traceback: {error_traceback}")
+            return JsonResponse({
+                'error': f'خطای سرور: {str(e)}',
+                'traceback': error_traceback
+            }, status=500)
+    
+    def update_dessert_option(self, request, object_id, option_id):
+        """ویرایش اپشن دسر"""
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+        try:
+            daily_menu = DailyMenu.objects.get(pk=object_id)
+            from .models import DailyMenuDessertOption
+            dessert_option = DailyMenuDessertOption.objects.get(pk=option_id, daily_menu=daily_menu)
+            
+            if 'title' in request.POST:
+                title = request.POST.get('title', '').strip()
+                if not title:
+                    return JsonResponse({'error': 'عنوان اپشن الزامی است'}, status=400)
+                dessert_option.title = title
+            
+            if 'description' in request.POST:
+                dessert_option.description = request.POST.get('description', '').strip()
+            
+            if 'price' in request.POST:
+                try:
+                    price_decimal = float(request.POST.get('price', '0'))
+                    if price_decimal < 0:
+                        return JsonResponse({'error': 'قیمت نمی‌تواند منفی باشد'}, status=400)
+                    if price_decimal > 99999999.99:
+                        return JsonResponse({'error': 'قیمت نمی‌تواند بیشتر از 99,999,999.99 باشد'}, status=400)
+                    dessert_option.price = price_decimal
+                except (ValueError, TypeError):
+                    return JsonResponse({'error': 'قیمت نامعتبر است'}, status=400)
+                except OverflowError:
+                    return JsonResponse({'error': 'قیمت خیلی بزرگ است'}, status=400)
+            
+            if 'quantity' in request.POST:
+                try:
+                    quantity_int = int(request.POST.get('quantity', '0'))
+                    if quantity_int < 0:
+                        return JsonResponse({'error': 'تعداد نمی‌تواند منفی باشد'}, status=400)
+                    if quantity_int > 2147483647:
+                        return JsonResponse({'error': 'تعداد نمی‌تواند بیشتر از 2,147,483,647 باشد'}, status=400)
+                    dessert_option.quantity = quantity_int
+                except (ValueError, TypeError):
+                    return JsonResponse({'error': 'تعداد نامعتبر است'}, status=400)
+                except OverflowError:
+                    return JsonResponse({'error': 'تعداد خیلی بزرگ است'}, status=400)
+            
+            dessert_option.is_default = False
+            
+            if 'cancellation_deadline' in request.POST:
+                cancellation_deadline = request.POST.get('cancellation_deadline', '')
+                # تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+                if cancellation_deadline:
+                    cancellation_deadline = str(cancellation_deadline).strip() if cancellation_deadline else None
+                    if cancellation_deadline == '':
+                        cancellation_deadline = None
+                    dessert_option.cancellation_deadline = cancellation_deadline
+                else:
+                    dessert_option.cancellation_deadline = None
+            
+            dessert_option.sort_order = 0
+            
+            try:
+                dessert_option.save()
+            except Exception as e:
+                error_msg = str(e)
+                if 'numeric field overflow' in error_msg.lower() or 'overflow' in error_msg.lower():
+                    return JsonResponse({
+                        'error': 'مقدار عددی خیلی بزرگ است. لطفاً مقادیر را کاهش دهید.',
+                        'details': error_msg
+                    }, status=400)
+                raise
+            
+            return JsonResponse({
+                'success': True,
+                'option': {
+                    'id': dessert_option.id,
+                    'base_dessert_id': dessert_option.base_dessert.id,
+                    'base_dessert_title': dessert_option.base_dessert.title,
+                    'title': dessert_option.title,
+                    'description': dessert_option.description or '',
+                    'price': str(dessert_option.price),
+                    'quantity': dessert_option.quantity,
+                    'is_default': dessert_option.is_default,
+                    'cancellation_deadline': str(dessert_option.cancellation_deadline) if dessert_option.cancellation_deadline else '',
+                }
+            })
+        except DailyMenu.DoesNotExist:
+            return JsonResponse({'error': 'منوی روزانه پیدا نشد'}, status=404)
+        except DailyMenuDessertOption.DoesNotExist:
+            return JsonResponse({'error': 'اپشن دسر پیدا نشد'}, status=404)
+        except ValueError as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"ValueError in update_dessert_option: {str(e)}")
+            print(f"Traceback: {error_traceback}")
+            return JsonResponse({
+                'error': f'مقدار نامعتبر: {str(e)}',
+                'traceback': error_traceback
+            }, status=400)
+        except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            print(f"Error in update_dessert_option: {str(e)}")
+            print(f"Traceback: {error_traceback}")
+            return JsonResponse({
+                'error': f'خطای سرور: {str(e)}',
+                'traceback': error_traceback
+            }, status=500)
+    
+    def delete_dessert_option(self, request, object_id, option_id):
+        """حذف اپشن دسر"""
+        if request.method != 'POST':
+            return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+        try:
+            daily_menu = DailyMenu.objects.get(pk=object_id)
+            from .models import DailyMenuDessertOption
+            dessert_option = DailyMenuDessertOption.objects.get(pk=option_id, daily_menu=daily_menu)
+            dessert_option.delete()
+            
+            return JsonResponse({'success': True})
+        except DailyMenu.DoesNotExist:
+            return JsonResponse({'error': 'DailyMenu not found'}, status=404)
+        except DailyMenuDessertOption.DoesNotExist:
+            return JsonResponse({'error': 'DessertOption not found'}, status=404)
         except ValueError as e:
             return JsonResponse({'error': f'Invalid ID: {str(e)}'}, status=400)
         except Exception as e:
@@ -697,7 +991,7 @@ class FoodReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     def jalali_cancellation_deadline(self, obj):
         if obj.cancellation_deadline:
-            return datetime2jalali(obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+            return str(obj.cancellation_deadline)
         return '-'
     jalali_cancellation_deadline.short_description = 'مهلت لغو (شمسی)'
     jalali_cancellation_deadline.admin_order_field = 'cancellation_deadline'
@@ -757,7 +1051,7 @@ class GuestReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     def jalali_cancellation_deadline(self, obj):
         if obj.cancellation_deadline:
-            return datetime2jalali(obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+            return str(obj.cancellation_deadline)
         return '-'
     jalali_cancellation_deadline.short_description = 'مهلت لغو (شمسی)'
     jalali_cancellation_deadline.admin_order_field = 'cancellation_deadline'
@@ -777,13 +1071,13 @@ class DessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
     list_filter = ('status', 'reservation_date')
-    search_fields = ('user__username', 'user__employee_number', 'dessert__title', 'dessert__dessert__title', 'daily_menu_info', 'dessert_info')
+    search_fields = ('user__username', 'user__employee_number', 'dessert_option__title', 'dessert_option__base_dessert__title', 'daily_menu_info', 'dessert_option_info')
     ordering = ('-reservation_date',)
-    raw_id_fields = ('user', 'daily_menu', 'dessert')
-    readonly_fields = ('daily_menu_info', 'dessert_info', 'reservation_date')
+    raw_id_fields = ('user', 'daily_menu', 'dessert_option')
+    readonly_fields = ('daily_menu_info', 'dessert_option_info', 'reservation_date')
     fieldsets = (
         ('اطلاعات رزرو', {
-            'fields': ('user', 'daily_menu', 'daily_menu_info', 'dessert', 'dessert_info', 'quantity', 'status', 'amount')
+            'fields': ('user', 'daily_menu', 'daily_menu_info', 'dessert_option', 'dessert_option_info', 'quantity', 'status', 'amount')
         }),
         ('تاریخ‌ها', {
             'fields': ('reservation_date', 'cancellation_deadline', 'cancelled_at')
@@ -800,13 +1094,13 @@ class DessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     jalali_date.admin_order_field = 'daily_menu__date'
     
     def get_dessert_title(self, obj):
-        if obj.dessert:
-            return obj.dessert.title
-        elif obj.dessert_info:
-            return obj.dessert_info
+        if obj.dessert_option:
+            return f"{obj.dessert_option.base_dessert.title} - {obj.dessert_option.title}"
+        elif obj.dessert_option_info:
+            return obj.dessert_option_info
         return "بدون دسر"
-    get_dessert_title.short_description = 'دسر'
-    get_dessert_title.admin_order_field = 'dessert__title'
+    get_dessert_title.short_description = 'گزینه دسر'
+    get_dessert_title.admin_order_field = 'dessert_option__title'
     
     def jalali_reservation_date(self, obj):
         if obj.reservation_date:
@@ -817,7 +1111,7 @@ class DessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     def jalali_cancellation_deadline(self, obj):
         if obj.cancellation_deadline:
-            return datetime2jalali(obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+            return str(obj.cancellation_deadline)
         return '-'
     jalali_cancellation_deadline.short_description = 'مهلت لغو (شمسی)'
     jalali_cancellation_deadline.admin_order_field = 'cancellation_deadline'
@@ -837,13 +1131,13 @@ class GuestDessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'status', 'amount', 'jalali_reservation_date', 'jalali_cancellation_deadline', 'can_cancel_status'
     )
     list_filter = ('status', 'reservation_date')
-    search_fields = ('guest_first_name', 'guest_last_name', 'host_user__username', 'host_user__employee_number', 'dessert__title', 'dessert__dessert__title', 'daily_menu_info', 'dessert_info')
+    search_fields = ('guest_first_name', 'guest_last_name', 'host_user__username', 'host_user__employee_number', 'dessert_option__title', 'dessert_option__base_dessert__title', 'daily_menu_info', 'dessert_option_info')
     ordering = ('-reservation_date',)
-    raw_id_fields = ('host_user', 'daily_menu', 'dessert')
-    readonly_fields = ('daily_menu_info', 'dessert_info', 'reservation_date')
+    raw_id_fields = ('host_user', 'daily_menu', 'dessert_option')
+    readonly_fields = ('daily_menu_info', 'dessert_option_info', 'reservation_date')
     fieldsets = (
         ('اطلاعات رزرو', {
-            'fields': ('host_user', 'guest_first_name', 'guest_last_name', 'daily_menu', 'daily_menu_info', 'dessert', 'dessert_info', 'status', 'amount')
+            'fields': ('host_user', 'guest_first_name', 'guest_last_name', 'daily_menu', 'daily_menu_info', 'dessert_option', 'dessert_option_info', 'status', 'amount')
         }),
         ('تاریخ‌ها', {
             'fields': ('reservation_date', 'cancellation_deadline', 'cancelled_at')
@@ -860,13 +1154,13 @@ class GuestDessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     jalali_date.admin_order_field = 'daily_menu__date'
     
     def get_dessert_title(self, obj):
-        if obj.dessert:
-            return obj.dessert.title
-        elif obj.dessert_info:
-            return obj.dessert_info
+        if obj.dessert_option:
+            return f"{obj.dessert_option.base_dessert.title} - {obj.dessert_option.title}"
+        elif obj.dessert_option_info:
+            return obj.dessert_option_info
         return "بدون دسر"
-    get_dessert_title.short_description = 'دسر'
-    get_dessert_title.admin_order_field = 'dessert__title'
+    get_dessert_title.short_description = 'گزینه دسر'
+    get_dessert_title.admin_order_field = 'dessert_option__title'
     
     def jalali_reservation_date(self, obj):
         if obj.reservation_date:
@@ -877,7 +1171,7 @@ class GuestDessertReservationAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     def jalali_cancellation_deadline(self, obj):
         if obj.cancellation_deadline:
-            return datetime2jalali(obj.cancellation_deadline).strftime('%Y/%m/%d %H:%M')
+            return str(obj.cancellation_deadline)
         return '-'
     jalali_cancellation_deadline.short_description = 'مهلت لغو (شمسی)'
     jalali_cancellation_deadline.admin_order_field = 'cancellation_deadline'

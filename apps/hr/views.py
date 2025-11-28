@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook
+from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
 from .serializers import (
     AnnouncementSerializer, 
     AnnouncementCreateSerializer, 
@@ -18,7 +18,10 @@ from .serializers import (
     InsuranceFormSerializer,
     InsuranceFormCreateSerializer,
     InsuranceFormUpdateSerializer,
-    PhoneBookSerializer
+    PhoneBookSerializer,
+    StorySerializer,
+    StoryCreateSerializer,
+    StoryListSerializer
 )
 from .permissions import HRPermission, HRUpdatePermission
 # from apps.core.utils import get_jalali_now  # Not needed anymore
@@ -688,4 +691,161 @@ def phonebook_search(request):
     
     serializer = PhoneBookSerializer(queryset, many=True, context={'request': request})
     return Response(serializer.data)
+
+
+# ========== Story Views ==========
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id='story_list',
+        summary='List Stories',
+        description='Get list of stories. All authenticated users (employees, admins, HR) can view active stories. HR and System Admin can see all stories (active and inactive).',
+        tags=['HR']
+    ),
+    post=extend_schema(
+        operation_id='story_create',
+        summary='Create Story',
+        description='Create new story. Only HR and System Admin can create stories.',
+        tags=['HR'],
+        request=StoryCreateSerializer,
+        responses={
+            201: StorySerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied. Only HR and System Admin can create stories.'}
+        }
+    )
+)
+class StoryListView(generics.ListCreateAPIView):
+    """لیست و ایجاد استوری‌ها"""
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPageNumberPagination
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # پشتیبانی از JSON و form-data برای آپلود فایل
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return StoryCreateSerializer
+        return StoryListSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        # ادمین سیستم و ادمین HR می‌توانند همه استوری‌ها را ببینند (فعال و غیرفعال)
+        if user.role in ['sys_admin', 'hr']:
+            queryset = Story.objects.all().prefetch_related('centers')
+            
+            # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
+            center_id = self.request.query_params.get('center')
+            if center_id:
+                queryset = queryset.filter(centers__id=center_id).distinct()
+            
+            # فیلتر بر اساس وضعیت فعال/غیرفعال (فقط برای ادمین‌ها)
+            is_active_param = self.request.query_params.get('is_active')
+            if is_active_param is not None:
+                is_active = is_active_param.lower() in ['true', '1', 'yes']
+                queryset = queryset.filter(is_active=is_active)
+        else:
+            # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
+            queryset = Story.objects.filter(is_active=True).prefetch_related('centers')
+        
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        """ایجاد استوری توسط کاربر فعلی"""
+        # بررسی دسترسی: فقط HR و System Admin می‌توانند استوری ایجاد کنند
+        user = self.request.user
+        if user.role not in ['hr', 'sys_admin']:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("فقط ادمین نیروی انسانی و ادمین سیستم می‌توانند استوری ایجاد کنند")
+        
+        serializer.save(created_by=user)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id='story_detail',
+        summary='Get Story Details',
+        description='Get story details. All authenticated users (employees, admins, HR) can view active story details. HR and System Admin can view all story details (active and inactive).',
+        tags=['HR'],
+        responses={
+            200: StorySerializer,
+            404: {'description': 'Story not found'}
+        }
+    ),
+    put=extend_schema(
+        operation_id='story_update',
+        summary='Update Story',
+        description='Update story. Only HR and System Admin can update stories.',
+        tags=['HR'],
+        request=StoryCreateSerializer,
+        responses={
+            200: StorySerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied. Only HR and System Admin can update stories.'},
+            404: {'description': 'Story not found'}
+        }
+    ),
+    patch=extend_schema(
+        operation_id='story_partial_update',
+        summary='Partial Update Story',
+        description='Partially update story. Only HR and System Admin can update stories.',
+        tags=['HR'],
+        request=StoryCreateSerializer,
+        responses={
+            200: StorySerializer,
+            400: {'description': 'Validation error'},
+            403: {'description': 'Permission denied. Only HR and System Admin can update stories.'},
+            404: {'description': 'Story not found'}
+        }
+    ),
+    delete=extend_schema(
+        operation_id='story_delete',
+        summary='Delete Story',
+        description='Delete story. Only HR and System Admin can delete stories.',
+        tags=['HR'],
+        responses={
+            204: {'description': 'Story deleted successfully'},
+            403: {'description': 'Permission denied. Only HR and System Admin can delete stories.'},
+            404: {'description': 'Story not found'}
+        }
+    )
+)
+class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """جزئیات استوری"""
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return StoryCreateSerializer
+        return StorySerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        # ادمین سیستم و ادمین HR می‌توانند همه استوری‌ها را ببینند (فعال و غیرفعال)
+        if user.role in ['sys_admin', 'hr']:
+            return Story.objects.all().prefetch_related('centers')
+        
+        # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
+        return Story.objects.filter(is_active=True).prefetch_related('centers')
+    
+    def update(self, request, *args, **kwargs):
+        """به‌روزرسانی استوری"""
+        # بررسی دسترسی: فقط HR و System Admin می‌توانند استوری را به‌روزرسانی کنند
+        user = request.user
+        if user.role not in ['hr', 'sys_admin']:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("فقط ادمین نیروی انسانی و ادمین سیستم می‌توانند استوری را ویرایش کنند")
+        
+        return super().update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """حذف استوری"""
+        # بررسی دسترسی: فقط HR و System Admin می‌توانند استوری را حذف کنند
+        user = request.user
+        if user.role not in ['hr', 'sys_admin']:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("فقط ادمین نیروی انسانی و ادمین سیستم می‌توانند استوری را حذف کنند")
+        
+        return super().destroy(request, *args, **kwargs)
 

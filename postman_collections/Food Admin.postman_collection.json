@@ -564,7 +564,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60\n        }\n    ]\n}",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -590,7 +590,7 @@
 								}
 							]
 						},
-						"description": "افزودن غذا به منوی روزانه (فقط برای رستوران‌های مراکز خود)"
+						"description": "افزودن غذا به منوی روزانه با تاریخ لغو (فقط برای رستوران‌های مراکز خود)"
 					},
 					"response": []
 				},
@@ -610,7 +610,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60\n        },\n        {\n            \"title\": \"با برنج خارجی\",\n            \"description\": \"قورمه سبزی با برنج خارجی\",\n            \"price\": 190000,\n            \"quantity\": 40\n        },\n        {\n            \"title\": \"بدون برنج\",\n            \"description\": \"فقط قورمه سبزی\",\n            \"price\": 140000,\n            \"quantity\": 20\n        }\n    ]\n}",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        },\n        {\n            \"title\": \"با برنج خارجی\",\n            \"description\": \"قورمه سبزی با برنج خارجی\",\n            \"price\": 190000,\n            \"quantity\": 40,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        },\n        {\n            \"title\": \"بدون برنج\",\n            \"description\": \"فقط قورمه سبزی\",\n            \"price\": 140000,\n            \"quantity\": 20,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -636,7 +636,7 @@
 								}
 							]
 						},
-						"description": "افزودن غذا با چند گزینه مختلف به منو"
+						"description": "افزودن غذا با چند گزینه مختلف به منو - هر اپشن می‌تواند تاریخ لغو مخصوص خود را داشته باشد"
 					},
 					"response": []
 				},
@@ -656,7 +656,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"زرشک پلو با مرغ\",\n            \"price\": 170000,\n            \"quantity\": 50\n        }\n    ]\n}",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"زرشک پلو با مرغ\",\n            \"price\": 170000,\n            \"quantity\": 50,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -682,7 +682,53 @@
 								}
 							]
 						},
-						"description": "افزودن غذا با استفاده از تاریخ شمسی"
+						"description": "افزودن غذا با استفاده از تاریخ شمسی - شامل تاریخ لغو"
+					},
+					"response": []
+				},
+				{
+					"name": "افزودن غذا با تاریخ لغو",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_meal_id\": 1,\n    \"meal_options\": [\n        {\n            \"title\": \"با برنج ایرانی\",\n            \"description\": \"قورمه سبزی با برنج ایرانی\",\n            \"price\": 160000,\n            \"quantity\": 60,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        },\n        {\n            \"title\": \"با برنج خارجی\",\n            \"description\": \"قورمه سبزی با برنج خارجی\",\n            \"price\": 190000,\n            \"quantity\": 40,\n            \"cancellation_deadline\": \"1403/10/26 11:00\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/meals-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"meals-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15"
+								}
+							]
+						},
+                        "description": "افزودن غذا با تاریخ لغو مشخص برای هر اپشن - تاریخ لغو به صورت شمسی (1403/10/26 10:00)"
 					},
 					"response": []
 				},
@@ -751,7 +797,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurant_id\": 1,\n    \"dessert_id\": 1,\n    \"title\": \"حلوا سنتی\",\n    \"description\": \"حلوا سنتی ایرانی\",\n    \"price\": 55000,\n    \"quantity\": 100\n}",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_dessert_id\": 1,\n    \"dessert_options\": [\n        {\n            \"title\": \"حلوا سنتی\",\n            \"description\": \"حلوا سنتی ایرانی\",\n            \"price\": 55000,\n            \"quantity\": 100,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -777,7 +823,7 @@
 								}
 							]
 						},
-						"description": "افزودن دسر به منوی روزانه"
+						"description": "افزودن دسر به منوی روزانه با استفاده از dessert_options (مشابه meal_options) - شامل تاریخ لغو"
 					},
 					"response": []
 				},
@@ -797,7 +843,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"restaurant_id\": 1,\n    \"dessert_id\": 1,\n    \"title\": \"شیر برنج\",\n    \"description\": \"شیر برنج با دارچین\",\n    \"price\": 45000,\n    \"quantity\": 90\n}",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_dessert_id\": 1,\n    \"dessert_options\": [\n        {\n            \"title\": \"شیر برنج\",\n            \"description\": \"شیر برنج با دارچین\",\n            \"price\": 45000,\n            \"quantity\": 90,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        }\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -823,7 +869,53 @@
 								}
 							]
 						},
-						"description": "افزودن دسر با استفاده از تاریخ شمسی"
+						"description": "افزودن دسر با استفاده از تاریخ شمسی - شامل تاریخ لغو"
+					},
+					"response": []
+				},
+				{
+					"name": "افزودن دسر با چند اپشن",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"restaurant_id\": 1,\n    \"base_dessert_id\": 1,\n    \"dessert_options\": [\n        {\n            \"title\": \"حلوا سنتی کوچک\",\n            \"description\": \"حلوا سنتی ایرانی کوچک\",\n            \"price\": 40000,\n            \"quantity\": 80,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        },\n        {\n            \"title\": \"حلوا سنتی بزرگ\",\n            \"description\": \"حلوا سنتی ایرانی بزرگ\",\n            \"price\": 70000,\n            \"quantity\": 50,\n            \"cancellation_deadline\": \"1403/10/26 10:00\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/meals/admin-food/desserts-by-date/?date=2025-01-15",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"meals",
+								"admin-food",
+								"desserts-by-date",
+								""
+							],
+							"query": [
+								{
+									"key": "date",
+									"value": "2025-01-15"
+								}
+							]
+						},
+						"description": "افزودن دسر با چند اپشن و تاریخ لغو - هر اپشن می‌تواند تاریخ لغو مخصوص خود را داشته باشد"
 					},
 					"response": []
 				},
@@ -838,7 +930,7 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/meals/admin-food/remove-dessert-from-menu/?date=2025-01-15&restaurant_id=1&dessert_id=1",
+							"raw": "{{base_url}}/api/meals/admin-food/remove-dessert-from-menu/?date=2025-01-15&restaurant_id=1&base_dessert_id=1",
 							"host": [
 								"{{base_url}}"
 							],
@@ -861,9 +953,9 @@
 									"description": "شناسه رستوران"
 								},
 								{
-									"key": "dessert_id",
+									"key": "base_dessert_id",
 									"value": "1",
-									"description": "شناسه دسر برای حذف"
+									"description": "شناسه دسر پایه برای حذف"
 								}
 							]
 						},

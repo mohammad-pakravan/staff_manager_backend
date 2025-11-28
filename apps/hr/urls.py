@@ -24,6 +24,10 @@ urlpatterns = [
     
     # PhoneBook URLs
     path('phonebook/search/', views.phonebook_search, name='phonebook-search'),
+    
+    # Story URLs
+    path('stories/', views.StoryListView.as_view(), name='story-list'),
+    path('stories/<int:pk>/', views.StoryDetailView.as_view(), name='story-detail'),
 ]
 
 

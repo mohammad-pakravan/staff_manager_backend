@@ -177,3 +177,47 @@ class PhoneBook(models.Model):
         return to_jalali_date(self.created_at)
 
 
+class Story(models.Model):
+    """استوری"""
+    text = models.TextField(verbose_name='متن', blank=True, null=True)
+    thumbnail_image = models.ImageField(upload_to='stories/', verbose_name='تصویر شاخص', blank=True, null=True)
+    content_file = models.FileField(
+        upload_to='stories/content/',
+        verbose_name='محتوای قابل نمایش (عکس یا ویدیو)',
+        help_text='می‌تواند عکس یا ویدیو باشد',
+        blank=True,
+        null=True
+    )
+    centers = models.ManyToManyField(Center, verbose_name='مراکز', related_name='stories')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='ایجاد شده توسط', related_name='created_stories')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'استوری'
+        verbose_name_plural = 'استوری‌ها'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"استوری - {self.created_by.username if self.created_by else 'بدون کاربر'}"
+    
+    @property
+    def jalali_created_at(self):
+        """تاریخ ایجاد به شمسی"""
+        return to_jalali_date(self.created_at)
+    
+    @property
+    def content_type(self):
+        """نوع محتوا (image یا video)"""
+        if not self.content_file:
+            return None
+        
+        content_type = self.content_file.name.lower()
+        if content_type.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp')):
+            return 'image'
+        elif content_type.endswith(('.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv')):
+            return 'video'
+        return 'unknown'
+
+

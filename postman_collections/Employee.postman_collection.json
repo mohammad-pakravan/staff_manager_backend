@@ -236,6 +236,45 @@
 						"description": "رزرو غذا از طریق endpoint مخصوص کارمندان. محدودیت تعداد رزرو وجود ندارد، فقط باید موجودی کافی باشد."
 					},
 					"response": []
+				},
+				{
+					"name": "رزرو ترکیبی غذا و دسر",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"daily_menu\": 1,\n    \"meal_option\": 1,\n    \"meal_quantity\": 1,\n    \"dessert_option\": 1,\n    \"dessert_quantity\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								""
+							]
+						},
+						"description": "رزرو همزمان غذا و دسر در یک درخواست. می‌توانید فقط غذا، فقط دسر، یا هر دو را رزرو کنید. حداقل یکی از meal_option یا dessert_option باید انتخاب شود."
+					},
+					"response": []
 				}
 			]
 		},
@@ -874,6 +913,74 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "8. استوری‌ها",
+			"item": [
+				{
+					"name": "مشاهده استوری‌های فعال",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/?page=1&page_size=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								}
+							]
+						},
+						"description": "مشاهده لیست استوری‌های فعال مراکز کارمند"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده جزئیات استوری",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/stories/{{story_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"stories",
+								"{{story_id}}",
+								""
+							]
+						},
+						"description": "مشاهده جزئیات کامل یک استوری"
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"auth": {
@@ -909,6 +1016,11 @@
 		},
 		{
 			"key": "meal_option_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "story_id",
 			"value": "1",
 			"type": "string"
 		}

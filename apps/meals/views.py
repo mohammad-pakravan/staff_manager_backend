@@ -619,6 +619,13 @@ def admin_food_meals_by_date(request):
         
         # ایجاد meal_options جدید
         for option_data in meal_options_data:
+            cancellation_deadline = option_data.get('cancellation_deadline')
+            # تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+            if cancellation_deadline:
+                cancellation_deadline = str(cancellation_deadline).strip() if cancellation_deadline else None
+                if cancellation_deadline == '':
+                    cancellation_deadline = None
+            
             DailyMenuMealOption.objects.create(
                 daily_menu=daily_menu,
                 base_meal=base_meal,
@@ -626,6 +633,7 @@ def admin_food_meals_by_date(request):
                 description=option_data.get('description', ''),
                 price=option_data['price'],
                 quantity=option_data['quantity'],
+                cancellation_deadline=cancellation_deadline,
                 is_default=False,
                 sort_order=0
             )
@@ -835,7 +843,16 @@ class DailyMenuListView(generics.ListAPIView):
             week_end = week_start + timedelta(days=6)
             queryset = queryset.filter(date__range=[week_start, week_end])
         
-        return queryset.order_by('date')
+        # بهینه‌سازی با prefetch_related برای جلوگیری از تکرار query ها
+        queryset = queryset.select_related('restaurant').prefetch_related(
+            'restaurant__centers',
+            'menu_meal_options',
+            'menu_meal_options__base_meal',
+            'menu_dessert_options',
+            'menu_dessert_options__base_dessert'
+        )
+        
+        return queryset.order_by('date', 'restaurant__name')
 
 
 # ========== Dessert Management ==========
@@ -1113,7 +1130,7 @@ def admin_food_desserts_by_date(request):
         # استخراج دسرهای منحصر به فرد از منوها
         dessert_ids = []
         for daily_menu in daily_menus:
-            dessert_ids.extend(daily_menu.desserts.values_list('id', flat=True))
+            dessert_ids.extend(daily_menu.base_desserts.values_list('id', flat=True))
         dessert_ids = list(set(dessert_ids))  # حذف تکرارها
         
         # دریافت دسرها - بدون تکرار و مرتب شده
@@ -1136,16 +1153,31 @@ def admin_food_desserts_by_date(request):
     # افزودن/ویرایش دسر در منو - فقط ادمین غذا
     else:
         # افزودن یا به‌روزرسانی دسر در منوی روزانه
-        restaurant_id = request.data.get('restaurant_id')
-        dessert_id = request.data.get('dessert_id')
-        title = request.data.get('title')
-        description = request.data.get('description', '')
-        price = request.data.get('price')
-        quantity = request.data.get('quantity', 0)
+        from apps.food_management.models import BaseDessert, DailyMenuDessertOption
         
-        if not restaurant_id or not dessert_id or not title or price is None:
+        restaurant_id = request.data.get('restaurant_id')
+        base_dessert_id = request.data.get('base_dessert_id') or request.data.get('dessert_id')  # برای سازگاری با کد قدیمی
+        dessert_options_data = request.data.get('dessert_options', [])
+        
+        # اگر dessert_options وجود نداشت، از فیلدهای مستقیم استفاده کن (سازگاری با کد قدیمی)
+        if not dessert_options_data:
+            title = request.data.get('title')
+            description = request.data.get('description', '')
+            price = request.data.get('price')
+            quantity = request.data.get('quantity', 0)
+            cancellation_deadline = request.data.get('cancellation_deadline')
+            if title and price is not None:
+                dessert_options_data = [{
+                    'title': title,
+                    'description': description,
+                    'price': price,
+                    'quantity': quantity,
+                    'cancellation_deadline': cancellation_deadline
+                }]
+        
+        if not restaurant_id or not base_dessert_id or not dessert_options_data:
             return Response({
-                'error': 'restaurant_id, dessert_id, title و price الزامی هستند'
+                'error': 'restaurant_id, base_dessert_id (یا dessert_id) و dessert_options (یا title, price) الزامی هستند'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
@@ -1167,10 +1199,10 @@ def admin_food_desserts_by_date(request):
             }, status=status.HTTP_403_FORBIDDEN)
         
         try:
-            dessert = Dessert.objects.get(id=dessert_id)
-        except Dessert.DoesNotExist:
+            base_dessert = BaseDessert.objects.get(id=base_dessert_id)
+        except BaseDessert.DoesNotExist:
             return Response({
-                'error': 'دسر یافت نشد'
+                'error': 'دسر پایه یافت نشد'
             }, status=status.HTTP_404_NOT_FOUND)
         
         # پیدا کردن یا ایجاد DailyMenu
@@ -1180,20 +1212,40 @@ def admin_food_desserts_by_date(request):
             defaults={'is_available': True}
         )
         
-        # به‌روزرسانی فیلدهای دسر
-        dessert.price = price
-        dessert.quantity = quantity
-        if description:
-            dessert.description = description
-        dessert.save()
+        # اضافه کردن base_dessert به base_desserts ManyToMany (اگر وجود نداشته باشد)
+        daily_menu.base_desserts.add(base_dessert)
         
-        # اضافه کردن dessert به desserts ManyToMany (اگر وجود نداشته باشد)
-        daily_menu.desserts.add(dessert)
+        # حذف dessert_options قدیمی برای این base_dessert در این daily_menu
+        DailyMenuDessertOption.objects.filter(
+            daily_menu=daily_menu,
+            base_dessert=base_dessert
+        ).delete()
+        
+        # ایجاد dessert_options جدید
+        for option_data in dessert_options_data:
+            cancellation_deadline = option_data.get('cancellation_deadline')
+            # تاریخ به صورت string ذخیره می‌شود (بدون تبدیل)
+            if cancellation_deadline:
+                cancellation_deadline = str(cancellation_deadline).strip() if cancellation_deadline else None
+                if cancellation_deadline == '':
+                    cancellation_deadline = None
+            
+            DailyMenuDessertOption.objects.create(
+                daily_menu=daily_menu,
+                base_dessert=base_dessert,
+                title=option_data['title'],
+                description=option_data.get('description', ''),
+                price=option_data['price'],
+                quantity=option_data.get('quantity', 0),
+                cancellation_deadline=cancellation_deadline,
+                is_default=False,
+                sort_order=0
+            )
         
         # بارگذاری مجدد daily_menu با تمام روابط
         daily_menu.refresh_from_db()
         daily_menu = DailyMenu.objects.prefetch_related(
-            'desserts',
+            'menu_dessert_options__base_dessert',
             'restaurant__centers'
         ).get(id=daily_menu.id)
         
@@ -1222,9 +1274,9 @@ def admin_food_desserts_by_date(request):
             'schema': {'type': 'integer'}
         },
         {
-            'name': 'dessert_id',
+            'name': 'base_dessert_id',
             'in': 'query',
-            'description': 'Dessert ID to remove',
+            'description': 'Base Dessert ID to remove',
             'required': True,
             'schema': {'type': 'integer'}
         }
@@ -1248,13 +1300,15 @@ def admin_food_remove_dessert_from_menu(request):
             'error': 'فقط ادمین غذا می‌تواند دسر را از منو حذف کند'
         }, status=status.HTTP_403_FORBIDDEN)
     
+    from apps.food_management.models import BaseDessert, DailyMenuDessertOption
+    
     date = request.query_params.get('date')
     restaurant_id = request.query_params.get('restaurant_id')
-    dessert_id = request.query_params.get('dessert_id')
+    base_dessert_id = request.query_params.get('base_dessert_id') or request.query_params.get('dessert_id')  # برای سازگاری با کد قدیمی
     
-    if not date or not restaurant_id or not dessert_id:
+    if not date or not restaurant_id or not base_dessert_id:
         return Response({
-            'error': 'date، restaurant_id و dessert_id الزامی هستند'
+            'error': 'date، restaurant_id و base_dessert_id (یا dessert_id) الزامی هستند'
         }, status=status.HTTP_400_BAD_REQUEST)
     
     parsed_date = parse_date_filter(date)
@@ -1278,10 +1332,10 @@ def admin_food_remove_dessert_from_menu(request):
             }, status=status.HTTP_403_FORBIDDEN)
     
     try:
-        dessert = Dessert.objects.get(id=dessert_id)
-    except Dessert.DoesNotExist:
+        base_dessert = BaseDessert.objects.get(id=base_dessert_id)
+    except BaseDessert.DoesNotExist:
         return Response({
-            'error': 'دسر یافت نشد'
+            'error': 'دسر پایه یافت نشد'
         }, status=status.HTTP_404_NOT_FOUND)
     
     try:
@@ -1291,13 +1345,19 @@ def admin_food_remove_dessert_from_menu(request):
             'error': 'منوی روزانه یافت نشد'
         }, status=status.HTTP_404_NOT_FOUND)
     
-    # حذف dessert از ManyToMany
-    daily_menu.desserts.remove(dessert)
+    # حذف dessert_options برای این base_dessert در این daily_menu
+    DailyMenuDessertOption.objects.filter(
+        daily_menu=daily_menu,
+        base_dessert=base_dessert
+    ).delete()
+    
+    # حذف base_dessert از ManyToMany
+    daily_menu.base_desserts.remove(base_dessert)
     
     # بارگذاری مجدد daily_menu
     daily_menu.refresh_from_db()
     daily_menu = DailyMenu.objects.prefetch_related(
-        'desserts',
+        'menu_dessert_options__base_dessert',
         'restaurant__centers'
     ).get(id=daily_menu.id)
     

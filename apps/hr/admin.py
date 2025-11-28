@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali, date2jalali
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook
+from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
 
 
 @admin.register(Announcement)
@@ -190,5 +190,98 @@ class PhoneBookAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         return '-'
     jalali_created_at.short_description = 'تاریخ ایجاد (شمسی)'
     jalali_created_at.admin_order_field = 'created_at'
+
+
+@admin.register(Story)
+class StoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = (
+        'get_text_preview', 'get_centers_display', 'created_by', 'content_type_display',
+        'is_active', 'jalali_created_at', 'thumbnail_preview', 'content_preview'
+    )
+    list_filter = ('is_active', 'centers', 'created_by', 'created_at')
+    search_fields = ('text', 'centers__name', 'created_by__username')
+    ordering = ('-created_at',)
+    raw_id_fields = ('created_by',)
+    filter_horizontal = ('centers',)
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        ('اطلاعات اصلی', {
+            'fields': ('text', 'thumbnail_image', 'content_file', 'centers')
+        }),
+        ('تنظیمات', {
+            'fields': ('is_active',)
+        }),
+        ('اطلاعات سیستم', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_text_preview(self, obj):
+        """پیش‌نمایش متن"""
+        if obj.text:
+            if len(obj.text) > 50:
+                return obj.text[:50] + '...'
+            return obj.text
+        return 'بدون متن'
+    get_text_preview.short_description = 'متن'
+    
+    def get_centers_display(self, obj):
+        """نمایش مراکز در لیست"""
+        centers = obj.centers.all()
+        if centers.exists():
+            return ', '.join([center.name for center in centers[:3]])
+        return 'بدون مرکز'
+    get_centers_display.short_description = 'مراکز'
+    
+    def content_type_display(self, obj):
+        """نمایش نوع محتوا"""
+        content_type = obj.content_type
+        if content_type == 'image':
+            return 'عکس'
+        elif content_type == 'video':
+            return 'ویدیو'
+        return 'بدون محتوا'
+    content_type_display.short_description = 'نوع محتوا'
+    
+    def thumbnail_preview(self, obj):
+        """پیش‌نمایش تصویر شاخص"""
+        if obj.thumbnail_image:
+            return format_html(
+                '<img src="{}" width="50" height="50" style="border-radius: 5px;" />',
+                obj.thumbnail_image.url
+            )
+        return "بدون تصویر شاخص"
+    thumbnail_preview.short_description = 'تصویر شاخص'
+    
+    def content_preview(self, obj):
+        """پیش‌نمایش محتوا"""
+        if obj.content_file:
+            content_type = obj.content_type
+            if content_type == 'image':
+                return format_html(
+                    '<img src="{}" width="50" height="50" style="border-radius: 5px;" />',
+                    obj.content_file.url
+                )
+            elif content_type == 'video':
+                return format_html(
+                    '<a href="{}" target="_blank">مشاهده ویدیو</a>',
+                    obj.content_file.url
+                )
+        return "بدون محتوا"
+    content_preview.short_description = 'محتوای قابل نمایش'
+    
+    def jalali_created_at(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_created_at.short_description = 'تاریخ ایجاد (شمسی)'
+    jalali_created_at.admin_order_field = 'created_at'
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # اگر در حال ایجاد است
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 
