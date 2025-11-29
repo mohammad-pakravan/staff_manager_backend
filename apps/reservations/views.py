@@ -23,7 +23,8 @@ from apps.reservations.serializers import (
     DessertReservationSerializer, DessertReservationCreateSerializer,
     SimpleDessertReservationSerializer, GuestDessertReservationSerializer,
     GuestDessertReservationCreateSerializer, SimpleGuestDessertReservationSerializer,
-    CombinedReservationCreateSerializer, CombinedReservationResponseSerializer
+    CombinedReservationCreateSerializer, CombinedReservationResponseSerializer,
+    CombinedReservationUpdateSerializer
 )
 from apps.meals.serializers import SimpleEmployeeDailyMenuSerializer
 
@@ -1093,6 +1094,283 @@ def combined_reservation_create(request):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    operation_id='combined_reservation_update',
+    summary='Update Combined Food and Dessert Reservation (Employee)',
+    description='Update food and/or dessert reservation. At least one of meal_reservation_id or dessert_reservation_id must be provided. (only own reservations)',
+    tags=['Reservations'],
+    request=CombinedReservationUpdateSerializer,
+    responses={
+        200: CombinedReservationResponseSerializer,
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Reservation not found'}
+    }
+)
+@api_view(['PUT', 'PATCH'])
+@permission_classes([FoodManagementPermission])
+def combined_reservation_update(request):
+    """ویرایش رزرو یکپارچه غذا و دسر برای کارمند"""
+    user = request.user
+    
+    serializer = CombinedReservationUpdateSerializer(data=request.data, context={'request': request})
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    meal_reservation_id = serializer.validated_data.get('meal_reservation_id')
+    dessert_reservation_id = serializer.validated_data.get('dessert_reservation_id')
+    daily_menu = serializer.validated_data.get('daily_menu')
+    meal_option = serializer.validated_data.get('meal_option')
+    meal_quantity = serializer.validated_data.get('meal_quantity')
+    dessert_option = serializer.validated_data.get('dessert_option')
+    dessert_quantity = serializer.validated_data.get('dessert_quantity')
+    
+    results = {
+        'meal_reservation': None,
+        'dessert_reservation': None
+    }
+    
+    # به‌روزرسانی رزرو غذا
+    if meal_reservation_id:
+        try:
+            meal_reservation = FoodReservation.objects.get(id=meal_reservation_id, user=user)
+        except FoodReservation.DoesNotExist:
+            return Response(
+                {'error': 'رزرو غذا یافت نشد'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # بررسی اینکه رزرو قابل ویرایش است
+        if meal_reservation.status != 'reserved':
+            return Response(
+                {'error': 'فقط رزروهای فعال قابل ویرایش هستند'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بررسی دسترسی به مرکز
+        restaurant_centers = daily_menu.restaurant.centers.all() if daily_menu and daily_menu.restaurant else []
+        if not any(user.has_center(center) for center in restaurant_centers):
+            return Response(
+                {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بازگرداندن موجودی قبلی و به‌روزرسانی موجودی جدید
+        old_meal_option = meal_reservation.meal_option
+        old_quantity = meal_reservation.quantity
+        
+        if old_meal_option and meal_reservation.status == 'reserved':
+            if old_meal_option.id == meal_option.id:
+                # اگر meal_option همان است، فقط تفاوت مقدار را اعمال کن
+                quantity_diff = meal_quantity - old_quantity
+                old_meal_option.reserved_quantity += quantity_diff
+                old_meal_option.save()
+            else:
+                # اگر meal_option تغییر کرده، موجودی قبلی را برگردان و موجودی جدید را اضافه کن
+                old_meal_option.reserved_quantity = max(0, old_meal_option.reserved_quantity - old_quantity)
+                old_meal_option.save()
+                meal_option.reserved_quantity += meal_quantity
+                meal_option.save()
+        else:
+            # اگر رزرو قبلی reserved نبود، فقط موجودی جدید را اضافه کن
+            meal_option.reserved_quantity += meal_quantity
+            meal_option.save()
+        
+        # به‌روزرسانی رزرو
+        meal_reservation.daily_menu = daily_menu
+        meal_reservation.meal_option = meal_option
+        meal_reservation.quantity = meal_quantity
+        meal_reservation.amount = meal_option.price * meal_quantity
+        meal_reservation.save()
+        
+        results['meal_reservation'] = meal_reservation
+    
+    # به‌روزرسانی رزرو دسر
+    if dessert_reservation_id:
+        try:
+            dessert_reservation = DessertReservation.objects.get(id=dessert_reservation_id, user=user)
+        except DessertReservation.DoesNotExist:
+            return Response(
+                {'error': 'رزرو دسر یافت نشد'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # بررسی اینکه رزرو قابل ویرایش است
+        if dessert_reservation.status != 'reserved':
+            return Response(
+                {'error': 'فقط رزروهای فعال قابل ویرایش هستند'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بررسی دسترسی به مرکز
+        restaurant_centers = daily_menu.restaurant.centers.all() if daily_menu and daily_menu.restaurant else []
+        if not any(user.has_center(center) for center in restaurant_centers):
+            return Response(
+                {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بازگرداندن موجودی قبلی و به‌روزرسانی موجودی جدید
+        old_dessert_option = dessert_reservation.dessert_option
+        old_quantity = dessert_reservation.quantity
+        
+        if old_dessert_option and dessert_reservation.status == 'reserved':
+            if old_dessert_option.id == dessert_option.id:
+                # اگر dessert_option همان است، فقط تفاوت مقدار را اعمال کن
+                quantity_diff = dessert_quantity - old_quantity
+                old_dessert_option.reserved_quantity += quantity_diff
+                old_dessert_option.save()
+            else:
+                # اگر dessert_option تغییر کرده، موجودی قبلی را برگردان و موجودی جدید را اضافه کن
+                old_dessert_option.reserved_quantity = max(0, old_dessert_option.reserved_quantity - old_quantity)
+                old_dessert_option.save()
+                dessert_option.reserved_quantity += dessert_quantity
+                dessert_option.save()
+        else:
+            # اگر رزرو قبلی reserved نبود، فقط موجودی جدید را اضافه کن
+            dessert_option.reserved_quantity += dessert_quantity
+            dessert_option.save()
+        
+        # به‌روزرسانی رزرو
+        dessert_reservation.daily_menu = daily_menu
+        dessert_reservation.dessert_option = dessert_option
+        dessert_reservation.quantity = dessert_quantity
+        dessert_reservation.amount = dessert_option.price * dessert_quantity
+        dessert_reservation.save()
+        
+        results['dessert_reservation'] = dessert_reservation
+    
+    # ساخت response با serializer ساده
+    response_serializer = CombinedReservationResponseSerializer(results)
+    return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    operation_id='combined_reservation_delete',
+    summary='Delete Combined Food and Dessert Reservation (Employee)',
+    description='Delete food and/or dessert reservation. At least one of meal_reservation_id or dessert_reservation_id must be provided. (only own reservations)',
+    tags=['Reservations'],
+    parameters=[
+        {
+            'name': 'meal_reservation_id',
+            'in': 'query',
+            'description': 'ID of meal reservation to delete',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'dessert_reservation_id',
+            'in': 'query',
+            'description': 'ID of dessert reservation to delete',
+            'required': False,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    responses={
+        200: {'description': 'Reservations deleted successfully'},
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Reservation not found'}
+    }
+)
+@api_view(['DELETE'])
+@permission_classes([FoodManagementPermission])
+def combined_reservation_delete(request):
+    """حذف رزرو یکپارچه غذا و دسر برای کارمند"""
+    user = request.user
+    
+    meal_reservation_id = request.query_params.get('meal_reservation_id')
+    dessert_reservation_id = request.query_params.get('dessert_reservation_id')
+    
+    # حداقل یکی از reservation_id ها باید وجود داشته باشد
+    if not meal_reservation_id and not dessert_reservation_id:
+        return Response(
+            {'error': 'حداقل یکی از meal_reservation_id یا dessert_reservation_id باید ارسال شود'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    deleted_meal = False
+    deleted_dessert = False
+    
+    # حذف رزرو غذا
+    if meal_reservation_id:
+        try:
+            meal_reservation_id = int(meal_reservation_id)
+            meal_reservation = FoodReservation.objects.get(id=meal_reservation_id, user=user)
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'meal_reservation_id باید عدد باشد'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except FoodReservation.DoesNotExist:
+            return Response(
+                {'error': 'رزرو غذا یافت نشد'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # بررسی اینکه رزرو قابل حذف است
+        if meal_reservation.status != 'reserved':
+            return Response(
+                {'error': 'فقط رزروهای فعال قابل حذف هستند'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بازگرداندن موجودی
+        meal_option = meal_reservation.meal_option
+        if meal_option:
+            meal_option.reserved_quantity = max(0, meal_option.reserved_quantity - meal_reservation.quantity)
+            meal_option.save()
+        
+        # حذف رزرو
+        meal_reservation.delete()
+        deleted_meal = True
+    
+    # حذف رزرو دسر
+    if dessert_reservation_id:
+        try:
+            dessert_reservation_id = int(dessert_reservation_id)
+            dessert_reservation = DessertReservation.objects.get(id=dessert_reservation_id, user=user)
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'dessert_reservation_id باید عدد باشد'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except DessertReservation.DoesNotExist:
+            return Response(
+                {'error': 'رزرو دسر یافت نشد'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # بررسی اینکه رزرو قابل حذف است
+        if dessert_reservation.status != 'reserved':
+            return Response(
+                {'error': 'فقط رزروهای فعال قابل حذف هستند'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بازگرداندن موجودی
+        dessert_option = dessert_reservation.dessert_option
+        if dessert_option:
+            dessert_option.reserved_quantity = max(0, dessert_option.reserved_quantity - dessert_reservation.quantity)
+            dessert_option.save()
+        
+        # حذف رزرو
+        dessert_reservation.delete()
+        deleted_dessert = True
+    
+    message_parts = []
+    if deleted_meal:
+        message_parts.append('رزرو غذا')
+    if deleted_dessert:
+        message_parts.append('رزرو دسر')
+    
+    return Response({
+        'message': f"{' و '.join(message_parts)} با موفقیت حذف شد",
+        'deleted_meal': deleted_meal,
+        'deleted_dessert': deleted_dessert
+    }, status=status.HTTP_200_OK)
 
 
 # ========== Guest Dessert Reservation Views ==========

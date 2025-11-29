@@ -13,6 +13,8 @@ urlpatterns = [
     
     # Combined Reservations (Food + Dessert)
     path('combined-reservations/', views.combined_reservation_create, name='combined-reservation-create'),
+    path('combined-reservations/update/', views.combined_reservation_update, name='combined-reservation-update'),
+    path('combined-reservations/delete/', views.combined_reservation_delete, name='combined-reservation-delete'),
     
     # Guest Reservations
     path('guest-reservations/', views.GuestReservationListCreateView.as_view(), name='guest-reservation-list-create'),

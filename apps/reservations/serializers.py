@@ -751,6 +751,122 @@ class CombinedReservationCreateSerializer(serializers.Serializer):
         return results
 
 
+class CombinedReservationUpdateSerializer(serializers.Serializer):
+    """سریالایزر برای به‌روزرسانی رزرو یکپارچه غذا و دسر"""
+    meal_reservation_id = serializers.IntegerField(required=False, allow_null=True)
+    dessert_reservation_id = serializers.IntegerField(required=False, allow_null=True)
+    
+    # فیلدهای به‌روزرسانی برای meal reservation
+    daily_menu = serializers.PrimaryKeyRelatedField(
+        queryset=DailyMenu.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    meal_option = serializers.PrimaryKeyRelatedField(
+        queryset=DailyMenuMealOption.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    meal_quantity = serializers.IntegerField(min_value=1, required=False)
+    
+    # فیلدهای به‌روزرسانی برای dessert reservation
+    dessert_option = serializers.PrimaryKeyRelatedField(
+        queryset=DailyMenuDessertOption.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    dessert_quantity = serializers.IntegerField(min_value=1, required=False)
+    
+    def validate(self, data):
+        meal_reservation_id = data.get('meal_reservation_id')
+        dessert_reservation_id = data.get('dessert_reservation_id')
+        meal_option = data.get('meal_option')
+        dessert_option = data.get('dessert_option')
+        meal_quantity = data.get('meal_quantity')
+        dessert_quantity = data.get('dessert_quantity')
+        daily_menu = data.get('daily_menu')
+        
+        # حداقل یکی از reservation_id ها باید وجود داشته باشد
+        if not meal_reservation_id and not dessert_reservation_id:
+            raise serializers.ValidationError({
+                'error': 'حداقل یکی از meal_reservation_id یا dessert_reservation_id باید ارسال شود'
+            })
+        
+        # اگر meal_reservation_id وجود دارد، باید meal_option و meal_quantity هم ارسال شود
+        if meal_reservation_id:
+            if not meal_option:
+                raise serializers.ValidationError({
+                    'meal_option': 'برای به‌روزرسانی رزرو غذا، meal_option الزامی است'
+                })
+            if meal_quantity is None:
+                raise serializers.ValidationError({
+                    'meal_quantity': 'برای به‌روزرسانی رزرو غذا، meal_quantity الزامی است'
+                })
+            if not daily_menu:
+                raise serializers.ValidationError({
+                    'daily_menu': 'برای به‌روزرسانی رزرو غذا، daily_menu الزامی است'
+                })
+            
+            # بررسی meal_option
+            if meal_option.daily_menu != daily_menu:
+                raise serializers.ValidationError({
+                    'meal_option': 'گزینه غذا باید متعلق به منوی روزانه انتخاب شده باشد'
+                })
+            
+            # بررسی موجودی
+            available_quantity = meal_option.available_quantity
+            # اگر در حال به‌روزرسانی هستیم و meal_option همان است، باید رزرو فعلی را از محاسبه کم کنیم
+            try:
+                current_reservation = FoodReservation.objects.get(id=meal_reservation_id)
+                if current_reservation.status == 'reserved' and current_reservation.meal_option and current_reservation.meal_option.id == meal_option.id:
+                    available_quantity += current_reservation.quantity
+            except FoodReservation.DoesNotExist:
+                pass
+            
+            if available_quantity < meal_quantity:
+                raise serializers.ValidationError({
+                    'meal_quantity': f'موجودی کافی نیست. موجودی: {available_quantity}'
+                })
+        
+        # اگر dessert_reservation_id وجود دارد، باید dessert_option و dessert_quantity هم ارسال شود
+        if dessert_reservation_id:
+            if not dessert_option:
+                raise serializers.ValidationError({
+                    'dessert_option': 'برای به‌روزرسانی رزرو دسر، dessert_option الزامی است'
+                })
+            if dessert_quantity is None:
+                raise serializers.ValidationError({
+                    'dessert_quantity': 'برای به‌روزرسانی رزرو دسر، dessert_quantity الزامی است'
+                })
+            if not daily_menu:
+                raise serializers.ValidationError({
+                    'daily_menu': 'برای به‌روزرسانی رزرو دسر، daily_menu الزامی است'
+                })
+            
+            # بررسی dessert_option
+            if dessert_option.daily_menu != daily_menu:
+                raise serializers.ValidationError({
+                    'dessert_option': 'گزینه دسر باید متعلق به منوی روزانه انتخاب شده باشد'
+                })
+            
+            # بررسی موجودی
+            available_quantity = dessert_option.available_quantity
+            # اگر در حال به‌روزرسانی هستیم و dessert_option همان است، باید رزرو فعلی را از محاسبه کم کنیم
+            try:
+                current_reservation = DessertReservation.objects.get(id=dessert_reservation_id)
+                if current_reservation.status == 'reserved' and current_reservation.dessert_option and current_reservation.dessert_option.id == dessert_option.id:
+                    available_quantity += current_reservation.quantity
+            except DessertReservation.DoesNotExist:
+                pass
+            
+            if available_quantity < dessert_quantity:
+                raise serializers.ValidationError({
+                    'dessert_quantity': f'موجودی کافی نیست. موجودی: {available_quantity}'
+                })
+        
+        return data
+
+
 class CombinedReservationResponseSerializer(serializers.Serializer):
     """سریالایزر ساده برای خروجی combined reservations"""
     meal_reservation = serializers.SerializerMethodField()

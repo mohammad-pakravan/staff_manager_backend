@@ -275,6 +275,233 @@
 						"description": "رزرو همزمان غذا و دسر در یک درخواست. می‌توانید فقط غذا، فقط دسر، یا هر دو را رزرو کنید. حداقل یکی از meal_option یا dessert_option باید انتخاب شود."
 					},
 					"response": []
+				},
+				{
+					"name": "ویرایش رزرو ترکیبی - ویرایش غذا",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"meal_reservation_id\": 1,\n    \"daily_menu\": 1,\n    \"meal_option\": 1,\n    \"meal_quantity\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/update/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								"update",
+								""
+							]
+						},
+						"description": "ویرایش رزرو غذا در رزرو ترکیبی. meal_reservation_id، daily_menu، meal_option و meal_quantity الزامی هستند."
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش رزرو ترکیبی - ویرایش دسر",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"dessert_reservation_id\": 1,\n    \"daily_menu\": 1,\n    \"dessert_option\": 1,\n    \"dessert_quantity\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/update/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								"update",
+								""
+							]
+						},
+						"description": "ویرایش رزرو دسر در رزرو ترکیبی. dessert_reservation_id، daily_menu، dessert_option و dessert_quantity الزامی هستند."
+					},
+					"response": []
+				},
+				{
+					"name": "ویرایش رزرو ترکیبی - ویرایش هر دو",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"meal_reservation_id\": 1,\n    \"dessert_reservation_id\": 1,\n    \"daily_menu\": 1,\n    \"meal_option\": 1,\n    \"meal_quantity\": 2,\n    \"dessert_option\": 1,\n    \"dessert_quantity\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/update/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								"update",
+								""
+							]
+						},
+						"description": "ویرایش همزمان رزرو غذا و دسر. حداقل یکی از meal_reservation_id یا dessert_reservation_id باید ارسال شود."
+					},
+					"response": []
+				},
+				{
+					"name": "حذف رزرو ترکیبی - حذف غذا",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/delete/?meal_reservation_id=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								"delete",
+								""
+							],
+							"query": [
+								{
+									"key": "meal_reservation_id",
+									"value": "1",
+									"description": "شناسه رزرو غذا برای حذف"
+								}
+							]
+						},
+						"description": "حذف رزرو غذا از رزرو ترکیبی. meal_reservation_id را در query parameter ارسال کنید."
+					},
+					"response": []
+				},
+				{
+					"name": "حذف رزرو ترکیبی - حذف دسر",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/delete/?dessert_reservation_id=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								"delete",
+								""
+							],
+							"query": [
+								{
+									"key": "dessert_reservation_id",
+									"value": "1",
+									"description": "شناسه رزرو دسر برای حذف"
+								}
+							]
+						},
+						"description": "حذف رزرو دسر از رزرو ترکیبی. dessert_reservation_id را در query parameter ارسال کنید."
+					},
+					"response": []
+				},
+				{
+					"name": "حذف رزرو ترکیبی - حذف هر دو",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reservations/combined-reservations/delete/?meal_reservation_id=1&dessert_reservation_id=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reservations",
+								"combined-reservations",
+								"delete",
+								""
+							],
+							"query": [
+								{
+									"key": "meal_reservation_id",
+									"value": "1",
+									"description": "شناسه رزرو غذا برای حذف"
+								},
+								{
+									"key": "dessert_reservation_id",
+									"value": "1",
+									"description": "شناسه رزرو دسر برای حذف"
+								}
+							]
+						},
+						"description": "حذف همزمان رزرو غذا و دسر. حداقل یکی از meal_reservation_id یا dessert_reservation_id باید ارسال شود."
+					},
+					"response": []
 				}
 			]
 		},

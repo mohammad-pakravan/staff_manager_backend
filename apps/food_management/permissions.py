@@ -104,6 +104,17 @@ class FoodManagementPermission(permissions.BasePermission):
                 return True
             if '/guest-reservations/limits/' in path and request.method in permissions.SAFE_METHODS:
                 return True
+            # رزروهای ترکیبی (combined reservations)
+            if '/combined-reservations/' in path:
+                # POST برای ایجاد رزرو ترکیبی
+                if request.method == 'POST':
+                    return True
+                # PUT/PATCH برای ویرایش رزرو ترکیبی خودش
+                if '/update/' in path and request.method in ['PUT', 'PATCH']:
+                    return True
+                # DELETE برای حذف رزرو ترکیبی خودش
+                if '/delete/' in path and request.method == 'DELETE':
+                    return True
             return False
         
         return False
