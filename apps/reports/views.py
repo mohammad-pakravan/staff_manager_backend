@@ -32,6 +32,7 @@ from apps.food_management.permissions import (
     IsFoodAdminOrSystemAdmin,
     StatisticsPermission
 )
+from django.db.models import Q
 from apps.food_management.models import (
     BaseMeal, DailyMenu, DailyMenuMealOption,
     FoodReservation, GuestReservation, Restaurant
@@ -68,6 +69,70 @@ def get_accessible_centers(user):
         if not user.centers.exists():
             return []
         return user.centers.all()
+
+
+def filter_reservations_by_center(reservations, center_id=None, accessible_centers=None):
+    """
+    فیلتر رزروها بر اساس مرکز - شامل رزروهایی که daily_menu حذف شده است
+    """
+    if center_id:
+        # شامل رزروهایی که daily_menu=None است یا daily_menu.restaurant.centers شامل center_id است
+        reservations = reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__id=center_id)
+        ).distinct()
+    elif accessible_centers is not None:
+        # شامل رزروهایی که daily_menu=None است یا daily_menu.restaurant.centers در accessible_centers است
+        reservations = reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__in=accessible_centers)
+        ).distinct()
+    return reservations
+
+
+def filter_reservations_by_date(reservations, start_date=None, end_date=None):
+    """
+    فیلتر رزروها بر اساس تاریخ - شامل رزروهایی که daily_menu حذف شده است
+    """
+    if start_date:
+        # شامل رزروهایی که daily_menu=None است یا daily_menu.date >= start_date
+        reservations = reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__date__gte=start_date)
+        )
+    if end_date:
+        # شامل رزروهایی که daily_menu=None است یا daily_menu.date <= end_date
+        reservations = reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__date__lte=end_date)
+        )
+    return reservations
+
+
+def filter_guest_reservations_by_center(guest_reservations, center_id=None, accessible_centers=None):
+    """
+    فیلتر رزروهای مهمان بر اساس مرکز - شامل رزروهایی که daily_menu حذف شده است
+    """
+    if center_id:
+        guest_reservations = guest_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__id=center_id)
+        ).distinct()
+    elif accessible_centers is not None:
+        guest_reservations = guest_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__in=accessible_centers)
+        ).distinct()
+    return guest_reservations
+
+
+def filter_guest_reservations_by_date(guest_reservations, start_date=None, end_date=None):
+    """
+    فیلتر رزروهای مهمان بر اساس تاریخ - شامل رزروهایی که daily_menu حذف شده است
+    """
+    if start_date:
+        guest_reservations = guest_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__date__gte=start_date)
+        )
+    if end_date:
+        guest_reservations = guest_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__date__lte=end_date)
+        )
+    return guest_reservations
 
 
 # ========== Statistics Views ==========
@@ -1237,16 +1302,13 @@ def report_by_meal_option(request):
                     'error': 'شما دسترسی به این مرکز ندارید'
                 }, status=status.HTTP_403_FORBIDDEN)
         
-        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        reservations = filter_reservations_by_center(reservations, center_id=center_id)
     elif accessible_centers is not None:
         # فیلتر بر اساس مراکز قابل دسترسی
-        reservations = reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
+        reservations = filter_reservations_by_center(reservations, accessible_centers=accessible_centers)
     
-    if start_date:
-        reservations = reservations.filter(daily_menu__date__gte=start_date)
-    
-    if end_date:
-        reservations = reservations.filter(daily_menu__date__lte=end_date)
+    # فیلتر بر اساس تاریخ
+    reservations = filter_reservations_by_date(reservations, start_date=start_date, end_date=end_date)
     
     # گروه‌بندی بر اساس DailyMenuMealOption
     meal_options_data = {}
@@ -1372,16 +1434,13 @@ def report_by_base_meal(request):
                     'error': 'شما دسترسی به این مرکز ندارید'
                 }, status=status.HTTP_403_FORBIDDEN)
         
-        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        reservations = filter_reservations_by_center(reservations, center_id=center_id)
     elif accessible_centers is not None:
         # فیلتر بر اساس مراکز قابل دسترسی
-        reservations = reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
+        reservations = filter_reservations_by_center(reservations, accessible_centers=accessible_centers)
     
-    if start_date:
-        reservations = reservations.filter(daily_menu__date__gte=start_date)
-    
-    if end_date:
-        reservations = reservations.filter(daily_menu__date__lte=end_date)
+    # فیلتر بر اساس تاریخ
+    reservations = filter_reservations_by_date(reservations, start_date=start_date, end_date=end_date)
     
     # گروه‌بندی بر اساس BaseMeal
     base_meals_data = {}
@@ -1682,20 +1741,16 @@ def report_by_date(request):
                     'error': 'شما دسترسی به این مرکز ندارید'
                 }, status=status.HTTP_403_FORBIDDEN)
         
-        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
-        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        reservations = filter_reservations_by_center(reservations, center_id=center_id)
+        guest_reservations = filter_guest_reservations_by_center(guest_reservations, center_id=center_id)
     elif accessible_centers is not None:
         # فیلتر بر اساس مراکز قابل دسترسی
-        reservations = reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
-        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
+        reservations = filter_reservations_by_center(reservations, accessible_centers=accessible_centers)
+        guest_reservations = filter_guest_reservations_by_center(guest_reservations, accessible_centers=accessible_centers)
     
-    if start_date:
-        reservations = reservations.filter(daily_menu__date__gte=start_date)
-        guest_reservations = guest_reservations.filter(daily_menu__date__gte=start_date)
-    
-    if end_date:
-        reservations = reservations.filter(daily_menu__date__lte=end_date)
-        guest_reservations = guest_reservations.filter(daily_menu__date__lte=end_date)
+    # فیلتر بر اساس تاریخ
+    reservations = filter_reservations_by_date(reservations, start_date=start_date, end_date=end_date)
+    guest_reservations = filter_guest_reservations_by_date(guest_reservations, start_date=start_date, end_date=end_date)
     
     # گروه‌بندی بر اساس تاریخ
     dates_data = {}
@@ -1873,20 +1928,16 @@ def comprehensive_report(request):
                     'error': 'شما دسترسی به این مرکز ندارید'
                 }, status=status.HTTP_403_FORBIDDEN)
         
-        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
-        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        reservations = filter_reservations_by_center(reservations, center_id=center_id)
+        guest_reservations = filter_guest_reservations_by_center(guest_reservations, center_id=center_id)
     elif accessible_centers is not None:
         # فیلتر بر اساس مراکز قابل دسترسی
-        reservations = reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
-        guest_reservations = guest_reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
+        reservations = filter_reservations_by_center(reservations, accessible_centers=accessible_centers)
+        guest_reservations = filter_guest_reservations_by_center(guest_reservations, accessible_centers=accessible_centers)
     
-    if start_date:
-        reservations = reservations.filter(daily_menu__date__gte=start_date)
-        guest_reservations = guest_reservations.filter(daily_menu__date__gte=start_date)
-    
-    if end_date:
-        reservations = reservations.filter(daily_menu__date__lte=end_date)
-        guest_reservations = guest_reservations.filter(daily_menu__date__lte=end_date)
+    # فیلتر بر اساس تاریخ
+    reservations = filter_reservations_by_date(reservations, start_date=start_date, end_date=end_date)
+    guest_reservations = filter_guest_reservations_by_date(guest_reservations, start_date=start_date, end_date=end_date)
     
     # آمار کلی
     total_reservations = reservations.count()
@@ -2294,19 +2345,16 @@ def detailed_reservations_report(request):
                     'error': 'شما دسترسی به این مرکز ندارید'
                 }, status=status.HTTP_403_FORBIDDEN)
         
-        reservations = reservations.filter(daily_menu__restaurant__centers__id=center_id).distinct()
+        reservations = filter_reservations_by_center(reservations, center_id=center_id)
     elif accessible_centers is not None:
         # فیلتر بر اساس مراکز قابل دسترسی
-        reservations = reservations.filter(daily_menu__restaurant__centers__in=accessible_centers).distinct()
+        reservations = filter_reservations_by_center(reservations, accessible_centers=accessible_centers)
     
     if user_id:
         reservations = reservations.filter(user_id=user_id)
     
-    if start_date:
-        reservations = reservations.filter(daily_menu__date__gte=start_date)
-    
-    if end_date:
-        reservations = reservations.filter(daily_menu__date__lte=end_date)
+    # فیلتر بر اساس تاریخ
+    reservations = filter_reservations_by_date(reservations, start_date=start_date, end_date=end_date)
     
     if status_filter:
         reservations = reservations.filter(status=status_filter)

@@ -20,16 +20,16 @@ class CenterSerializer(serializers.ModelSerializer):
     """سریالایزر مرکز"""
     class Meta:
         model = Center
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'english_name']
 
 
 class CenterMenuSerializer(serializers.ModelSerializer):
-    """سریالایزر ساده مرکز برای منو - فقط id, name, logo_url"""
+    """سریالایزر ساده مرکز برای منو - فقط id, name, english_name, logo_url"""
     logo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Center
-        fields = ['id', 'name', 'logo_url']
+        fields = ['id', 'name', 'english_name', 'logo_url']
     
     @extend_schema_field(serializers.CharField())
     def get_logo_url(self, obj):

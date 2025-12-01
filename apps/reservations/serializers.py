@@ -954,14 +954,16 @@ class CombinedReservationResponseSerializer(serializers.Serializer):
 class SimpleDessertReservationSerializer(serializers.ModelSerializer):
     """سریالایزر ساده برای رزرو دسر - فقط اطلاعات ضروری"""
     dessert_option_title = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     user_name = serializers.CharField(source='user.username', read_only=True)
     jalali_reservation_date = serializers.SerializerMethodField()
     
     class Meta:
         model = DessertReservation
         fields = [
-            'id', 'user', 'user_name', 'dessert_option', 'dessert_option_title',
-            'quantity', 'status', 'amount', 'reservation_date', 'jalali_reservation_date'
+            'id', 'user', 'user_name', 'dessert_option', 'dessert_option_title', 'title',
+            'image_url', 'quantity', 'status', 'amount', 'reservation_date', 'jalali_reservation_date'
         ]
         read_only_fields = ['reservation_date']
 
@@ -972,6 +974,25 @@ class SimpleDessertReservationSerializer(serializers.ModelSerializer):
         elif obj.dessert_option_info:
             return obj.dessert_option_info
         return "بدون دسر"
+    
+    @extend_schema_field(serializers.CharField())
+    def get_title(self, obj):
+        """برگرداندن عنوان دسر - برای سازگاری و سهولت استفاده"""
+        if obj.dessert_option:
+            return obj.dessert_option.title
+        elif obj.dessert_option_info:
+            return obj.dessert_option_info
+        return "بدون دسر"
+    
+    @extend_schema_field(serializers.CharField())
+    def get_image_url(self, obj):
+        """برگرداندن URL تصویر دسر"""
+        if obj.dessert_option and obj.dessert_option.base_dessert and obj.dessert_option.base_dessert.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.dessert_option.base_dessert.image.url)
+            return obj.dessert_option.base_dessert.image.url
+        return None
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_reservation_date(self, obj):

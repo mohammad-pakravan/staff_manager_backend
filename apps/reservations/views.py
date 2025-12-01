@@ -967,8 +967,17 @@ class DessertReservationDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role in ['admin_food', 'sys_admin']:
-            return DessertReservation.objects.all()
-        return DessertReservation.objects.filter(user=user)
+            return DessertReservation.objects.all().select_related(
+                'dessert_option', 'dessert_option__base_dessert', 'daily_menu'
+            )
+        return DessertReservation.objects.filter(user=user).select_related(
+            'dessert_option', 'dessert_option__base_dessert', 'daily_menu'
+        )
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 
 @extend_schema(
@@ -1249,27 +1258,27 @@ def combined_reservation_update(request):
 
 @extend_schema(
     operation_id='combined_reservation_delete',
-    summary='Delete Combined Food and Dessert Reservation (Employee)',
-    description='Delete food and/or dessert reservation. At least one of meal_reservation_id or dessert_reservation_id must be provided. (only own reservations)',
+    summary='Cancel Combined Food and Dessert Reservation (Employee)',
+    description='Cancel food and/or dessert reservation. At least one of meal_reservation_id or dessert_reservation_id must be provided. (only own reservations)',
     tags=['Reservations'],
     parameters=[
         {
             'name': 'meal_reservation_id',
             'in': 'query',
-            'description': 'ID of meal reservation to delete',
+            'description': 'ID of meal reservation to cancel',
             'required': False,
             'schema': {'type': 'integer'}
         },
         {
             'name': 'dessert_reservation_id',
             'in': 'query',
-            'description': 'ID of dessert reservation to delete',
+            'description': 'ID of dessert reservation to cancel',
             'required': False,
             'schema': {'type': 'integer'}
         }
     ],
     responses={
-        200: {'description': 'Reservations deleted successfully'},
+        200: {'description': 'Reservations cancelled successfully'},
         400: {'description': 'Validation error'},
         403: {'description': 'Permission denied'},
         404: {'description': 'Reservation not found'}
@@ -1278,7 +1287,8 @@ def combined_reservation_update(request):
 @api_view(['DELETE'])
 @permission_classes([FoodManagementPermission])
 def combined_reservation_delete(request):
-    """حذف رزرو یکپارچه غذا و دسر برای کارمند"""
+    """لغو رزرو یکپارچه غذا و دسر برای کارمند"""
+    from django.utils import timezone
     user = request.user
     
     meal_reservation_id = request.query_params.get('meal_reservation_id')
@@ -1291,29 +1301,38 @@ def combined_reservation_delete(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    deleted_meal = False
-    deleted_dessert = False
+    cancelled_meal = False
+    cancelled_dessert = False
     
-    # حذف رزرو غذا
+    # لغو رزرو غذا
     if meal_reservation_id:
         try:
             meal_reservation_id = int(meal_reservation_id)
-            meal_reservation = FoodReservation.objects.get(id=meal_reservation_id, user=user)
         except (ValueError, TypeError):
             return Response(
                 {'error': 'meal_reservation_id باید عدد باشد'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        try:
+            meal_reservation = FoodReservation.objects.get(id=meal_reservation_id)
         except FoodReservation.DoesNotExist:
             return Response(
                 {'error': 'رزرو غذا یافت نشد'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # بررسی اینکه رزرو قابل حذف است
+        # بررسی اینکه رزرو متعلق به کاربر است
+        if meal_reservation.user != user:
+            return Response(
+                {'error': 'شما دسترسی به این رزرو ندارید'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # بررسی اینکه رزرو قابل لغو است
         if meal_reservation.status != 'reserved':
             return Response(
-                {'error': 'فقط رزروهای فعال قابل حذف هستند'}, 
+                {'error': 'فقط رزروهای فعال قابل لغو هستند'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1323,30 +1342,41 @@ def combined_reservation_delete(request):
             meal_option.reserved_quantity = max(0, meal_option.reserved_quantity - meal_reservation.quantity)
             meal_option.save()
         
-        # حذف رزرو
-        meal_reservation.delete()
-        deleted_meal = True
+        # لغو رزرو (تغییر وضعیت به cancelled)
+        meal_reservation.status = 'cancelled'
+        meal_reservation.cancelled_at = timezone.now()
+        meal_reservation.save()
+        cancelled_meal = True
     
-    # حذف رزرو دسر
+    # لغو رزرو دسر
     if dessert_reservation_id:
         try:
             dessert_reservation_id = int(dessert_reservation_id)
-            dessert_reservation = DessertReservation.objects.get(id=dessert_reservation_id, user=user)
         except (ValueError, TypeError):
             return Response(
                 {'error': 'dessert_reservation_id باید عدد باشد'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        try:
+            dessert_reservation = DessertReservation.objects.get(id=dessert_reservation_id)
         except DessertReservation.DoesNotExist:
             return Response(
                 {'error': 'رزرو دسر یافت نشد'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # بررسی اینکه رزرو قابل حذف است
+        # بررسی اینکه رزرو متعلق به کاربر است
+        if dessert_reservation.user != user:
+            return Response(
+                {'error': 'شما دسترسی به این رزرو ندارید'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # بررسی اینکه رزرو قابل لغو است
         if dessert_reservation.status != 'reserved':
             return Response(
-                {'error': 'فقط رزروهای فعال قابل حذف هستند'}, 
+                {'error': 'فقط رزروهای فعال قابل لغو هستند'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1356,20 +1386,22 @@ def combined_reservation_delete(request):
             dessert_option.reserved_quantity = max(0, dessert_option.reserved_quantity - dessert_reservation.quantity)
             dessert_option.save()
         
-        # حذف رزرو
-        dessert_reservation.delete()
-        deleted_dessert = True
+        # لغو رزرو (تغییر وضعیت به cancelled)
+        dessert_reservation.status = 'cancelled'
+        dessert_reservation.cancelled_at = timezone.now()
+        dessert_reservation.save()
+        cancelled_dessert = True
     
     message_parts = []
-    if deleted_meal:
+    if cancelled_meal:
         message_parts.append('رزرو غذا')
-    if deleted_dessert:
+    if cancelled_dessert:
         message_parts.append('رزرو دسر')
     
     return Response({
-        'message': f"{' و '.join(message_parts)} با موفقیت حذف شد",
-        'deleted_meal': deleted_meal,
-        'deleted_dessert': deleted_dessert
+        'message': f"{' و '.join(message_parts)} با موفقیت لغو شد",
+        'cancelled_meal': cancelled_meal,
+        'cancelled_dessert': cancelled_dessert
     }, status=status.HTTP_200_OK)
 
 
@@ -1514,7 +1546,9 @@ def cancel_guest_dessert_reservation(request, reservation_id):
 def user_dessert_reservations(request):
     """رزروهای دسر کاربر"""
     user = request.user
-    reservations = DessertReservation.objects.filter(user=user).order_by('-reservation_date')
+    reservations = DessertReservation.objects.filter(user=user).select_related(
+        'dessert_option', 'dessert_option__base_dessert', 'daily_menu'
+    ).order_by('-reservation_date')
     
     date = request.query_params.get('date')
     if date:
@@ -1526,7 +1560,7 @@ def user_dessert_reservations(request):
     if status_filter:
         reservations = reservations.filter(status=status_filter)
     
-    serializer = SimpleDessertReservationSerializer(reservations, many=True)
+    serializer = SimpleDessertReservationSerializer(reservations, many=True, context={'request': request})
     return Response(serializer.data)
 
 
@@ -1585,7 +1619,9 @@ def employee_dessert_reservations(request):
         )
     
     if request.method == 'GET':
-        reservations = DessertReservation.objects.filter(user=user).order_by('-reservation_date')
+        reservations = DessertReservation.objects.filter(user=user).select_related(
+            'dessert_option', 'dessert_option__base_dessert', 'daily_menu'
+        ).order_by('-reservation_date')
         
         date = request.query_params.get('date')
         if date:
@@ -1597,7 +1633,7 @@ def employee_dessert_reservations(request):
         if status_filter:
             reservations = reservations.filter(status=status_filter)
         
-        serializer = SimpleDessertReservationSerializer(reservations, many=True)
+        serializer = SimpleDessertReservationSerializer(reservations, many=True, context={'request': request})
         return Response(serializer.data)
     
     elif request.method == 'POST':
@@ -1612,7 +1648,7 @@ def employee_dessert_reservations(request):
                 )
             
             reservation = serializer.save(user=user)
-            response_serializer = SimpleDessertReservationSerializer(reservation)
+            response_serializer = SimpleDessertReservationSerializer(reservation, context={'request': request})
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1703,7 +1739,7 @@ def employee_update_dessert_reservation(request, reservation_id):
             )
         
         serializer.save()
-        response_serializer = SimpleDessertReservationSerializer(reservation)
+        response_serializer = SimpleDessertReservationSerializer(reservation, context={'request': request})
         return Response(response_serializer.data)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1790,7 +1826,7 @@ def employee_cancel_dessert_reservation(request, reservation_id):
             reservation.dessert_option.reserved_quantity = max(0, reservation.dessert_option.reserved_quantity - reservation.quantity)
             reservation.dessert_option.save()
         
-        response_serializer = SimpleDessertReservationSerializer(reservation)
+        response_serializer = SimpleDessertReservationSerializer(reservation, context={'request': request})
         return Response(response_serializer.data)
     else:
         return Response(

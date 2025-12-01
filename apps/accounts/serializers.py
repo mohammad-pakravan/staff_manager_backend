@@ -131,7 +131,7 @@ class LoginResponseSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'role_display'
+            'role', 'role_display', 'phone_number'
         ]
         read_only_fields = ['id']
 

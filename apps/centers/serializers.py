@@ -9,7 +9,7 @@ class CenterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Center
         fields = [
-            'id', 'name', 'logo', 'logo_url', 'is_active', 'created_at', 'updated_at'
+            'id', 'name', 'english_name', 'logo', 'logo_url', 'is_active', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
@@ -30,7 +30,7 @@ class CenterListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Center
         fields = [
-            'id', 'name', 'logo', 'is_active', 'employee_count', 'created_at'
+            'id', 'name', 'english_name', 'logo', 'is_active', 'employee_count', 'created_at'
         ]
 
     def get_employee_count(self, obj):
