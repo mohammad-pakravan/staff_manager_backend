@@ -977,9 +977,9 @@ class SimpleDessertReservationSerializer(serializers.ModelSerializer):
     
     @extend_schema_field(serializers.CharField())
     def get_title(self, obj):
-        """برگرداندن عنوان دسر - برای سازگاری و سهولت استفاده"""
-        if obj.dessert_option:
-            return obj.dessert_option.title
+        """برگرداندن عنوان دسر پایه - برای سازگاری و سهولت استفاده"""
+        if obj.dessert_option and obj.dessert_option.base_dessert:
+            return obj.dessert_option.base_dessert.title
         elif obj.dessert_option_info:
             return obj.dessert_option_info
         return "بدون دسر"

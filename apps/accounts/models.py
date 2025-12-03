@@ -15,7 +15,7 @@ class User(AbstractUser):
     last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی')
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE, verbose_name='نقش')
     centers = models.ManyToManyField('centers.Center', blank=True, verbose_name='مراکز', related_name='users')
-    phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='شماره تلفن')
+    phone_number = models.CharField(max_length=15, verbose_name='شماره تلفن')
     max_reservations_per_day = models.PositiveIntegerField(default=1, verbose_name='حداکثر رزرو در روز')
     max_guest_reservations_per_day = models.PositiveIntegerField(default=1, verbose_name='حداکثر رزرو مهمان در روز')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')

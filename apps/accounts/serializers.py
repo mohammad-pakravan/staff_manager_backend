@@ -43,6 +43,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'employee_number': {'required': True},
+            'phone_number': {'required': True},
             'max_reservations_per_day': {'required': False},
             'max_guest_reservations_per_day': {'required': False},
             'is_active': {'required': False},
