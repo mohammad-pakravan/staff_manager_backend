@@ -643,23 +643,35 @@ class CombinedReservationCreateSerializer(serializers.Serializer):
         queryset=DailyMenu.objects.all(),
         required=True
     )
+    base_meal = serializers.IntegerField(required=False, allow_null=True)
     meal_option = serializers.PrimaryKeyRelatedField(
         queryset=DailyMenuMealOption.objects.all(),
         required=False,
         allow_null=True
     )
-    meal_quantity = serializers.IntegerField(min_value=1, required=False, default=1)
+    meal_quantity = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    dessert = serializers.IntegerField(required=False, allow_null=True)
     dessert_option = serializers.PrimaryKeyRelatedField(
         queryset=DailyMenuDessertOption.objects.all(),
         required=False,
         allow_null=True
     )
-    dessert_quantity = serializers.IntegerField(min_value=1, required=False, default=1)
+    dessert_quantity = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    quantity = serializers.IntegerField(min_value=1, required=False, allow_null=True)
     
     def validate(self, data):
         daily_menu = data.get('daily_menu')
         meal_option = data.get('meal_option')
         dessert_option = data.get('dessert_option')
+
+        # map کردن quantity به meal_quantity یا dessert_quantity
+        quantity = data.get('quantity')
+        if quantity is not None:
+            if meal_option and not data.get('meal_quantity'):
+                data['meal_quantity'] = quantity
+            if dessert_option and not data.get('dessert_quantity'):
+                data['dessert_quantity'] = quantity
+
         meal_quantity = data.get('meal_quantity', 1)
         dessert_quantity = data.get('dessert_quantity', 1)
         
