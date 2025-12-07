@@ -160,3 +160,24 @@ class ComprehensiveReportSerializer(serializers.Serializer):
     by_user = UserReportSerializer(many=True)
     by_date = DateReportSerializer(many=True)
 
+
+class UserReservationsReportSerializer(serializers.Serializer):
+    """سریالایزر گزارش رزروهای یک کاربر در بازه تاریخ"""
+    user = serializers.DictField()
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    jalali_start_date = serializers.CharField()
+    jalali_end_date = serializers.CharField()
+    total_reservations = serializers.IntegerField()
+    total_guest_reservations = serializers.IntegerField()
+    total_dessert_reservations = serializers.IntegerField()
+    total_guest_dessert_reservations = serializers.IntegerField()
+    reserved_count = serializers.IntegerField()
+    cancelled_count = serializers.IntegerField()
+    served_count = serializers.IntegerField()
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    reserved_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    reservations = serializers.ListField(child=serializers.DictField())
+    guest_reservations = serializers.ListField(child=serializers.DictField())
+    dessert_reservations = serializers.ListField(child=serializers.DictField())
+    guest_dessert_reservations = serializers.ListField(child=serializers.DictField())

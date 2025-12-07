@@ -804,6 +804,99 @@
 						"description": "خلاصه رزروهای شخصی و مهمان با جزئیات کامل (تعداد، وضعیت‌ها، رزروهای امروز)."
 					},
 					"response": []
+				},
+				{
+					"name": "گزارش رزروها در بازه تاریخ (شمسی)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/user-reservations-by-date-range/?start_date=1403/10/01&end_date=1403/10/30",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"user-reservations-by-date-range",
+								""
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "1403/10/01",
+									"description": "الزامی - تاریخ شروع شمسی (YYYY/MM/DD)"
+								},
+								{
+									"key": "end_date",
+									"value": "1403/10/30",
+									"description": "الزامی - تاریخ پایان شمسی (YYYY/MM/DD)"
+								},
+								{
+									"key": "center_id",
+									"value": "",
+									"description": "اختیاری - فیلتر بر اساس مرکز",
+									"disabled": true
+								},
+								{
+									"key": "user_id",
+									"value": "",
+									"description": "اختیاری - شناسه کاربر (اگر ارسال نشود، گزارش برای کاربر لاگین شده نمایش داده می‌شود)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "گزارش کامل رزروهای یک کاربر در بازه تاریخ مشخص. شامل رزروهای معمولی و مهمان با جزئیات کامل. اگر user_id ارسال نشود، گزارش برای کاربر لاگین شده نمایش داده می‌شود."
+					},
+					"response": []
+				},
+				{
+					"name": "گزارش رزروها در بازه تاریخ با فیلتر مرکز",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/user-reservations-by-date-range/?start_date=1403/10/01&end_date=1403/10/30&center_id=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"user-reservations-by-date-range",
+								""
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "1403/10/01",
+									"description": "الزامی - تاریخ شروع شمسی (YYYY/MM/DD)"
+								},
+								{
+									"key": "end_date",
+									"value": "1403/10/30",
+									"description": "الزامی - تاریخ پایان شمسی (YYYY/MM/DD)"
+								},
+								{
+									"key": "center_id",
+									"value": "1",
+									"description": "اختیاری - فیلتر بر اساس مرکز"
+								}
+							]
+						},
+						"description": "گزارش رزروها در بازه تاریخ با فیلتر مرکز. فقط رزروهای مربوط به مرکز مشخص شده نمایش داده می‌شود."
+					},
+					"response": []
 				}
 			]
 		},

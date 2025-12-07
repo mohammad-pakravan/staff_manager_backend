@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from io import BytesIO
 from decimal import Decimal
+from datetime import datetime
 import jdatetime
 
 # Optional imports for export functionality
@@ -30,12 +31,14 @@ except ImportError:
 
 from apps.food_management.permissions import (
     IsFoodAdminOrSystemAdmin,
-    StatisticsPermission
+    StatisticsPermission,
+    UserReportPermission
 )
 from django.db.models import Q
 from apps.food_management.models import (
     BaseMeal, DailyMenu, DailyMenuMealOption,
-    FoodReservation, GuestReservation, Restaurant
+    FoodReservation, GuestReservation, Restaurant,
+    DessertReservation, GuestDessertReservation
 )
 from apps.centers.models import Center
 from apps.food_management.utils import parse_date_filter
@@ -2360,5 +2363,551 @@ def detailed_reservations_report(request):
         reservations = reservations.filter(status=status_filter)
     
     serializer = DetailedReservationReportSerializer(reservations, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@extend_schema(
+    summary='User Reservations Report by Date Range',
+    description='Get detailed report of a specific user\'s reservations within a date range. If user_id is not provided, returns report for the authenticated user.',
+    tags=['Reports'],
+    parameters=[
+        {
+            'name': 'user_id',
+            'in': 'query',
+            'description': 'شناسه کاربر (اگر ارسال نشود، گزارش برای کاربر لاگین شده نمایش داده می‌شود)',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'start_date',
+            'in': 'query',
+            'description': 'تاریخ شروع (فرمت: YYYY-MM-DD یا YYYY/MM/DD) - الزامی',
+            'required': True,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'end_date',
+            'in': 'query',
+            'description': 'تاریخ پایان (فرمت: YYYY-MM-DD یا YYYY/MM/DD) - الزامی',
+            'required': True,
+            'schema': {'type': 'string'}
+        },
+        {
+            'name': 'center_id',
+            'in': 'query',
+            'description': 'فیلتر بر اساس مرکز',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+    ],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'},
+        404: {'description': 'User not found'}
+    }
+)
+@api_view(['GET'])
+@permission_classes([UserReportPermission])
+def user_reservations_by_date_range(request):
+    """گزارش رزروهای یک کاربر در بازه تاریخ"""
+    current_user = request.user
+    
+    # دریافت user_id - اگر ارسال نشده باشد، از کاربر لاگین شده استفاده می‌شود
+    user_id_param = request.query_params.get('user_id')
+    if user_id_param:
+        try:
+            target_user_id = int(user_id_param)
+        except (ValueError, TypeError):
+            return Response({
+                'error': 'شناسه کاربر باید عدد باشد'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # بررسی دسترسی - فقط System Admin و Food Admin می‌توانند گزارش کاربران دیگر را ببینند
+        if current_user.role not in ['sys_admin', 'admin_food']:
+            return Response({
+                'error': 'شما فقط می‌توانید گزارش خودتان را مشاهده کنید'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        from apps.accounts.models import User
+        try:
+            target_user = User.objects.get(id=target_user_id)
+        except User.DoesNotExist:
+            return Response({
+                'error': 'کاربر یافت نشد'
+            }, status=status.HTTP_404_NOT_FOUND)
+    else:
+        # استفاده از کاربر لاگین شده
+        target_user = current_user
+        target_user_id = current_user.id
+    
+    # دریافت تاریخ‌ها
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    
+    if not start_date or not end_date:
+        return Response({
+            'error': 'تاریخ شروع و پایان الزامی است'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    parsed_start_date = parse_date_filter(start_date)
+    parsed_end_date = parse_date_filter(end_date)
+    
+    if not parsed_start_date or not parsed_end_date:
+        return Response({
+            'error': 'فرمت تاریخ نامعتبر است. از فرمت میلادی (2025-10-24) یا شمسی (1404/08/02) استفاده کنید'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if parsed_start_date > parsed_end_date:
+        return Response({
+            'error': 'تاریخ شروع باید قبل از تاریخ پایان باشد'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # دریافت فیلتر مرکز (اختیاری)
+    center_id = request.query_params.get('center_id')
+    
+    # فیلتر رزروهای غذا - ابتدا بر اساس کاربر فیلتر می‌کنیم
+    reservations = FoodReservation.objects.select_related(
+        'user', 'meal_option', 'meal_option__base_meal', 'meal_option__daily_menu',
+        'meal_option__daily_menu__restaurant', 'daily_menu', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers').filter(
+        user_id=target_user_id
+    )
+    # فیلتر بر اساس تاریخ با استفاده از تابع helper
+    reservations = filter_reservations_by_date(reservations, start_date=parsed_start_date, end_date=parsed_end_date)
+    
+    # فیلتر رزروهای مهمان
+    guest_reservations = GuestReservation.objects.select_related(
+        'host_user', 'meal_option', 'meal_option__base_meal', 'meal_option__daily_menu',
+        'meal_option__daily_menu__restaurant', 'daily_menu', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers').filter(
+        host_user_id=target_user_id
+    )
+    # فیلتر بر اساس تاریخ با استفاده از تابع helper
+    guest_reservations = filter_guest_reservations_by_date(guest_reservations, start_date=parsed_start_date, end_date=parsed_end_date)
+    
+    # فیلتر رزروهای دسر
+    dessert_reservations = DessertReservation.objects.select_related(
+        'user', 'dessert_option', 'dessert_option__daily_menu',
+        'dessert_option__daily_menu__restaurant', 'daily_menu', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers').filter(
+        user_id=target_user_id
+    )
+    # فیلتر بر اساس تاریخ - دسرها هم مثل غذاها هستند
+    dessert_reservations = dessert_reservations.filter(
+        Q(daily_menu__isnull=True) | 
+        (Q(daily_menu__date__gte=parsed_start_date) & Q(daily_menu__date__lte=parsed_end_date))
+    )
+    
+    # فیلتر رزروهای دسر مهمان
+    guest_dessert_reservations = GuestDessertReservation.objects.select_related(
+        'host_user', 'dessert_option', 'dessert_option__daily_menu',
+        'dessert_option__daily_menu__restaurant', 'daily_menu', 'daily_menu__restaurant'
+    ).prefetch_related('daily_menu__restaurant__centers').filter(
+        host_user_id=target_user_id
+    )
+    # فیلتر بر اساس تاریخ
+    guest_dessert_reservations = guest_dessert_reservations.filter(
+        Q(daily_menu__isnull=True) | 
+        (Q(daily_menu__date__gte=parsed_start_date) & Q(daily_menu__date__lte=parsed_end_date))
+    )
+    
+    # فیلتر بر اساس مرکز (فقط اگر center_id ارسال شده باشد)
+    if center_id:
+        try:
+            center_id = int(center_id)
+        except (ValueError, TypeError):
+            return Response({
+                'error': 'شناسه مرکز باید عدد باشد'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # فیلتر بر اساس مرکز
+        reservations = reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__id=center_id)
+        ).distinct()
+        guest_reservations = guest_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__id=center_id)
+        ).distinct()
+        dessert_reservations = dessert_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__id=center_id)
+        ).distinct()
+        guest_dessert_reservations = guest_dessert_reservations.filter(
+            Q(daily_menu__isnull=True) | Q(daily_menu__restaurant__centers__id=center_id)
+        ).distinct()
+    
+    # محاسبه آمار
+    total_reservations = reservations.count()
+    total_guest_reservations = guest_reservations.count()
+    total_dessert_reservations = dessert_reservations.count()
+    total_guest_dessert_reservations = guest_dessert_reservations.count()
+    
+    reserved_count = reservations.filter(status='reserved').count() + guest_reservations.filter(status='reserved').count() + dessert_reservations.filter(status='reserved').count() + guest_dessert_reservations.filter(status='reserved').count()
+    cancelled_count = reservations.filter(status='cancelled').count() + guest_reservations.filter(status='cancelled').count() + dessert_reservations.filter(status='cancelled').count() + guest_dessert_reservations.filter(status='cancelled').count()
+    served_count = reservations.filter(status='served').count() + guest_reservations.filter(status='served').count() + dessert_reservations.filter(status='served').count() + guest_dessert_reservations.filter(status='served').count()
+    
+    # محاسبه مبالغ
+    total_amount = Decimal('0')
+    reserved_amount = Decimal('0')
+    
+    for reservation in reservations:
+        amount = Decimal(str(reservation.amount or 0)) * Decimal(str(reservation.quantity or 1))
+        total_amount += amount
+        if reservation.status == 'reserved':
+            reserved_amount += amount
+    
+    for guest_reservation in guest_reservations:
+        amount = Decimal(str(guest_reservation.amount or 0))
+        total_amount += amount
+        if guest_reservation.status == 'reserved':
+            reserved_amount += amount
+    
+    for dessert_reservation in dessert_reservations:
+        amount = Decimal(str(dessert_reservation.amount or 0)) * Decimal(str(dessert_reservation.quantity or 1))
+        total_amount += amount
+        if dessert_reservation.status == 'reserved':
+            reserved_amount += amount
+    
+    for guest_dessert_reservation in guest_dessert_reservations:
+        amount = Decimal(str(guest_dessert_reservation.amount or 0))
+        total_amount += amount
+        if guest_dessert_reservation.status == 'reserved':
+            reserved_amount += amount
+    
+    # آماده‌سازی داده‌های رزروهای غذا با اطلاعات رستوران و مرکز
+    reservations_data = []
+    for reservation in reservations:
+        # دریافت اطلاعات رستوران
+        restaurant = None
+        restaurant_name = None
+        restaurant_id = None
+        centers = []
+        
+        if reservation.daily_menu and reservation.daily_menu.restaurant:
+            restaurant = reservation.daily_menu.restaurant
+            restaurant_name = restaurant.name
+            restaurant_id = restaurant.id
+            centers = [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()]
+        elif reservation.daily_menu_info:
+            # اگر daily_menu حذف شده، از daily_menu_info استفاده می‌کنیم
+            restaurant_name = "رستوران حذف شده"
+            # سعی می‌کنیم اطلاعات مرکز را از daily_menu_info استخراج کنیم
+            if 'مرکز:' in reservation.daily_menu_info:
+                center_part = reservation.daily_menu_info.split('مرکز:')[1].split('-')[0].strip()
+                centers = [{'id': None, 'name': center_part}]
+        
+        # دریافت اطلاعات meal_option
+        meal_option_data = None
+        if reservation.meal_option:
+            meal_option_data = {
+                'id': reservation.meal_option.id,
+                'title': reservation.meal_option.title,
+                'description': reservation.meal_option.description or '',
+                'price': float(reservation.meal_option.price),
+                'base_meal_title': reservation.meal_option.base_meal.title if reservation.meal_option.base_meal else ''
+            }
+        elif reservation.meal_option_info:
+            # اگر meal_option حذف شده، از meal_option_info استفاده می‌کنیم
+            meal_option_data = {
+                'id': None,
+                'title': reservation.meal_option_info,
+                'description': '',
+                'price': 0,
+                'base_meal_title': '',
+                'is_deleted': True
+            }
+        
+        # دریافت تاریخ
+        date = None
+        jalali_date = None
+        if reservation.daily_menu and reservation.daily_menu.date:
+            date = reservation.daily_menu.date.isoformat()
+            jalali_date = jdatetime.date.fromgregorian(date=reservation.daily_menu.date).strftime('%Y/%m/%d')
+        elif reservation.daily_menu_info and 'تاریخ:' in reservation.daily_menu_info:
+            # استخراج تاریخ از daily_menu_info
+            try:
+                date_part = reservation.daily_menu_info.split('تاریخ:')[1].strip()
+                date = date_part
+                # تبدیل به jalali اگر ممکن باشد
+                jalali_date = date_part
+            except:
+                pass
+        
+        reservations_data.append({
+            'id': reservation.id,
+            'type': 'food',
+            'restaurant': {
+                'id': restaurant_id,
+                'name': restaurant_name,
+                'centers': centers,
+                'is_deleted': restaurant is None and reservation.daily_menu_info is not None
+            } if restaurant_name else None,
+            'daily_menu_info': reservation.daily_menu_info if reservation.daily_menu_info else None,
+            'meal_option': meal_option_data,
+            'meal_option_info': reservation.meal_option_info if reservation.meal_option_info else None,
+            'quantity': reservation.quantity,
+            'amount': float(reservation.amount or 0),
+            'status': reservation.status,
+            'reservation_date': reservation.reservation_date.isoformat() if reservation.reservation_date else None,
+            'jalali_reservation_date': jdatetime.datetime.fromgregorian(datetime=reservation.reservation_date).strftime('%Y/%m/%d %H:%M') if reservation.reservation_date else None,
+            'date': date,
+            'jalali_date': jalali_date,
+        })
+    
+    # آماده‌سازی داده‌های رزروهای مهمان
+    guest_reservations_data = []
+    for guest_reservation in guest_reservations:
+        # دریافت اطلاعات رستوران
+        restaurant = None
+        restaurant_name = None
+        restaurant_id = None
+        centers = []
+        
+        if guest_reservation.daily_menu and guest_reservation.daily_menu.restaurant:
+            restaurant = guest_reservation.daily_menu.restaurant
+            restaurant_name = restaurant.name
+            restaurant_id = restaurant.id
+            centers = [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()]
+        elif guest_reservation.daily_menu_info:
+            restaurant_name = "رستوران حذف شده"
+            if 'مرکز:' in guest_reservation.daily_menu_info:
+                center_part = guest_reservation.daily_menu_info.split('مرکز:')[1].split('-')[0].strip()
+                centers = [{'id': None, 'name': center_part}]
+        
+        # دریافت اطلاعات meal_option
+        meal_option_data = None
+        if guest_reservation.meal_option:
+            meal_option_data = {
+                'id': guest_reservation.meal_option.id,
+                'title': guest_reservation.meal_option.title,
+                'description': guest_reservation.meal_option.description or '',
+                'price': float(guest_reservation.meal_option.price),
+                'base_meal_title': guest_reservation.meal_option.base_meal.title if guest_reservation.meal_option.base_meal else ''
+            }
+        elif guest_reservation.meal_option_info:
+            meal_option_data = {
+                'id': None,
+                'title': guest_reservation.meal_option_info,
+                'description': '',
+                'price': 0,
+                'base_meal_title': '',
+                'is_deleted': True
+            }
+        
+        # دریافت تاریخ
+        date = None
+        jalali_date = None
+        if guest_reservation.daily_menu and guest_reservation.daily_menu.date:
+            date = guest_reservation.daily_menu.date.isoformat()
+            jalali_date = jdatetime.date.fromgregorian(date=guest_reservation.daily_menu.date).strftime('%Y/%m/%d')
+        elif guest_reservation.daily_menu_info and 'تاریخ:' in guest_reservation.daily_menu_info:
+            try:
+                date_part = guest_reservation.daily_menu_info.split('تاریخ:')[1].strip()
+                date = date_part
+                jalali_date = date_part
+            except:
+                pass
+        
+        guest_reservations_data.append({
+            'id': guest_reservation.id,
+            'type': 'guest_food',
+            'guest_first_name': guest_reservation.guest_first_name,
+            'guest_last_name': guest_reservation.guest_last_name,
+            'guest_name': f"{guest_reservation.guest_first_name} {guest_reservation.guest_last_name}".strip(),
+            'restaurant': {
+                'id': restaurant_id,
+                'name': restaurant_name,
+                'centers': centers,
+                'is_deleted': restaurant is None and guest_reservation.daily_menu_info is not None
+            } if restaurant_name else None,
+            'daily_menu_info': guest_reservation.daily_menu_info if guest_reservation.daily_menu_info else None,
+            'meal_option': meal_option_data,
+            'meal_option_info': guest_reservation.meal_option_info if guest_reservation.meal_option_info else None,
+            'amount': float(guest_reservation.amount or 0),
+            'status': guest_reservation.status,
+            'reservation_date': guest_reservation.reservation_date.isoformat() if guest_reservation.reservation_date else None,
+            'jalali_reservation_date': jdatetime.datetime.fromgregorian(datetime=guest_reservation.reservation_date).strftime('%Y/%m/%d %H:%M') if guest_reservation.reservation_date else None,
+            'date': date,
+            'jalali_date': jalali_date,
+        })
+    
+    # آماده‌سازی داده‌های رزروهای دسر
+    dessert_reservations_data = []
+    for dessert_reservation in dessert_reservations:
+        # دریافت اطلاعات رستوران
+        restaurant = None
+        restaurant_name = None
+        restaurant_id = None
+        centers = []
+        
+        if dessert_reservation.daily_menu and dessert_reservation.daily_menu.restaurant:
+            restaurant = dessert_reservation.daily_menu.restaurant
+            restaurant_name = restaurant.name
+            restaurant_id = restaurant.id
+            centers = [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()]
+        elif dessert_reservation.daily_menu_info:
+            restaurant_name = "رستوران حذف شده"
+            if 'مرکز:' in dessert_reservation.daily_menu_info:
+                center_part = dessert_reservation.daily_menu_info.split('مرکز:')[1].split('-')[0].strip()
+                centers = [{'id': None, 'name': center_part}]
+        
+        # دریافت اطلاعات dessert_option
+        dessert_option_data = None
+        if dessert_reservation.dessert_option:
+            dessert_option_data = {
+                'id': dessert_reservation.dessert_option.id,
+                'title': dessert_reservation.dessert_option.title,
+                'description': dessert_reservation.dessert_option.description or '',
+                'price': float(dessert_reservation.dessert_option.price)
+            }
+        elif dessert_reservation.dessert_option_info:
+            dessert_option_data = {
+                'id': None,
+                'title': dessert_reservation.dessert_option_info,
+                'description': '',
+                'price': 0,
+                'is_deleted': True
+            }
+        
+        # دریافت تاریخ
+        date = None
+        jalali_date = None
+        if dessert_reservation.daily_menu and dessert_reservation.daily_menu.date:
+            date = dessert_reservation.daily_menu.date.isoformat()
+            jalali_date = jdatetime.date.fromgregorian(date=dessert_reservation.daily_menu.date).strftime('%Y/%m/%d')
+        elif dessert_reservation.daily_menu_info and 'تاریخ:' in dessert_reservation.daily_menu_info:
+            try:
+                date_part = dessert_reservation.daily_menu_info.split('تاریخ:')[1].strip()
+                date = date_part
+                jalali_date = date_part
+            except:
+                pass
+        
+        dessert_reservations_data.append({
+            'id': dessert_reservation.id,
+            'type': 'dessert',
+            'restaurant': {
+                'id': restaurant_id,
+                'name': restaurant_name,
+                'centers': centers,
+                'is_deleted': restaurant is None and dessert_reservation.daily_menu_info is not None
+            } if restaurant_name else None,
+            'daily_menu_info': dessert_reservation.daily_menu_info if dessert_reservation.daily_menu_info else None,
+            'dessert_option': dessert_option_data,
+            'dessert_option_info': dessert_reservation.dessert_option_info if dessert_reservation.dessert_option_info else None,
+            'quantity': dessert_reservation.quantity,
+            'amount': float(dessert_reservation.amount or 0),
+            'status': dessert_reservation.status,
+            'reservation_date': dessert_reservation.reservation_date.isoformat() if dessert_reservation.reservation_date else None,
+            'jalali_reservation_date': jdatetime.datetime.fromgregorian(datetime=dessert_reservation.reservation_date).strftime('%Y/%m/%d %H:%M') if dessert_reservation.reservation_date else None,
+            'date': date,
+            'jalali_date': jalali_date,
+        })
+    
+    # آماده‌سازی داده‌های رزروهای دسر مهمان
+    guest_dessert_reservations_data = []
+    for guest_dessert_reservation in guest_dessert_reservations:
+        # دریافت اطلاعات رستوران
+        restaurant = None
+        restaurant_name = None
+        restaurant_id = None
+        centers = []
+        
+        if guest_dessert_reservation.daily_menu and guest_dessert_reservation.daily_menu.restaurant:
+            restaurant = guest_dessert_reservation.daily_menu.restaurant
+            restaurant_name = restaurant.name
+            restaurant_id = restaurant.id
+            centers = [{'id': c.id, 'name': c.name} for c in restaurant.centers.all()]
+        elif guest_dessert_reservation.daily_menu_info:
+            restaurant_name = "رستوران حذف شده"
+            if 'مرکز:' in guest_dessert_reservation.daily_menu_info:
+                center_part = guest_dessert_reservation.daily_menu_info.split('مرکز:')[1].split('-')[0].strip()
+                centers = [{'id': None, 'name': center_part}]
+        
+        # دریافت اطلاعات dessert_option
+        dessert_option_data = None
+        if guest_dessert_reservation.dessert_option:
+            dessert_option_data = {
+                'id': guest_dessert_reservation.dessert_option.id,
+                'title': guest_dessert_reservation.dessert_option.title,
+                'description': guest_dessert_reservation.dessert_option.description or '',
+                'price': float(guest_dessert_reservation.dessert_option.price)
+            }
+        elif guest_dessert_reservation.dessert_option_info:
+            dessert_option_data = {
+                'id': None,
+                'title': guest_dessert_reservation.dessert_option_info,
+                'description': '',
+                'price': 0,
+                'is_deleted': True
+            }
+        
+        # دریافت تاریخ
+        date = None
+        jalali_date = None
+        if guest_dessert_reservation.daily_menu and guest_dessert_reservation.daily_menu.date:
+            date = guest_dessert_reservation.daily_menu.date.isoformat()
+            jalali_date = jdatetime.date.fromgregorian(date=guest_dessert_reservation.daily_menu.date).strftime('%Y/%m/%d')
+        elif guest_dessert_reservation.daily_menu_info and 'تاریخ:' in guest_dessert_reservation.daily_menu_info:
+            try:
+                date_part = guest_dessert_reservation.daily_menu_info.split('تاریخ:')[1].strip()
+                date = date_part
+                jalali_date = date_part
+            except:
+                pass
+        
+        guest_dessert_reservations_data.append({
+            'id': guest_dessert_reservation.id,
+            'type': 'guest_dessert',
+            'guest_first_name': guest_dessert_reservation.guest_first_name,
+            'guest_last_name': guest_dessert_reservation.guest_last_name,
+            'guest_name': f"{guest_dessert_reservation.guest_first_name} {guest_dessert_reservation.guest_last_name}".strip(),
+            'restaurant': {
+                'id': restaurant_id,
+                'name': restaurant_name,
+                'centers': centers,
+                'is_deleted': restaurant is None and guest_dessert_reservation.daily_menu_info is not None
+            } if restaurant_name else None,
+            'daily_menu_info': guest_dessert_reservation.daily_menu_info if guest_dessert_reservation.daily_menu_info else None,
+            'dessert_option': dessert_option_data,
+            'dessert_option_info': guest_dessert_reservation.dessert_option_info if guest_dessert_reservation.dessert_option_info else None,
+            'amount': float(guest_dessert_reservation.amount or 0),
+            'status': guest_dessert_reservation.status,
+            'reservation_date': guest_dessert_reservation.reservation_date.isoformat() if guest_dessert_reservation.reservation_date else None,
+            'jalali_reservation_date': jdatetime.datetime.fromgregorian(datetime=guest_dessert_reservation.reservation_date).strftime('%Y/%m/%d %H:%M') if guest_dessert_reservation.reservation_date else None,
+            'date': date,
+            'jalali_date': jalali_date,
+        })
+    
+    # ساخت پاسخ
+    from apps.reports.serializers import UserReservationsReportSerializer
+    
+    report_data = {
+        'user': {
+            'id': target_user.id,
+            'username': target_user.username,
+            'full_name': target_user.get_full_name(),
+            'employee_number': target_user.employee_number or '',
+            'centers': [{'id': c.id, 'name': c.name} for c in target_user.centers.all()]
+        },
+        'start_date': parsed_start_date,
+        'end_date': parsed_end_date,
+        'jalali_start_date': jdatetime.date.fromgregorian(date=parsed_start_date).strftime('%Y/%m/%d'),
+        'jalali_end_date': jdatetime.date.fromgregorian(date=parsed_end_date).strftime('%Y/%m/%d'),
+        'total_reservations': total_reservations,
+        'total_guest_reservations': total_guest_reservations,
+        'total_dessert_reservations': total_dessert_reservations,
+        'total_guest_dessert_reservations': total_guest_dessert_reservations,
+        'reserved_count': reserved_count,
+        'cancelled_count': cancelled_count,
+        'served_count': served_count,
+        'total_amount': total_amount,
+        'reserved_amount': reserved_amount,
+        'reservations': reservations_data,
+        'guest_reservations': guest_reservations_data,
+        'dessert_reservations': dessert_reservations_data,
+        'guest_dessert_reservations': guest_dessert_reservations_data
+    }
+    
+    serializer = UserReservationsReportSerializer(report_data, context={'request': request})
     return Response(serializer.data)
 

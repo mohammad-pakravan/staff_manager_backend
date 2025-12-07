@@ -146,3 +146,41 @@ class StatisticsPermission(permissions.BasePermission):
         # Employee بدون دسترسی
         return False
 
+
+class UserReportPermission(permissions.BasePermission):
+    """
+    دسترسی برای endpoint های گزارش کاربر
+    - System Admin: دسترسی کامل (می‌تواند گزارش همه کاربران را ببیند)
+    - Food Admin: دسترسی کامل (می‌تواند گزارش همه کاربران را ببیند)
+    - Employee: فقط می‌تواند گزارش خودش را ببیند
+    """
+    
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        user = request.user
+        
+        # System Admin و Food Admin دسترسی کامل دارند
+        if user.role in ['sys_admin', 'admin_food']:
+            return True
+        
+        # Employee فقط می‌تواند گزارش خودش را ببیند
+        if user.role == 'employee':
+            # بررسی می‌کنیم که آیا user_id در query params وجود دارد یا نه
+            # اگر وجود داشته باشد و با user لاگین شده متفاوت باشد، دسترسی رد می‌شود
+            user_id_param = request.query_params.get('user_id')
+            if user_id_param:
+                try:
+                    requested_user_id = int(user_id_param)
+                    # اگر user_id متفاوت از user لاگین شده باشد، دسترسی رد می‌شود
+                    if requested_user_id != user.id:
+                        return False
+                except (ValueError, TypeError):
+                    # اگر user_id معتبر نباشد، اجازه می‌دهیم که view خودش خطا را مدیریت کند
+                    pass
+            # اگر user_id ارسال نشده باشد، گزارش برای کاربر لاگین شده است که مجاز است
+            return True
+        
+        return False
+

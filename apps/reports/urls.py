@@ -22,5 +22,6 @@ urlpatterns = [
     path('reports/by-date/', views.report_by_date, name='report-by-date'),
     path('reports/comprehensive/', views.comprehensive_report, name='comprehensive-report'),
     path('reports/detailed-reservations/', views.detailed_reservations_report, name='detailed-reservations-report'),
+    path('user-reservations-by-date-range/', views.user_reservations_by_date_range, name='user-reservations-by-date-range'),
 ]
 
