@@ -1155,6 +1155,104 @@
 						"description": "دانلود فایل اکسل رزروهای مرکز برای آرشیو مالی یا اشتراک با مدیریت."
 					},
 					"response": []
+				},
+				{
+					"name": "لیست کاربرانی که یک غذای پایه را رزرو کرده‌اند",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/reports/users-by-base-meal/?base_meal_id={{base_meal_id}}&center_id={{center_id}}&start_date=1404/09/01&end_date=1404/09/30",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"reports",
+								"users-by-base-meal",
+								""
+							],
+							"query": [
+								{
+									"key": "base_meal_id",
+									"value": "{{base_meal_id}}",
+									"description": "شناسه غذای پایه (الزامی)"
+								},
+								{
+									"key": "center_id",
+									"value": "{{center_id}}",
+									"description": "فیلتر بر اساس مرکز (اختیاری)"
+								},
+								{
+									"key": "start_date",
+									"value": "1404/09/01",
+									"description": "تاریخ شروع (اختیاری - فرمت: YYYY-MM-DD یا YYYY/MM/DD)"
+								},
+								{
+									"key": "end_date",
+									"value": "1404/09/30",
+									"description": "تاریخ پایان (اختیاری - فرمت: YYYY-MM-DD یا YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "لیست کاربرانی که یک غذای پایه را رزرو کرده‌اند به همراه اپشن انتخابی. فقط رزروهای غیر کنسل شده نمایش داده می‌شوند."
+					},
+					"response": []
+				},
+				{
+					"name": "لیست کاربرانی که یک دسر پایه را رزرو کرده‌اند",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reports/reports/users-by-base-dessert/?base_dessert_id={{base_dessert_id}}&center_id={{center_id}}&start_date=1404/09/01&end_date=1404/09/30",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reports",
+								"reports",
+								"users-by-base-dessert",
+								""
+							],
+							"query": [
+								{
+									"key": "base_dessert_id",
+									"value": "{{base_dessert_id}}",
+									"description": "شناسه دسر پایه (الزامی)"
+								},
+								{
+									"key": "center_id",
+									"value": "{{center_id}}",
+									"description": "فیلتر بر اساس مرکز (اختیاری)"
+								},
+								{
+									"key": "start_date",
+									"value": "1404/09/01",
+									"description": "تاریخ شروع (اختیاری - فرمت: YYYY-MM-DD یا YYYY/MM/DD)"
+								},
+								{
+									"key": "end_date",
+									"value": "1404/09/30",
+									"description": "تاریخ پایان (اختیاری - فرمت: YYYY-MM-DD یا YYYY/MM/DD)"
+								}
+							]
+						},
+						"description": "لیست کاربرانی که یک دسر پایه را رزرو کرده‌اند به همراه اپشن انتخابی. فقط رزروهای غیر کنسل شده نمایش داده می‌شوند."
+					},
+					"response": []
 				}
 			]
 		}
@@ -1202,6 +1300,11 @@
 		},
 		{
 			"key": "restaurant_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "base_dessert_id",
 			"value": "1",
 			"type": "string"
 		}

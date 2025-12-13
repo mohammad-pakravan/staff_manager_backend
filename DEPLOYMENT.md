@@ -556,3 +556,6 @@ docker-compose -f compose/prod/docker-compose.prod.yml logs web
 - Gunicorn logs: `/app/logs/gunicorn_error.log` و `/app/logs/gunicorn_access.log`
 - Nginx logs: `/var/log/nginx/error.log`
 
+
+
+

@@ -33,13 +33,13 @@ class MealStatisticsSerializer(serializers.Serializer):
 
 class MealOptionReportSerializer(serializers.Serializer):
     """سریالایزر گزارش بر اساس MealOption"""
-    meal_option_id = serializers.IntegerField()
+    meal_option_id = serializers.IntegerField(allow_null=True)
     meal_option_title = serializers.CharField()
     base_meal_title = serializers.CharField()
     restaurant_name = serializers.CharField()
-    restaurant_id = serializers.IntegerField()
+    restaurant_id = serializers.IntegerField(allow_null=True)
     center_name = serializers.CharField()
-    center_id = serializers.IntegerField()
+    center_id = serializers.IntegerField(allow_null=True)
     total_reservations = serializers.IntegerField()
     reserved_count = serializers.IntegerField()
     cancelled_count = serializers.IntegerField()
@@ -147,16 +147,53 @@ class DetailedReservationReportSerializer(serializers.ModelSerializer):
         return None
 
 
+class DessertOptionReportSerializer(serializers.Serializer):
+    """سریالایزر گزارش بر اساس DessertOption"""
+    dessert_option_id = serializers.IntegerField()
+    dessert_option_title = serializers.CharField()
+    base_dessert_title = serializers.CharField()
+    restaurant_name = serializers.CharField()
+    restaurant_id = serializers.IntegerField()
+    center_name = serializers.CharField()
+    center_id = serializers.IntegerField()
+    total_reservations = serializers.IntegerField()
+    reserved_count = serializers.IntegerField()
+    cancelled_count = serializers.IntegerField()
+    served_count = serializers.IntegerField()
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    reserved_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    served_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class BaseDessertReportSerializer(serializers.Serializer):
+    """سریالایزر گزارش بر اساس BaseDessert"""
+    base_dessert_id = serializers.IntegerField()
+    base_dessert_title = serializers.CharField()
+    restaurant_name = serializers.CharField()
+    center_name = serializers.CharField()
+    dessert_options_count = serializers.IntegerField()
+    total_reservations = serializers.IntegerField()
+    reserved_count = serializers.IntegerField()
+    cancelled_count = serializers.IntegerField()
+    served_count = serializers.IntegerField()
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    dessert_options = DessertOptionReportSerializer(many=True, read_only=True)
+
+
 class ComprehensiveReportSerializer(serializers.Serializer):
     """سریالایزر گزارش جامع"""
     total_reservations = serializers.IntegerField()
     total_guest_reservations = serializers.IntegerField()
+    total_dessert_reservations = serializers.IntegerField()
+    total_guest_dessert_reservations = serializers.IntegerField()
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     reserved_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     served_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     cancelled_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     by_meal_option = MealOptionReportSerializer(many=True)
     by_base_meal = BaseMealReportSerializer(many=True)
+    by_dessert_option = DessertOptionReportSerializer(many=True)
+    by_base_dessert = BaseDessertReportSerializer(many=True)
     by_user = UserReportSerializer(many=True)
     by_date = DateReportSerializer(many=True)
 
@@ -181,3 +218,43 @@ class UserReservationsReportSerializer(serializers.Serializer):
     guest_reservations = serializers.ListField(child=serializers.DictField())
     dessert_reservations = serializers.ListField(child=serializers.DictField())
     guest_dessert_reservations = serializers.ListField(child=serializers.DictField())
+
+
+class UserWithMealOptionSerializer(serializers.Serializer):
+    """سریالایزر کاربر با اپشن غذا انتخابی"""
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    full_name = serializers.CharField()
+    employee_number = serializers.CharField()
+    centers = serializers.ListField(child=serializers.DictField())
+    meal_option = serializers.DictField()
+    quantity = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    status = serializers.CharField()
+    reservation_date = serializers.DateTimeField(allow_null=True)
+    jalali_reservation_date = serializers.CharField(allow_null=True)
+    daily_menu_date = serializers.DateField(allow_null=True)
+    jalali_daily_menu_date = serializers.CharField(allow_null=True)
+    restaurant = serializers.DictField(allow_null=True)
+    is_guest = serializers.BooleanField(required=False, allow_null=True)
+    guest_name = serializers.CharField(required=False, allow_null=True)
+
+
+class UserWithDessertOptionSerializer(serializers.Serializer):
+    """سریالایزر کاربر با اپشن دسر انتخابی"""
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    full_name = serializers.CharField()
+    employee_number = serializers.CharField()
+    centers = serializers.ListField(child=serializers.DictField())
+    dessert_option = serializers.DictField()
+    quantity = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    status = serializers.CharField()
+    reservation_date = serializers.DateTimeField(allow_null=True)
+    jalali_reservation_date = serializers.CharField(allow_null=True)
+    daily_menu_date = serializers.DateField(allow_null=True)
+    jalali_daily_menu_date = serializers.CharField(allow_null=True)
+    restaurant = serializers.DictField(allow_null=True)
+    is_guest = serializers.BooleanField(required=False, allow_null=True)
+    guest_name = serializers.CharField(required=False, allow_null=True)

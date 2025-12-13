@@ -23,5 +23,9 @@ urlpatterns = [
     path('reports/comprehensive/', views.comprehensive_report, name='comprehensive-report'),
     path('reports/detailed-reservations/', views.detailed_reservations_report, name='detailed-reservations-report'),
     path('user-reservations-by-date-range/', views.user_reservations_by_date_range, name='user-reservations-by-date-range'),
+    
+    # User Lists by Item
+    path('reports/users-by-base-meal/', views.users_by_base_meal, name='users-by-base-meal'),
+    path('reports/users-by-base-dessert/', views.users_by_base_dessert, name='users-by-base-dessert'),
 ]
 

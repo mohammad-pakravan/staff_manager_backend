@@ -152,3 +152,6 @@ gunicorn --bind 0.0.0.0:8000 --workers 3 core.wsgi:application
 4. **Backup های منظم داشته باشید**
 5. **لاگ‌ها را به صورت منظم بررسی کنید**
 
+
+
+
