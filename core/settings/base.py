@@ -29,17 +29,19 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'drf_spectacular',
     'jalali_date',
+    'webpush',
 ]
 
 LOCAL_APPS = [
     'apps.accounts',
     'apps.centers',
-    'apps.food_management',
+    'apps.food_management.apps.FoodManagementConfig',  # استفاده از FoodManagementConfig برای ثبت signals
     'apps.meals',
     'apps.reservations',
     'apps.reports',
-    'apps.hr',
+    'apps.hr.apps.HrConfig',  # استفاده از HrConfig برای ثبت signals
     'apps.core',
+    'apps.notifications',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -147,6 +149,31 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+        'defaultModelsExpandDepth': 1,
+        'defaultModelExpandDepth': 1,
+        'displayRequestDuration': True,
+        'docExpansion': 'none',
+        'filter': True,
+        'showExtensions': True,
+        'showCommonExtensions': True,
+        'tryItOutEnabled': True,
+        'requestSnippetsEnabled': True,
+        'requestSnippets': {
+            'generators': {
+                'curl_bash': {
+                    'title': 'cURL (bash)',
+                },
+                'curl_powershell': {
+                    'title': 'cURL (PowerShell)',
+                },
+            },
+        },
+        'withCredentials': True,  # برای ارسال cookies در Swagger UI
+    },
     'TAGS': [
         {'name': 'Authentication', 'description': 'User authentication and authorization'},
         {'name': 'Centers', 'description': 'Center management operations (System Admin only)'},
@@ -159,10 +186,12 @@ SPECTACULAR_SETTINGS = {
         {'name': 'HR', 'description': 'Human Resources and announcements (HR Admin & System Admin only)'},
         {'name': 'Statistics', 'description': 'Comprehensive statistics with filters by date, center, and user (Food Admin, System Admin, HR Admin - read-only)'},
         {'name': 'Reports', 'description': 'Detailed food reservation reports (Food Admin & System Admin only)'},
+        {'name': 'Notifications', 'description': 'Push notification subscription management'},
         {'name': 'Server', 'description': 'Server information and time'},
     ],
     'SERVERS': [
         {'url': 'http://localhost:14532', 'description': 'Development server'},
+        {'url': 'http://127.0.0.1:8000', 'description': 'Local development server'},
         {'url': 'https://example.com', 'description': 'Production server'},
     ],
     'CONTACT': {
@@ -194,11 +223,14 @@ JALALI_DATE_DEFAULTS = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000',
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,http://localhost:14532,http://127.0.0.1:14532',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CORS settings for Swagger UI
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)  # فقط برای development
 
 # JWT Settings
 from datetime import timedelta
@@ -227,4 +259,11 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
+
+# WebPush Settings
+WEBPUSH_SETTINGS = {
+    "VAPID_PUBLIC_KEY": config('VAPID_PUBLIC_KEY', default=''),
+    "VAPID_PRIVATE_KEY": config('VAPID_PRIVATE_KEY', default=''),
+    "VAPID_ADMIN_EMAIL": config('VAPID_ADMIN_EMAIL', default='admin@example.com'),
 }

@@ -9,12 +9,15 @@ class UserSerializer(serializers.ModelSerializer):
     """سریالایزر کاربر - خروجی مرتب و ساده"""
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     centers = serializers.SerializerMethodField(read_only=True)
+    position_name = serializers.SerializerMethodField(read_only=True)
+    manager_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'employee_number', 'role', 'role_display', 'centers',
+            'employee_number', 'role', 'role_display', 'position', 'position_name',
+            'manager', 'manager_name', 'centers',
             'phone_number', 'max_reservations_per_day', 'max_guest_reservations_per_day',
             'is_active', 'date_joined', 'created_at'
         ]
@@ -28,6 +31,20 @@ class UserSerializer(serializers.ModelSerializer):
         if centers.exists():
             return CenterListSerializer(centers, many=True).data
         return []
+    
+    @extend_schema_field(serializers.CharField())
+    def get_position_name(self, obj):
+        """برگرداندن نام سمت"""
+        if obj.position:
+            return obj.position.name
+        return None
+    
+    @extend_schema_field(serializers.CharField())
+    def get_manager_name(self, obj):
+        """برگرداندن نام کامل مدیر"""
+        if obj.manager:
+            return f"{obj.manager.first_name} {obj.manager.last_name}".strip() or obj.manager.username
+        return None
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -38,7 +55,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'username', 'email', 'first_name', 'last_name', 'employee_number',
-            'password', 'password_confirm', 'role', 'centers', 'phone_number',
+            'password', 'password_confirm', 'role', 'position', 'manager', 'centers', 'phone_number',
             'max_reservations_per_day', 'max_guest_reservations_per_day', 'is_active'
         ]
         extra_kwargs = {
@@ -47,6 +64,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'max_reservations_per_day': {'required': False},
             'max_guest_reservations_per_day': {'required': False},
             'is_active': {'required': False},
+            'position': {'required': False},
+            'manager': {'required': False},
         }
 
     def __init__(self, *args, **kwargs):

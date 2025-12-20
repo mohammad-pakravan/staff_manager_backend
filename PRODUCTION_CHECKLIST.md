@@ -96,6 +96,7 @@
 ## 🚀 دستورات سریع Deployment
 
 ### با Docker:
+
 ```bash
 # 1. ایجاد فایل .env
 cp .env.example .env
@@ -118,6 +119,7 @@ docker-compose -f compose/prod/docker-compose.prod.yml logs -f
 ```
 
 ### بدون Docker:
+
 ```bash
 # 1. ایجاد Virtual Environment
 python3.11 -m venv venv
@@ -151,7 +153,3 @@ gunicorn --bind 0.0.0.0:8000 --workers 3 core.wsgi:application
 3. **از HTTPS استفاده کنید**
 4. **Backup های منظم داشته باشید**
 5. **لاگ‌ها را به صورت منظم بررسی کنید**
-
-
-
-

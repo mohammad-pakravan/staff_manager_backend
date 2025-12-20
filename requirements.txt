@@ -15,3 +15,7 @@ django-jalali-date
 
 # API Documentation
 drf-spectacular
+
+# Push Notifications
+django-webpush
+pywebpush

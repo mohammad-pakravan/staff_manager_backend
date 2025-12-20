@@ -95,7 +95,31 @@ class AnnouncementListView(generics.ListCreateAPIView):
             raise PermissionDenied("فقط نیروی انسانی می‌تواند اطلاعیه ایجاد کند")
         
         # ادمین HR و System Admin می‌توانند برای هر مرکزی اطلاعیه ایجاد کنند
-        serializer.save(created_by=user)
+        announcement = serializer.save(created_by=user)
+        
+        # اگر اطلاعیه با is_active=True ایجاد شد، نوتفیکیشن ارسال کن
+        if announcement.is_active:
+            from apps.notifications.services import send_push_notification_to_multiple_users
+            from apps.accounts.models import User as UserModel
+            
+            # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
+            announcement_centers = announcement.centers.all()
+            if announcement_centers.exists():
+                users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
+                if users.exists():
+                    # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+                    notification_body = announcement.lead if announcement.lead else announcement.title
+                    send_push_notification_to_multiple_users(
+                        users=users,
+                        title=announcement.title,
+                        body=notification_body,
+                        data={
+                            'type': 'announcement_published',
+                            'announcement_id': announcement.id,
+                            'title': announcement.title,
+                        },
+                        url=f'/announcements/{announcement.id}/'
+                    )
 
 
 @extend_schema_view(
@@ -177,8 +201,36 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("فقط نیروی انسانی می‌تواند اطلاعیه ویرایش کند")
         
+        # بررسی اینکه آیا is_active از False به True تغییر می‌کند
+        instance = self.get_object()
+        was_active = instance.is_active
+        
         # ادمین HR و System Admin می‌توانند همه اطلاعیه‌ها را ویرایش کنند
-        serializer.save()
+        announcement = serializer.save()
+        
+        # اگر is_active از False به True تغییر کرد، نوتفیکیشن ارسال کن
+        if not was_active and announcement.is_active:
+            from apps.notifications.services import send_push_notification_to_multiple_users
+            from apps.accounts.models import User as UserModel
+            
+            # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
+            announcement_centers = announcement.centers.all()
+            if announcement_centers.exists():
+                users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
+                if users.exists():
+                    # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+                    notification_body = announcement.lead if announcement.lead else announcement.title
+                    send_push_notification_to_multiple_users(
+                        users=users,
+                        title=announcement.title,
+                        body=notification_body,
+                        data={
+                            'type': 'announcement_published',
+                            'announcement_id': announcement.id,
+                            'title': announcement.title,
+                        },
+                        url=f'/announcements/{announcement.id}/'
+                    )
 
     def perform_destroy(self, instance):
         """حذف اطلاعیه"""
@@ -299,6 +351,28 @@ def create_bulk_announcement(request):
     )
     announcement.centers.set(centers)
     
+    # اگر اطلاعیه با is_active=True ایجاد شد، نوتفیکیشن ارسال کن
+    if announcement.is_active:
+        from apps.notifications.services import send_push_notification_to_multiple_users
+        from apps.accounts.models import User as UserModel
+        
+        # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
+        users = UserModel.objects.filter(centers__in=announcement.centers.all()).distinct()
+        if users.exists():
+            # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+            notification_body = announcement.lead if announcement.lead else announcement.title
+            send_push_notification_to_multiple_users(
+                users=users,
+                title=announcement.title,
+                body=notification_body,
+                data={
+                    'type': 'announcement_published',
+                    'announcement_id': announcement.id,
+                    'title': announcement.title,
+                },
+                url=f'/announcements/{announcement.id}/'
+            )
+    
     return Response({
         'message': f'اطلاعیه برای {centers.count()} مرکز ایجاد شد',
         'announcement': {
@@ -335,6 +409,29 @@ def publish_announcement(request, announcement_id):
     announcement.is_active = True
     announcement.publish_date = timezone.now()
     announcement.save()
+    
+    # ارسال نوتفیکیشن به کاربران مراکز مرتبط با اطلاعیه
+    from apps.notifications.services import send_push_notification_to_multiple_users
+    from apps.accounts.models import User
+    
+    # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
+    announcement_centers = announcement.centers.all()
+    if announcement_centers.exists():
+        users = User.objects.filter(centers__in=announcement_centers).distinct()
+        if users.exists():
+            # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+            notification_body = announcement.lead if announcement.lead else announcement.title
+            send_push_notification_to_multiple_users(
+                users=users,
+                title=announcement.title,
+                body=notification_body,
+                data={
+                    'type': 'announcement_published',
+                    'announcement_id': announcement.id,
+                    'title': announcement.title,
+                },
+                url=f'/announcements/{announcement.id}/'
+            )
     
     return Response({
         'message': 'اطلاعیه با موفقیت منتشر شد',

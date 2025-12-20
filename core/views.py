@@ -4,9 +4,14 @@ Views برای endpoint های عمومی
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from django.http import HttpResponse
+from django.conf import settings
+from pathlib import Path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.views import SpectacularSwaggerView
+from django.views.decorators.clickjacking import xframe_options_exempt
 import jdatetime
 
 
@@ -103,4 +108,44 @@ def server_time(request):
             'second': server_datetime.second,
         }
     })
+
+
+def service_worker(request):
+    """Serve Service Worker file"""
+    sw_file = Path(settings.BASE_DIR) / 'static' / 'service-worker.js'
+    try:
+        with open(sw_file, 'r', encoding='utf-8') as f:
+            sw_content = f.read()
+        response = HttpResponse(sw_content, content_type='application/javascript; charset=utf-8')
+        # اضافه کردن header برای Service Worker
+        response['Service-Worker-Allowed'] = '/'
+        # اضافه کردن cache control برای development
+        if settings.DEBUG:
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return HttpResponse(
+            '// Service Worker file not found',
+            content_type='application/javascript',
+            status=404
+        )
+
+
+class CustomSpectacularSwaggerView(SpectacularSwaggerView):
+    """
+    Swagger UI view با پشتیبانی کامل از CORS و cookies
+    """
+    @xframe_options_exempt
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        # اضافه کردن CORS headers برای Swagger UI
+        if hasattr(response, 'headers'):
+            origin = request.headers.get('Origin', '*')
+            response['Access-Control-Allow-Origin'] = origin
+            response['Access-Control-Allow-Credentials'] = 'true'
+            response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+            response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+        return response
 

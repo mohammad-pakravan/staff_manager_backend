@@ -61,12 +61,15 @@ def refresh_token_view(request):
         })
         
         # تنظیم access token جدید در HttpOnly cookie
+        from django.conf import settings
+        cookie_samesite = 'Lax'  # برای development با proxy
+        
         response.set_cookie(
             key='access_token',
             value=access_token,
             httponly=True,
             secure=False,
-            samesite='Lax',
+            samesite=cookie_samesite,
             max_age=60 * 60,  # 1 ساعت
             path='/'
         )
@@ -78,7 +81,7 @@ def refresh_token_view(request):
                 value=str(refresh),
                 httponly=True,
                 secure=False,
-                samesite='Lax',
+                samesite=cookie_samesite,
                 max_age=7 * 24 * 60 * 60,  # 7 روز
                 path='/'
             )
@@ -144,12 +147,19 @@ def login_view(request):
         })
         
         # تنظیم access token در HttpOnly cookie
+        from django.conf import settings
+        is_development = settings.DEBUG
+        
+        # در development، از Lax استفاده می‌کنیم (برای proxy)
+        # در production، از Lax یا None با secure=True استفاده می‌کنیم
+        cookie_samesite = 'Lax'  # برای development با proxy
+        
         response.set_cookie(
             key='access_token',
             value=str(refresh.access_token),
             httponly=True,  # JavaScript نمی‌تواند به آن دسترسی داشته باشد
             secure=False,  # در production باید True باشد (HTTPS)
-            samesite='Lax',  # محافظت در برابر CSRF
+            samesite=cookie_samesite,
             max_age=60 * 60,  # 1 ساعت (مطابق با ACCESS_TOKEN_LIFETIME)
             path='/'
         )
@@ -160,7 +170,7 @@ def login_view(request):
             value=str(refresh),
             httponly=True,
             secure=False,  # در production باید True باشد
-            samesite='Lax',
+            samesite=cookie_samesite,
             max_age=7 * 24 * 60 * 60,  # 7 روز (مطابق با REFRESH_TOKEN_LIFETIME)
             path='/'
         )

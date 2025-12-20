@@ -137,6 +137,38 @@ def cancel_reservation(request, reservation_id):
         )
         
         if reservation.cancel():
+            # ارسال نوتفیکیشن
+            from apps.notifications.services import send_push_notification
+            
+            # دریافت نام غذا و غذای پایه
+            if reservation.meal_option:
+                meal_title = reservation.meal_option.title
+                base_meal_title = reservation.meal_option.base_meal.title if reservation.meal_option.base_meal else None
+            else:
+                meal_title = 'غذا'
+                base_meal_title = None
+            
+            # ساخت متن کامل
+            if base_meal_title:
+                full_meal_name = f'{base_meal_title} ({meal_title})'
+            else:
+                full_meal_name = meal_title
+            
+            # دریافت تاریخ شمسی منو
+            if reservation.daily_menu and reservation.daily_menu.date:
+                jalali_date = date2jalali(reservation.daily_menu.date).strftime('%Y/%m/%d')
+            else:
+                jalali_date = 'نامشخص'
+            
+            send_push_notification(
+                user=request.user,
+                title='تغییر در غذای رزرو شده شما',
+                body=f'غذای {full_meal_name} تاریخ {jalali_date} حذف شده است.',
+                data={
+                    'type': 'reservation_cancelled',
+                    'reservation_id': reservation.id,
+                }
+            )
             return Response({
                 'message': 'رزرو با موفقیت لغو شد.'
             })
@@ -792,6 +824,39 @@ def employee_update_reservation(request, reservation_id):
             )
         
         serializer.save()
+        # ارسال نوتفیکیشن
+        from apps.notifications.services import send_push_notification
+        from jalali_date import date2jalali
+        
+        # دریافت نام غذا و غذای پایه
+        if reservation.meal_option:
+            meal_title = reservation.meal_option.title
+            base_meal_title = reservation.meal_option.base_meal.title if reservation.meal_option.base_meal else None
+        else:
+            meal_title = 'غذا'
+            base_meal_title = None
+        
+        # ساخت متن کامل
+        if base_meal_title:
+            full_meal_name = f'{base_meal_title} ({meal_title})'
+        else:
+            full_meal_name = meal_title
+        
+        # دریافت تاریخ شمسی منو
+        if reservation.daily_menu and reservation.daily_menu.date:
+            jalali_date = date2jalali(reservation.daily_menu.date).strftime('%Y/%m/%d')
+        else:
+            jalali_date = 'نامشخص'
+        
+        send_push_notification(
+            user=user,
+            title='تغییر در غذای رزرو شده شما',
+            body=f'غذای {full_meal_name} تاریخ {jalali_date} ویرایش شده است.',
+            data={
+                'type': 'reservation_updated',
+                'reservation_id': reservation.id,
+            }
+        )
         response_serializer = SimpleFoodReservationSerializer(reservation)
         return Response(response_serializer.data)
     
@@ -878,6 +943,38 @@ def employee_cancel_reservation(request, reservation_id):
         )
     
     if reservation.cancel():
+        # ارسال نوتفیکیشن
+        from apps.notifications.services import send_push_notification
+        
+        # دریافت نام غذا و غذای پایه
+        if reservation.meal_option:
+            meal_title = reservation.meal_option.title
+            base_meal_title = reservation.meal_option.base_meal.title if reservation.meal_option.base_meal else None
+        else:
+            meal_title = 'غذا'
+            base_meal_title = None
+        
+        # ساخت متن کامل
+        if base_meal_title:
+            full_meal_name = f'{base_meal_title} ({meal_title})'
+        else:
+            full_meal_name = meal_title
+        
+        # دریافت تاریخ شمسی منو
+        if reservation.daily_menu and reservation.daily_menu.date:
+            jalali_date = date2jalali(reservation.daily_menu.date).strftime('%Y/%m/%d')
+        else:
+            jalali_date = 'نامشخص'
+        
+        send_push_notification(
+            user=user,
+            title='تغییر در غذای رزرو شده شما',
+            body=f'غذای {full_meal_name} تاریخ {jalali_date} حذف شده است.',
+            data={
+                'type': 'reservation_cancelled',
+                'reservation_id': reservation.id,
+            }
+        )
         response_serializer = SimpleFoodReservationSerializer(reservation)
         return Response(response_serializer.data)
     else:
@@ -1250,6 +1347,58 @@ def combined_reservation_update(request):
         dessert_reservation.save()
         
         results['dessert_reservation'] = dessert_reservation
+    
+    # ارسال نوتفیکیشن در صورت به‌روزرسانی موفق
+    from apps.notifications.services import send_push_notification
+    from jalali_date import date2jalali
+    
+    if results.get('meal_reservation') or results.get('dessert_reservation'):
+        notification_parts = []
+        jalali_date = 'نامشخص'
+        
+        # دریافت تاریخ از اولین رزرو موجود
+        if results.get('meal_reservation') and results['meal_reservation'].daily_menu:
+            jalali_date = date2jalali(results['meal_reservation'].daily_menu.date).strftime('%Y/%m/%d')
+        elif results.get('dessert_reservation') and results['dessert_reservation'].daily_menu:
+            jalali_date = date2jalali(results['dessert_reservation'].daily_menu.date).strftime('%Y/%m/%d')
+        
+        if results.get('meal_reservation'):
+            meal_res = results['meal_reservation']
+            if meal_res.meal_option:
+                meal_title = meal_res.meal_option.title
+                base_meal_title = meal_res.meal_option.base_meal.title if meal_res.meal_option.base_meal else None
+                if base_meal_title:
+                    full_meal_name = f'{base_meal_title} ({meal_title})'
+                else:
+                    full_meal_name = meal_title
+            else:
+                full_meal_name = 'غذا'
+            notification_parts.append(f'غذای {full_meal_name}')
+        
+        if results.get('dessert_reservation'):
+            dessert_res = results['dessert_reservation']
+            if dessert_res.dessert_option:
+                dessert_title = dessert_res.dessert_option.title
+                base_dessert_title = dessert_res.dessert_option.base_dessert.title if dessert_res.dessert_option.base_dessert else None
+                if base_dessert_title:
+                    full_dessert_name = f'{base_dessert_title} ({dessert_title})'
+                else:
+                    full_dessert_name = dessert_title
+            else:
+                full_dessert_name = 'دسر'
+            notification_parts.append(f'دسر {full_dessert_name}')
+        
+        items_text = ' و '.join(notification_parts)
+        send_push_notification(
+            user=user,
+            title='تغییر در غذای رزرو شده شما',
+            body=f'{items_text} تاریخ {jalali_date} ویرایش شده است.',
+            data={
+                'type': 'reservation_updated',
+                'meal_reservation_id': results.get('meal_reservation').id if results.get('meal_reservation') else None,
+                'dessert_reservation_id': results.get('dessert_reservation').id if results.get('dessert_reservation') else None,
+            }
+        )
     
     # ساخت response با serializer ساده
     response_serializer = CombinedReservationResponseSerializer(results)

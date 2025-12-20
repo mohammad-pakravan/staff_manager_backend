@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 from . import views
 
 urlpatterns = [
@@ -31,13 +31,17 @@ urlpatterns = [
     path("api/reservations/", include("apps.reservations.urls")),
     path("api/reports/", include("apps.reports.urls")),
     path("api/hr/", include("apps.hr.urls")),
+    path("api/notifications/", include("apps.notifications.urls")),
     
     # Server Time
     path('api/server-time/', views.server_time, name='server-time'),
     
+    # Service Worker (must be in root scope)
+    path('service-worker.js', views.service_worker, name='service-worker'),
+    
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/docs/', views.CustomSpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
