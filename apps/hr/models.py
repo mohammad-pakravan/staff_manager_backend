@@ -188,7 +188,7 @@ class Story(models.Model):
         blank=True,
         null=True
     )
-    centers = models.ManyToManyField(Center, verbose_name='مراکز', related_name='stories')
+   
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='ایجاد شده توسط', related_name='created_stories')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')

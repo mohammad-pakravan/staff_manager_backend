@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story, Story
+from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
 from apps.centers.serializers import CenterSerializer
 from apps.accounts.serializers import UserSerializer
 # از jalali_date برای تبدیل تاریخ استفاده می‌کنیم
@@ -297,8 +297,8 @@ class PhoneBookSerializer(serializers.ModelSerializer):
 
 class StorySerializer(serializers.ModelSerializer):
     """Serializer for Story model"""
-    centers_data = CenterSerializer(source='centers', many=True, read_only=True)
-    centers_names = serializers.SerializerMethodField()
+  
+   
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     thumbnail_image_url = serializers.SerializerMethodField()
     content_file_url = serializers.SerializerMethodField()
@@ -310,7 +310,7 @@ class StorySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'text', 'thumbnail_image', 'thumbnail_image_url', 
             'content_file', 'content_file_url', 'content_type',
-            'centers', 'centers_data', 'centers_names', 
+      
             'created_by', 'created_by_name', 'is_active', 
             'created_at', 'updated_at', 'jalali_created_at'
         ]
@@ -341,14 +341,14 @@ class StorySerializer(serializers.ModelSerializer):
         """نوع محتوا (image یا video)"""
         return obj.content_type
     
-    def get_centers_names(self, obj):
-        """Get list of center names"""
-        return [center.name for center in obj.centers.all()]
+ 
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         """Get Jalali created date"""
-        return format_jalali_date(obj.jalali_created_at, '%Y/%m/%d %H:%M')
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
+        return None
 
     def create(self, validated_data):
         """Create story with current user as creator"""
@@ -361,22 +361,21 @@ class StoryCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Story
-        fields = ['text', 'thumbnail_image', 'content_file', 'centers', 'is_active']
+        fields = ['text', 'thumbnail_image', 'content_file', 'is_active']
 
     def create(self, validated_data):
         """Create story with current user as creator"""
-        centers = validated_data.pop('centers', [])
+        
         validated_data['created_by'] = self.context['request'].user
         story = super().create(validated_data)
-        if centers:
-            story.centers.set(centers)
+
         return story
 
 
 class StoryListSerializer(serializers.ModelSerializer):
     """Serializer for listing Stories"""
-    centers_names = serializers.SerializerMethodField()
-    thumbnail_image_url = serializers.SerializerMethodField()
+ 
+    profile_image_url = serializers.SerializerMethodField()
     content_file_url = serializers.SerializerMethodField()
     content_type = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
@@ -384,19 +383,19 @@ class StoryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Story
         fields = [
-            'id', 'text', 'thumbnail_image', 'thumbnail_image_url',
-            'content_file', 'content_file_url', 'content_type',
-            'centers_names', 'is_active', 'jalali_created_at'
+            'id', 'text', 'profile_image_url',
+            'content_file_url', 'content_type',
+              'is_active', 'jalali_created_at'
         ]
     
     @extend_schema_field(serializers.CharField())
-    def get_thumbnail_image_url(self, obj):
-        """URL تصویر شاخص"""
-        if obj.thumbnail_image:
+    def get_profile_image_url(self, obj):
+        """URL تصویر پروفایل کاربر ایجادکننده"""
+        if obj.created_by and obj.created_by.profile_image:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.thumbnail_image.url)
-            return obj.thumbnail_image.url
+                return request.build_absolute_uri(obj.created_by.profile_image.url)
+            return obj.created_by.profile_image.url
         return None
     
     @extend_schema_field(serializers.CharField())
@@ -414,12 +413,11 @@ class StoryListSerializer(serializers.ModelSerializer):
         """نوع محتوا (image یا video)"""
         return obj.content_type
     
-    def get_centers_names(self, obj):
-        """Get list of center names"""
-        return [center.name for center in obj.centers.all()]
+ 
 
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         """Get Jalali created date"""
-        return format_jalali_date(obj.jalali_created_at, '%Y/%m/%d %H:%M')
-
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
+        return None

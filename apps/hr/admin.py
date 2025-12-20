@@ -198,16 +198,16 @@ class StoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         'get_text_preview', 'get_centers_display', 'created_by', 'content_type_display',
         'is_active', 'jalali_created_at', 'thumbnail_preview', 'content_preview'
     )
-    list_filter = ('is_active', 'centers', 'created_by', 'created_at')
-    search_fields = ('text', 'centers__name', 'created_by__username')
+    list_filter = ('is_active', 'created_by', 'created_at')
+    search_fields = ('text',   'created_by__username')
     ordering = ('-created_at',)
     raw_id_fields = ('created_by',)
-    filter_horizontal = ('centers',)
+   
     readonly_fields = ('created_at', 'updated_at')
     
     fieldsets = (
         ('اطلاعات اصلی', {
-            'fields': ('text', 'thumbnail_image', 'content_file', 'centers')
+            'fields': ('text', 'thumbnail_image', 'content_file')
         }),
         ('تنظیمات', {
             'fields': ('is_active',)

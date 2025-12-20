@@ -18,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'employee_number', 'role', 'role_display', 'position', 'position_name',
             'manager', 'manager_name', 'centers',
-            'phone_number', 'max_reservations_per_day', 'max_guest_reservations_per_day',
+            'phone_number', 'profile_image', 'max_reservations_per_day', 'max_guest_reservations_per_day',
             'is_active', 'date_joined', 'created_at'
         ]
         read_only_fields = ['id', 'date_joined', 'created_at']
@@ -56,7 +56,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = [
             'username', 'email', 'first_name', 'last_name', 'employee_number',
             'password', 'password_confirm', 'role', 'position', 'manager', 'centers', 'phone_number',
-            'max_reservations_per_day', 'max_guest_reservations_per_day', 'is_active'
+            'profile_image', 'max_reservations_per_day', 'max_guest_reservations_per_day', 'is_active'
         ]
         extra_kwargs = {
             'employee_number': {'required': True},
@@ -151,7 +151,7 @@ class LoginResponseSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'role_display', 'phone_number'
+            'role', 'role_display', 'phone_number', 'profile_image'
         ]
         read_only_fields = ['id']
 
