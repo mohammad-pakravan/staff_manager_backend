@@ -304,6 +304,7 @@ class StorySerializer(serializers.ModelSerializer):
     content_file_url = serializers.SerializerMethodField()
     content_type = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
     
     class Meta:
         model = Story
@@ -312,6 +313,7 @@ class StorySerializer(serializers.ModelSerializer):
             'content_file', 'content_file_url', 'content_type',
       
             'created_by', 'created_by_name', 'is_active', 
+            'expiry_date', 'is_expired',
             'created_at', 'updated_at', 'jalali_created_at'
         ]
         read_only_fields = ['created_by', 'created_at', 'updated_at']
@@ -349,6 +351,11 @@ class StorySerializer(serializers.ModelSerializer):
         if obj.created_at:
             return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
+    
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_expired(self, obj):
+        """بررسی منقضی شدن استوری"""
+        return obj.is_expired
 
     def create(self, validated_data):
         """Create story with current user as creator"""
@@ -361,7 +368,7 @@ class StoryCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Story
-        fields = ['text', 'thumbnail_image', 'content_file', 'is_active']
+        fields = ['text', 'thumbnail_image', 'content_file', 'is_active', 'expiry_date']
 
     def create(self, validated_data):
         """Create story with current user as creator"""
@@ -379,13 +386,14 @@ class StoryListSerializer(serializers.ModelSerializer):
     content_file_url = serializers.SerializerMethodField()
     content_type = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
     
     class Meta:
         model = Story
         fields = [
             'id', 'text', 'profile_image_url',
             'content_file_url', 'content_type',
-              'is_active', 'jalali_created_at'
+            'is_active', 'expiry_date', 'is_expired', 'jalali_created_at'
         ]
     
     @extend_schema_field(serializers.CharField())
@@ -413,11 +421,14 @@ class StoryListSerializer(serializers.ModelSerializer):
         """نوع محتوا (image یا video)"""
         return obj.content_type
     
- 
-
     @extend_schema_field(serializers.CharField())
     def get_jalali_created_at(self, obj):
         """Get Jalali created date"""
         if obj.created_at:
             return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
+    
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_expired(self, obj):
+        """بررسی منقضی شدن استوری"""
+        return obj.is_expired

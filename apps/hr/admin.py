@@ -195,22 +195,22 @@ class PhoneBookAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 @admin.register(Story)
 class StoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = (
-        'get_text_preview', 'get_centers_display', 'created_by', 'content_type_display',
-        'is_active', 'jalali_created_at', 'thumbnail_preview', 'content_preview'
+        'get_text_preview', 'created_by', 'content_type_display',
+        'is_active', 'expiry_status', 'jalali_created_at', 'thumbnail_preview', 'content_preview'
     )
-    list_filter = ('is_active', 'created_by', 'created_at')
+    list_filter = ('is_active', 'created_by', 'created_at', 'expiry_date')
     search_fields = ('text',   'created_by__username')
     ordering = ('-created_at',)
     raw_id_fields = ('created_by',)
    
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'expiry_status_display')
     
     fieldsets = (
         ('اطلاعات اصلی', {
             'fields': ('text', 'thumbnail_image', 'content_file')
         }),
         ('تنظیمات', {
-            'fields': ('is_active',)
+            'fields': ('is_active', 'expiry_date', 'expiry_status_display')
         }),
         ('اطلاعات سیستم', {
             'fields': ('created_by', 'created_at', 'updated_at'),
@@ -226,14 +226,6 @@ class StoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             return obj.text
         return 'بدون متن'
     get_text_preview.short_description = 'متن'
-    
-    def get_centers_display(self, obj):
-        """نمایش مراکز در لیست"""
-        centers = obj.centers.all()
-        if centers.exists():
-            return ', '.join([center.name for center in centers[:3]])
-        return 'بدون مرکز'
-    get_centers_display.short_description = 'مراکز'
     
     def content_type_display(self, obj):
         """نمایش نوع محتوا"""
@@ -278,6 +270,32 @@ class StoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         return '-'
     jalali_created_at.short_description = 'تاریخ ایجاد (شمسی)'
     jalali_created_at.admin_order_field = 'created_at'
+    
+    def expiry_status(self, obj):
+        """نمایش وضعیت انقضا"""
+        if not obj.expiry_date:
+            return format_html('<span style="color: #999;">بدون انقضا</span>')
+        
+        if obj.is_expired:
+            return format_html('<span style="color: red; font-weight: bold;">⏰ منقضی شده</span>')
+        else:
+            jalali_expiry = datetime2jalali(obj.expiry_date).strftime('%Y/%m/%d %H:%M')
+            return format_html('<span style="color: green;">✅ تا {}</span>', jalali_expiry)
+    expiry_status.short_description = 'وضعیت انقضا'
+    expiry_status.admin_order_field = 'expiry_date'
+    
+    def expiry_status_display(self, obj):
+        """نمایش وضعیت انقضا در صفحه ویرایش"""
+        if not obj.expiry_date:
+            return 'بدون تاریخ انقضا'
+        
+        if obj.is_expired:
+            jalali_expiry = datetime2jalali(obj.expiry_date).strftime('%Y/%m/%d %H:%M')
+            return f'⏰ منقضی شده (از {jalali_expiry})'
+        else:
+            jalali_expiry = datetime2jalali(obj.expiry_date).strftime('%Y/%m/%d %H:%M')
+            return f'✅ فعال تا {jalali_expiry}'
+    expiry_status_display.short_description = 'وضعیت انقضا'
     
     def save_model(self, request, obj, form, change):
         if not change:  # اگر در حال ایجاد است

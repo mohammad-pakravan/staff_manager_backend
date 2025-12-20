@@ -182,6 +182,67 @@ python manage.py runserver
 
 The application uses PostgreSQL. Make sure PostgreSQL is running and accessible with the credentials specified in your `.env` file.
 
+## Scheduled Tasks
+
+### Story Expiry Cleanup
+
+The application includes a management command to automatically clean up expired story files. This command should be run periodically (e.g., hourly or daily) using a cron job.
+
+#### Command Usage
+
+```bash
+# Run cleanup manually
+python manage.py cleanup_expired_stories
+
+# Dry run (see what would be deleted without actually deleting)
+python manage.py cleanup_expired_stories --dry-run
+
+# In Docker
+docker-compose exec web python manage.py cleanup_expired_stories
+```
+
+#### Setting up Cron Job
+
+**On Linux/Mac:**
+
+Add to crontab (`crontab -e`):
+
+```bash
+# Run every hour
+0 * * * * cd /path/to/project && python manage.py cleanup_expired_stories
+
+# Or run daily at 2 AM
+0 2 * * * cd /path/to/project && python manage.py cleanup_expired_stories
+```
+
+**In Docker:**
+
+Add to your docker-compose.yml or use a separate cron container:
+
+```yaml
+services:
+  cron:
+    image: your-django-image
+    command: >
+      sh -c "while true; do
+        python manage.py cleanup_expired_stories;
+        sleep 3600;
+      done"
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+```
+
+**What it does:**
+
+- Finds all stories with `expiry_date` that has passed
+- Deletes `thumbnail_image` and `content_file` from disk
+- Clears the file fields in the database (keeps the record)
+- Logs all operations for tracking
+
+**Note:** Stories without `expiry_date` are never cleaned up automatically.
+
 ## License
 
 This project is licensed under the MIT License.

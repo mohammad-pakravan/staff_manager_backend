@@ -3,6 +3,9 @@ from django.utils import timezone
 from apps.centers.models import Center
 from apps.accounts.models import User
 from apps.core.utils import to_jalali_date, get_jalali_now
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Announcement(models.Model):
@@ -191,6 +194,12 @@ class Story(models.Model):
    
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='ایجاد شده توسط', related_name='created_stories')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
+    expiry_date = models.DateTimeField(
+        blank=True, 
+        null=True, 
+        verbose_name='تاریخ انقضا',
+        help_text='بعد از این تاریخ فایل‌های استوری به صورت خودکار پاک می‌شوند'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
 
@@ -208,6 +217,13 @@ class Story(models.Model):
         return to_jalali_date(self.created_at)
     
     @property
+    def is_expired(self):
+        """بررسی منقضی شدن استوری"""
+        if self.expiry_date:
+            return timezone.now() > self.expiry_date
+        return False
+    
+    @property
     def content_type(self):
         """نوع محتوا (image یا video)"""
         if not self.content_file:
@@ -219,5 +235,37 @@ class Story(models.Model):
         elif content_type.endswith(('.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv')):
             return 'video'
         return 'unknown'
+    
+    def delete_files(self):
+        """پاک کردن فایل‌های استوری از هارد دیسک و خالی کردن فیلدها"""
+        import os
+        from django.conf import settings
+        
+        # پاک کردن thumbnail_image
+        if self.thumbnail_image:
+            file_path = os.path.join(settings.MEDIA_ROOT, self.thumbnail_image.name)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Deleted thumbnail file: {file_path}")
+                except Exception as e:
+                    logger.error(f"Error deleting thumbnail for story {self.id}: {e}")
+            # خالی کردن فیلد (record باقی می‌ماند)
+            self.thumbnail_image = None
+        
+        # پاک کردن content_file
+        if self.content_file:
+            file_path = os.path.join(settings.MEDIA_ROOT, self.content_file.name)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Deleted content file: {file_path}")
+                except Exception as e:
+                    logger.error(f"Error deleting content file for story {self.id}: {e}")
+            # خالی کردن فیلد (record باقی می‌ماند)
+            self.content_file = None
+        
+        # ذخیره تغییرات (بدون حذف record)
+        self.save(update_fields=['thumbnail_image', 'content_file'])
 
 

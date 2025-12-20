@@ -830,11 +830,6 @@ class StoryListView(generics.ListCreateAPIView):
         if user.role in ['sys_admin', 'hr']:
             queryset = Story.objects.all().select_related('created_by')
             
-            # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
-            center_id = self.request.query_params.get('center')
-            if center_id:
-                queryset = queryset.filter(centers__id=center_id).distinct()
-            
             # فیلتر بر اساس وضعیت فعال/غیرفعال (فقط برای ادمین‌ها)
             is_active_param = self.request.query_params.get('is_active')
             if is_active_param is not None:
@@ -843,6 +838,14 @@ class StoryListView(generics.ListCreateAPIView):
         else:
             # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
             queryset = Story.objects.filter(is_active=True).select_related('created_by')
+        
+        # فیلتر کردن استوری‌های منقضی شده - فقط استوری‌هایی که فایل دارند نمایش داده شوند
+        queryset = queryset.filter(
+            Q(expiry_date__isnull=True) | Q(expiry_date__gt=timezone.now())
+        ).filter(
+            # فقط استوری‌هایی که حداقل یکی از فایل‌ها را دارند
+            Q(thumbnail_image__isnull=False) | Q(content_file__isnull=False)
+        )
         
         return queryset.order_by('-created_at')
 
@@ -921,10 +924,20 @@ class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # ادمین سیستم و ادمین HR می‌توانند همه استوری‌ها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
-            return Story.objects.all().select_related('created_by')
+            queryset = Story.objects.all().select_related('created_by')
+        else:
+            # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
+            queryset = Story.objects.filter(is_active=True).select_related('created_by')
         
-        # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
-        return Story.objects.filter(is_active=True).select_related('created_by')
+        # فیلتر کردن استوری‌های منقضی شده - فقط استوری‌هایی که فایل دارند نمایش داده شوند
+        queryset = queryset.filter(
+            Q(expiry_date__isnull=True) | Q(expiry_date__gt=timezone.now())
+        ).filter(
+            # فقط استوری‌هایی که حداقل یکی از فایل‌ها را دارند
+            Q(thumbnail_image__isnull=False) | Q(content_file__isnull=False)
+        )
+        
+        return queryset
     
     def update(self, request, *args, **kwargs):
         """به‌روزرسانی استوری"""
@@ -1784,11 +1797,6 @@ class StoryListView(generics.ListCreateAPIView):
         if user.role in ['sys_admin', 'hr']:
             queryset = Story.objects.all().select_related('created_by')
             
-            # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
-            center_id = self.request.query_params.get('center')
-            if center_id:
-                queryset = queryset.filter(centers__id=center_id).distinct()
-            
             # فیلتر بر اساس وضعیت فعال/غیرفعال (فقط برای ادمین‌ها)
             is_active_param = self.request.query_params.get('is_active')
             if is_active_param is not None:
@@ -1797,6 +1805,14 @@ class StoryListView(generics.ListCreateAPIView):
         else:
             # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
             queryset = Story.objects.filter(is_active=True).select_related('created_by')
+        
+        # فیلتر کردن استوری‌های منقضی شده - فقط استوری‌هایی که فایل دارند نمایش داده شوند
+        queryset = queryset.filter(
+            Q(expiry_date__isnull=True) | Q(expiry_date__gt=timezone.now())
+        ).filter(
+            # فقط استوری‌هایی که حداقل یکی از فایل‌ها را دارند
+            Q(thumbnail_image__isnull=False) | Q(content_file__isnull=False)
+        )
         
         return queryset.order_by('-created_at')
 
@@ -1875,10 +1891,20 @@ class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # ادمین سیستم و ادمین HR می‌توانند همه استوری‌ها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
-            return Story.objects.all().select_related('created_by')
+            queryset = Story.objects.all().select_related('created_by')
+        else:
+            # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
+            queryset = Story.objects.filter(is_active=True).select_related('created_by')
         
-        # همه کاربران احراز هویت شده (کارمند، ادمین غذا و ...) می‌توانند استوری‌های فعال را ببینند
-        return Story.objects.filter(is_active=True).select_related('created_by')
+        # فیلتر کردن استوری‌های منقضی شده - فقط استوری‌هایی که فایل دارند نمایش داده شوند
+        queryset = queryset.filter(
+            Q(expiry_date__isnull=True) | Q(expiry_date__gt=timezone.now())
+        ).filter(
+            # فقط استوری‌هایی که حداقل یکی از فایل‌ها را دارند
+            Q(thumbnail_image__isnull=False) | Q(content_file__isnull=False)
+        )
+        
+        return queryset
     
     def update(self, request, *args, **kwargs):
         """به‌روزرسانی استوری"""
