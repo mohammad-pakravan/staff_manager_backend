@@ -382,7 +382,7 @@ class StoryCreateSerializer(serializers.ModelSerializer):
 class StoryListSerializer(serializers.ModelSerializer):
     """Serializer for listing Stories"""
  
-    profile_image_url = serializers.SerializerMethodField()
+    thumbnail_image_url = serializers.SerializerMethodField()
     content_file_url = serializers.SerializerMethodField()
     content_type = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
@@ -391,19 +391,19 @@ class StoryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Story
         fields = [
-            'id', 'text', 'profile_image_url',
+            'id', 'text', 'thumbnail_image_url',
             'content_file_url', 'content_type',
             'is_active', 'expiry_date', 'is_expired', 'jalali_created_at'
         ]
     
     @extend_schema_field(serializers.CharField())
-    def get_profile_image_url(self, obj):
-        """URL تصویر پروفایل کاربر ایجادکننده"""
-        if obj.created_by and obj.created_by.profile_image:
+    def get_thumbnail_image_url(self, obj):
+        """URL تصویر شاخص"""
+        if obj.thumbnail_image:
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.created_by.profile_image.url)
-            return obj.created_by.profile_image.url
+                return request.build_absolute_uri(obj.thumbnail_image.url)
+            return obj.thumbnail_image.url
         return None
     
     @extend_schema_field(serializers.CharField())
