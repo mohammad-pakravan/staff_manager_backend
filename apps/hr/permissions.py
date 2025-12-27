@@ -9,7 +9,7 @@ class HRPermission(permissions.BasePermission):
     دسترسی برای HR endpoints (نظرات و فرم بیمه)
     - System Admin: دسترسی کامل
     - HR: می‌تواند نظرات/فرم‌های کاربران مراکز خود را ببیند و وضعیت را تغییر دهد
-    - Employee: فقط می‌تواند نظرات/فرم‌های خود را ببیند و ایجاد کند
+    - همه کاربران احراز هویت شده: می‌توانند نظرات/فرم‌های خود را ببینند و ایجاد کنند
     """
     
     def has_permission(self, request, view):
@@ -26,11 +26,8 @@ class HRPermission(permissions.BasePermission):
         if user.role == 'hr':
             return True
         
-        # Employee می‌تواند نظرات/فرم‌های خود را ببیند و ایجاد کند
-        if user.role == 'employee':
-            return True
-        
-        return False
+        # همه کاربران احراز هویت شده می‌توانند نظرات/فرم‌های خود را ببینند و ایجاد کنند
+        return True
     
     def has_object_permission(self, request, view, obj):
         """بررسی دسترسی به object خاص"""
@@ -52,12 +49,9 @@ class HRPermission(permissions.BasePermission):
                     return common_centers.exists()
             return False
         
-        # Employee فقط می‌تواند به نظرات/فرم‌های خود دسترسی داشته باشد
-        if user.role == 'employee':
-            if hasattr(obj, 'user'):
-                return obj.user == user
-            return False
-        
+        # همه کاربران احراز هویت شده فقط می‌توانند به نظرات/فرم‌های خود دسترسی داشته باشند
+        if hasattr(obj, 'user'):
+            return obj.user == user
         return False
 
 
