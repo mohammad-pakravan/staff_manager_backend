@@ -117,6 +117,7 @@ class FeedbackSerializer(serializers.ModelSerializer):
     """Serializer for Feedback model"""
     user_name = serializers.CharField(source='user.username', read_only=True)
     user_full_name = serializers.SerializerMethodField()
+    employee_number = serializers.CharField(source='user.employee_number', read_only=True)
     read_by_name = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
     jalali_read_at = serializers.SerializerMethodField()
@@ -124,8 +125,8 @@ class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
         fields = [
-            'id', 'user', 'user_name', 'user_full_name', 'message', 'status',
-            'read_at', 'jalali_read_at', 'read_by', 'read_by_name',
+            'id', 'user', 'user_name', 'user_full_name', 'employee_number', 'message',
+            'status', 'read_at', 'jalali_read_at', 'read_by', 'read_by_name',
             'created_at', 'jalali_created_at', 'updated_at'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at', 'read_at', 'read_by']
@@ -196,6 +197,7 @@ class InsuranceFormSerializer(serializers.ModelSerializer):
     """Serializer for InsuranceForm model"""
     user_name = serializers.CharField(source='user.username', read_only=True)
     user_full_name = serializers.SerializerMethodField()
+    employee_number = serializers.CharField(source='user.employee_number', read_only=True)
     reviewed_by_name = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
@@ -204,10 +206,10 @@ class InsuranceFormSerializer(serializers.ModelSerializer):
     class Meta:
         model = InsuranceForm
         fields = [
-            'id', 'user', 'user_name', 'user_full_name', 'file', 'file_url',
-            'description', 'status', 'reviewed_at', 'jalali_reviewed_at',
-            'reviewed_by', 'reviewed_by_name', 'review_comment',
-            'created_at', 'jalali_created_at', 'updated_at'
+            'id', 'user', 'user_name', 'user_full_name', 'employee_number',
+            'file', 'file_url', 'description', 'status', 'reviewed_at',
+            'jalali_reviewed_at', 'reviewed_by', 'reviewed_by_name',
+            'review_comment', 'created_at', 'jalali_created_at', 'updated_at'
         ]
         read_only_fields = ['user', 'created_at', 'updated_at', 'reviewed_at', 'reviewed_by']
 
