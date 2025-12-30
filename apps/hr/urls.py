@@ -11,8 +11,8 @@ urlpatterns = [
     path('announcements/<int:pk>/mark-as-read/', views.announcement_mark_as_read, name='announcement-mark-as-read'),
     path('announcements/statistics/', views.announcement_statistics, name='announcement-statistics'),
     path('announcements/bulk/', views.create_bulk_announcement, name='create-bulk-announcement'),
-    path('announcements/<int:announcement_id>/publish/', views.publish_announcement, name='publish-announcement'),
-    path('announcements/<int:announcement_id>/unpublish/', views.unpublish_announcement, name='unpublish-announcement'),
+    path('announcements/<int:pk>/publish/', views.publish_announcement, name='publish-announcement'),
+    path('announcements/<int:pk>/unpublish/', views.unpublish_announcement, name='unpublish-announcement'),
     
     # Feedback URLs
     path('feedbacks/', views.FeedbackListCreateView.as_view(), name='feedback-list-create'),

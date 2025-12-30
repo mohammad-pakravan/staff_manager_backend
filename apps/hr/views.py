@@ -598,14 +598,14 @@ def create_bulk_announcement(request):
 )
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def publish_announcement(request, announcement_id):
+def publish_announcement(request, pk):
     """انتشار اطلاعیه"""
     if request.user.role not in ['hr', 'sys_admin']:
         return Response({
             'error': 'دسترسی غیرمجاز'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    announcement = get_object_or_404(Announcement, id=announcement_id)
+    announcement = get_object_or_404(Announcement, pk=pk)
     announcement.is_active = True
     announcement.publish_date = timezone.now()
     announcement.save()
@@ -653,14 +653,14 @@ def publish_announcement(request, announcement_id):
 )
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def unpublish_announcement(request, announcement_id):
+def unpublish_announcement(request, pk):
     """لغو انتشار اطلاعیه"""
     if request.user.role not in ['hr', 'sys_admin']:
         return Response({
             'error': 'دسترسی غیرمجاز'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    announcement = get_object_or_404(Announcement, id=announcement_id)
+    announcement = get_object_or_404(Announcement, pk=pk)
     announcement.is_active = False
     announcement.save()
     
@@ -1765,14 +1765,14 @@ def create_bulk_announcement(request):
 )
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def publish_announcement(request, announcement_id):
+def publish_announcement(request, pk):
     """انتشار اطلاعیه"""
     if request.user.role not in ['hr', 'sys_admin']:
         return Response({
             'error': 'دسترسی غیرمجاز'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    announcement = get_object_or_404(Announcement, id=announcement_id)
+    announcement = get_object_or_404(Announcement, pk=pk)
     announcement.is_active = True
     announcement.publish_date = timezone.now()
     announcement.save()
@@ -1820,14 +1820,14 @@ def publish_announcement(request, announcement_id):
 )
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def unpublish_announcement(request, announcement_id):
+def unpublish_announcement(request, pk):
     """لغو انتشار اطلاعیه"""
     if request.user.role not in ['hr', 'sys_admin']:
         return Response({
             'error': 'دسترسی غیرمجاز'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    announcement = get_object_or_404(Announcement, id=announcement_id)
+    announcement = get_object_or_404(Announcement, pk=pk)
     announcement.is_active = False
     announcement.save()
     

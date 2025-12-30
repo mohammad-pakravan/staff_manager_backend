@@ -118,7 +118,6 @@ class AnnouncementReadStatusAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             return format_html('<span style="color: green;">✓ خوانده شده</span>')
         return format_html('<span style="color: red;">✗ خوانده نشده</span>')
     is_read.short_description = 'وضعیت'
-    is_read.boolean = True
     
     def jalali_read_at(self, obj):
         if obj.read_at:
