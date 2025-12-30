@@ -1235,7 +1235,196 @@
 			]
 		},
 		{
-			"name": "8. استوری‌ها",
+			"name": "8. اطلاعیه‌ها و خبرها",
+			"item": [
+				{
+					"name": "مشاهده لیست اطلاعیه‌ها و خبرها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?page=1&page_size=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								}
+							]
+						},
+						"description": "مشاهده لیست اطلاعیه‌ها و خبرها برای مراکز کارمند"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده فقط خبرها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?is_news=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "is_news",
+									"value": "true",
+									"description": "فیلتر فقط خبرها"
+								}
+							]
+						},
+						"description": "مشاهده فقط خبرها برای مراکز کارمند"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده فقط اطلاعیه‌ها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?is_announcement=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "is_announcement",
+									"value": "true",
+									"description": "فیلتر فقط اطلاعیه‌ها"
+								}
+							]
+						},
+						"description": "مشاهده فقط اطلاعیه‌ها برای مراکز کارمند"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده جزئیات خبر/اطلاعیه",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								""
+							]
+						},
+						"description": "مشاهده جزئیات کامل یک خبر یا اطلاعیه. به صورت خودکار به عنوان خوانده شده علامت‌گذاری می‌شود."
+					},
+					"response": []
+				},
+				{
+					"name": "تعداد اطلاعیه‌های خوانده نشده",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/unread-count/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"unread-count",
+								""
+							]
+						},
+						"description": "تعداد اطلاعیه‌های خوانده نشده کاربر (فقط اطلاعیه‌ها، نه خبرها)"
+					},
+					"response": []
+				},
+				{
+					"name": "علامت‌گذاری اطلاعیه به عنوان خوانده شده",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/{{announcement_id}}/mark-as-read/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								"{{announcement_id}}",
+								"mark-as-read",
+								""
+							]
+						},
+						"description": "علامت‌گذاری یک اطلاعیه یا خبر به عنوان خوانده شده"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "9. استوری‌ها",
 			"item": [
 				{
 					"name": "مشاهده استوری‌های فعال",

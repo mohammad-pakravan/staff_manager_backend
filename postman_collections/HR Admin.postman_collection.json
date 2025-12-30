@@ -326,7 +326,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه مهم - جلسه عمومی\",\n    \"lead\": \"جلسه عمومی هفته آینده برگزار می‌شود\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که جلسه عمومی در روز دوشنبه ساعت 10 صبح در سالن کنفرانس برگزار خواهد شد. حضور همه همکاران الزامی است.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1],\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه مهم - جلسه عمومی\",\n    \"lead\": \"جلسه عمومی هفته آینده برگزار می‌شود\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که جلسه عمومی در روز دوشنبه ساعت 10 صبح در سالن کنفرانس برگزار خواهد شد. حضور همه همکاران الزامی است.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1],\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -365,7 +365,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه عمومی - تعطیلات\",\n    \"lead\": \"اطلاعیه تعطیلات رسمی\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که به مناسبت تعطیلات رسمی، مراکز در تاریخ 25 دی ماه تعطیل خواهند بود.\",\n    \"publish_date\": \"2025-01-15T08:00:00Z\",\n    \"centers\": [1, 2, 3],\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی - تعطیلات\",\n    \"lead\": \"اطلاعیه تعطیلات رسمی\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که به مناسبت تعطیلات رسمی، مراکز در تاریخ 25 دی ماه تعطیل خواهند بود.\",\n    \"publish_date\": \"2025-01-15T08:00:00Z\",\n    \"centers\": [1, 2, 3],\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -404,7 +404,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه کوتاه\",\n    \"content\": \"این یک اطلاعیه کوتاه است.\",\n    \"centers\": [1],\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه کوتاه\",\n    \"content\": \"این یک اطلاعیه کوتاه است.\",\n    \"centers\": [1],\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -443,7 +443,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه آینده\",\n    \"lead\": \"این اطلاعیه در آینده منتشر می‌شود\",\n    \"content\": \"این اطلاعیه در تاریخ مشخص شده منتشر خواهد شد.\",\n    \"publish_date\": \"2025-02-01T08:00:00Z\",\n    \"centers\": [1],\n    \"is_active\": false\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه آینده\",\n    \"lead\": \"این اطلاعیه در آینده منتشر می‌شود\",\n    \"content\": \"این اطلاعیه در تاریخ مشخص شده منتشر خواهد شد.\",\n    \"publish_date\": \"2025-02-01T08:00:00Z\",\n    \"centers\": [1],\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": false\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -709,6 +709,194 @@
 			]
 		},
 		{
+			"name": "1-1. ایجاد خبر",
+			"item": [
+				{
+					"name": "ایجاد خبر برای یک مرکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"خبر مهم - افتتاح مرکز جدید\",\n    \"lead\": \"مرکز جدید در منطقه شمالی افتتاح شد\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که مرکز جدید در منطقه شمالی با حضور مسئولین افتتاح شد. این مرکز با امکانات پیشرفته و فضای مناسب برای ارائه خدمات بهتر به مراجعین آماده شده است.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1],\n    \"is_news\": true,\n    \"is_announcement\": false,\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد خبر برای یک مرکز خاص. خبر فقط بر اساس مراکز فیلتر می‌شود (نه send_to_all_users و نه target_users)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد خبر برای چند مرکز",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"خبر عمومی - جشنواره بهاره\",\n    \"lead\": \"جشنواره بهاره در تمام مراکز برگزار می‌شود\",\n    \"content\": \"به اطلاع همکاران عزیز می‌رساند که جشنواره بهاره در تمام مراکز با برنامه‌های متنوع و جذاب برگزار خواهد شد.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1, 2, 3],\n    \"is_news\": true,\n    \"is_announcement\": false,\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد خبر برای چند مرکز"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد خبر و اطلاعیه همزمان",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"خبر و اطلاعیه همزمان\",\n    \"lead\": \"این هم خبر است و هم اطلاعیه\",\n    \"content\": \"این محتوا هم به عنوان خبر و هم به عنوان اطلاعیه منتشر می‌شود.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1, 2],\n    \"target_users\": [3, 4],\n    \"send_to_all_users\": false,\n    \"is_news\": true,\n    \"is_announcement\": true,\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد محتوایی که هم به عنوان خبر و هم به عنوان اطلاعیه منتشر می‌شود"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده فقط خبرها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?is_news=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "is_news",
+									"value": "true",
+									"description": "فیلتر فقط خبرها"
+								}
+							]
+						},
+						"description": "مشاهده فقط خبرها"
+					},
+					"response": []
+				},
+				{
+					"name": "مشاهده فقط اطلاعیه‌ها",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/?is_announcement=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							],
+							"query": [
+								{
+									"key": "is_announcement",
+									"value": "true",
+									"description": "فیلتر فقط اطلاعیه‌ها"
+								}
+							]
+						},
+						"description": "مشاهده فقط اطلاعیه‌ها"
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "2. ایجاد اطلاعیه دسته‌جمعی",
 			"item": [
 				{
@@ -727,7 +915,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه عمومی - همه مراکز\",\n    \"lead\": \"اطلاعیه مهم برای همه مراکز\",\n    \"content\": \"به اطلاع همه همکاران عزیز در تمام مراکز می‌رساند که جلسه عمومی در هفته آینده برگزار خواهد شد.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی - همه مراکز\",\n    \"lead\": \"اطلاعیه مهم برای همه مراکز\",\n    \"content\": \"به اطلاع همه همکاران عزیز در تمام مراکز می‌رساند که جلسه عمومی در هفته آینده برگزار خواهد شد.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -767,7 +955,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه عمومی\",\n    \"content\": \"این اطلاعیه برای همه مراکز ارسال می‌شود.\",\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی\",\n    \"content\": \"این اطلاعیه برای همه مراکز ارسال می‌شود.\",\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -1088,7 +1276,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"تعطیلات رسمی\",\n    \"lead\": \"اطلاعیه تعطیلات\",\n    \"content\": \"به اطلاع همه همکاران عزیز می‌رساند که به مناسبت تعطیلات رسمی، تمام مراکز در تاریخ 25 دی ماه تعطیل خواهند بود.\",\n    \"publish_date\": \"2025-01-15T08:00:00Z\",\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"تعطیلات رسمی\",\n    \"lead\": \"اطلاعیه تعطیلات\",\n    \"content\": \"به اطلاع همه همکاران عزیز می‌رساند که به مناسبت تعطیلات رسمی، تمام مراکز در تاریخ 25 دی ماه تعطیل خواهند بود.\",\n    \"publish_date\": \"2025-01-15T08:00:00Z\",\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"

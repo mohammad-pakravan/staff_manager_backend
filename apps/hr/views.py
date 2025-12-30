@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
 from .serializers import (
@@ -31,14 +31,22 @@ from apps.core.pagination import CustomPageNumberPagination
 @extend_schema_view(
     get=extend_schema(
         operation_id='announcement_list',
-        summary='List Announcements',
-        description='Get list of announcements (regular users: own center, HR: all)',
-        tags=['HR']
+        summary='List Announcements and News',
+        description='Get list of announcements and news. Regular users see active items for their centers. HR/Admin see all. Filter by is_news and is_announcement query parameters.',
+        tags=['HR'],
+        parameters=[
+            OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Page number'),
+            OpenApiParameter(name='page_size', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Page size'),
+            OpenApiParameter(name='center', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Filter by center ID (HR/Admin only)'),
+            OpenApiParameter(name='is_active', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Filter by active status (HR/Admin only)'),
+            OpenApiParameter(name='is_news', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Filter by news (true for news only)'),
+            OpenApiParameter(name='is_announcement', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Filter by announcement (true for announcements only)'),
+        ]
     ),
     post=extend_schema(
         operation_id='announcement_create',
-        summary='Create Announcement',
-        description='Create new announcement (only for HR and System Admin)',
+        summary='Create Announcement or News',
+        description='Create new announcement or news (only for HR and System Admin). Use is_news=true for news, is_announcement=true for announcements, or both for both.',
         tags=['HR'],
         request=AnnouncementCreateSerializer,
         responses={
@@ -49,7 +57,7 @@ from apps.core.pagination import CustomPageNumberPagination
     )
 )
 class AnnouncementListView(generics.ListCreateAPIView):
-    """لیست و ایجاد اطلاعیه‌ها"""
+    """لیست و ایجاد اطلاعیه‌ها و خبرها"""
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPageNumberPagination
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # پشتیبانی از JSON و form-data برای آپلود تصویر
@@ -62,16 +70,26 @@ class AnnouncementListView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         
-        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
+        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها و خبرها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
             queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود، اطلاعیه‌هایی که برای همه کاربران ارسال شده، یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            # کاربران عادی فقط اطلاعیه‌ها و خبرها فعال مراکز خود را می‌بینند
+            # برای خبر (is_news=True): فقط بر اساس مراکز
+            # برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
             queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
             user_centers = user.centers.all()
-            queryset = queryset.filter(
+            
+            # فیلتر برای خبر (is_news=True): فقط بر اساس مراکز
+            news_filter = Q(is_news=True) & Q(centers__in=user_centers)
+            
+            # فیلتر برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
+            announcement_filter = Q(is_announcement=True) & (
                 Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
-            ).distinct()
+            )
+            
+            # ترکیب فیلترها: خبر یا اطلاعیه
+            queryset = queryset.filter(news_filter | announcement_filter).distinct()
         
         # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
         center_id = self.request.query_params.get('center')
@@ -84,15 +102,26 @@ class AnnouncementListView(generics.ListCreateAPIView):
             is_active = is_active_param.lower() in ['true', '1', 'yes']
             queryset = queryset.filter(is_active=is_active)
         
+        # فیلتر بر اساس is_announcement و is_news
+        is_announcement_param = self.request.query_params.get('is_announcement')
+        is_news_param = self.request.query_params.get('is_news')
+        
+        if is_announcement_param is not None:
+            is_announcement = is_announcement_param.lower() in ['true', '1', 'yes']
+            queryset = queryset.filter(is_announcement=is_announcement)
+        if is_news_param is not None:
+            is_news = is_news_param.lower() in ['true', '1', 'yes']
+            queryset = queryset.filter(is_news=is_news)
+        
         return queryset.order_by('-publish_date')
 
     def perform_create(self, serializer):
-        """ایجاد اطلاعیه توسط کاربر فعلی"""
+        """ایجاد اطلاعیه یا خبر توسط کاربر فعلی"""
         user = self.request.user
-        # فقط HR و System Admin می‌توانند اطلاعیه ایجاد کنند
+        # فقط HR و System Admin می‌توانند اطلاعیه یا خبر ایجاد کنند
         if user.role not in ['hr', 'sys_admin']:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("فقط نیروی انسانی می‌تواند اطلاعیه ایجاد کند")
+            raise PermissionDenied("فقط نیروی انسانی می‌تواند اطلاعیه یا خبر ایجاد کند")
         
         # ادمین HR و System Admin می‌توانند برای هر مرکزی اطلاعیه ایجاد کنند
         announcement = serializer.save(created_by=user)
@@ -143,8 +172,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
 @extend_schema_view(
     get=extend_schema(
         operation_id='announcement_detail',
-        summary='Get Announcement Details',
-        description='Get details of a specific announcement',
+        summary='Get Announcement or News Details',
+        description='Get details of a specific announcement or news. Automatically marks as read for authenticated users.',
         tags=['HR'],
         responses={
             200: AnnouncementSerializer,
@@ -153,8 +182,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
     ),
     put=extend_schema(
         operation_id='announcement_update',
-        summary='Update Announcement',
-        description='Update announcement completely (only for HR and System Admin)',
+        summary='Update Announcement or News',
+        description='Update announcement or news completely (only for HR and System Admin)',
         tags=['HR'],
         request=AnnouncementCreateSerializer,
         responses={
@@ -166,8 +195,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
     ),
     patch=extend_schema(
         operation_id='announcement_partial_update',
-        summary='Partial Update Announcement',
-        description='Partially update announcement (only for HR and System Admin)',
+        summary='Partial Update Announcement or News',
+        description='Partially update announcement or news (only for HR and System Admin)',
         tags=['HR'],
         request=AnnouncementCreateSerializer,
         responses={
@@ -179,8 +208,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
     ),
     delete=extend_schema(
         operation_id='announcement_delete',
-        summary='Delete Announcement',
-        description='Delete announcement (only for HR and System Admin)',
+        summary='Delete Announcement or News',
+        description='Delete announcement or news (only for HR and System Admin)',
         tags=['HR'],
         responses={
             204: {'description': 'Announcement deleted'},
@@ -190,7 +219,7 @@ class AnnouncementListView(generics.ListCreateAPIView):
     )
 )
 class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """جزئیات، ویرایش و حذف اطلاعیه"""
+    """جزئیات، ویرایش و حذف اطلاعیه‌ها و خبرها"""
     serializer_class = AnnouncementSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # پشتیبانی از JSON و form-data برای آپلود تصویر
@@ -198,16 +227,26 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         
-        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
+        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها و خبرها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
             queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            # کاربران عادی فقط اطلاعیه‌ها و خبرها فعال مراکز خود را می‌بینند
+            # برای خبر (is_news=True): فقط بر اساس مراکز
+            # برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
             queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
             user_centers = user.centers.all()
-            queryset = queryset.filter(
+            
+            # فیلتر برای خبر (is_news=True): فقط بر اساس مراکز
+            news_filter = Q(is_news=True) & Q(centers__in=user_centers)
+            
+            # فیلتر برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
+            announcement_filter = Q(is_announcement=True) & (
                 Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
-            ).distinct()
+            )
+            
+            # ترکیب فیلترها: خبر یا اطلاعیه
+            queryset = queryset.filter(news_filter | announcement_filter).distinct()
         
         return queryset
     
@@ -1133,7 +1172,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
 from .serializers import (
@@ -1159,14 +1198,22 @@ from apps.core.pagination import CustomPageNumberPagination
 @extend_schema_view(
     get=extend_schema(
         operation_id='announcement_list',
-        summary='List Announcements',
-        description='Get list of announcements (regular users: own center, HR: all)',
-        tags=['HR']
+        summary='List Announcements and News',
+        description='Get list of announcements and news. Regular users see active items for their centers. HR/Admin see all. Filter by is_news and is_announcement query parameters.',
+        tags=['HR'],
+        parameters=[
+            OpenApiParameter(name='page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Page number'),
+            OpenApiParameter(name='page_size', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Page size'),
+            OpenApiParameter(name='center', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description='Filter by center ID (HR/Admin only)'),
+            OpenApiParameter(name='is_active', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Filter by active status (HR/Admin only)'),
+            OpenApiParameter(name='is_news', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Filter by news (true for news only)'),
+            OpenApiParameter(name='is_announcement', type=OpenApiTypes.BOOL, location=OpenApiParameter.QUERY, description='Filter by announcement (true for announcements only)'),
+        ]
     ),
     post=extend_schema(
         operation_id='announcement_create',
-        summary='Create Announcement',
-        description='Create new announcement (only for HR and System Admin)',
+        summary='Create Announcement or News',
+        description='Create new announcement or news (only for HR and System Admin). Use is_news=true for news, is_announcement=true for announcements, or both for both.',
         tags=['HR'],
         request=AnnouncementCreateSerializer,
         responses={
@@ -1177,7 +1224,7 @@ from apps.core.pagination import CustomPageNumberPagination
     )
 )
 class AnnouncementListView(generics.ListCreateAPIView):
-    """لیست و ایجاد اطلاعیه‌ها"""
+    """لیست و ایجاد اطلاعیه‌ها و خبرها"""
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPageNumberPagination
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # پشتیبانی از JSON و form-data برای آپلود تصویر
@@ -1190,16 +1237,26 @@ class AnnouncementListView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         
-        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
+        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها و خبرها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
             queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود، اطلاعیه‌هایی که برای همه کاربران ارسال شده، یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            # کاربران عادی فقط اطلاعیه‌ها و خبرها فعال مراکز خود را می‌بینند
+            # برای خبر (is_news=True): فقط بر اساس مراکز
+            # برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
             queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
             user_centers = user.centers.all()
-            queryset = queryset.filter(
+            
+            # فیلتر برای خبر (is_news=True): فقط بر اساس مراکز
+            news_filter = Q(is_news=True) & Q(centers__in=user_centers)
+            
+            # فیلتر برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
+            announcement_filter = Q(is_announcement=True) & (
                 Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
-            ).distinct()
+            )
+            
+            # ترکیب فیلترها: خبر یا اطلاعیه
+            queryset = queryset.filter(news_filter | announcement_filter).distinct()
         
         # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
         center_id = self.request.query_params.get('center')
@@ -1212,15 +1269,26 @@ class AnnouncementListView(generics.ListCreateAPIView):
             is_active = is_active_param.lower() in ['true', '1', 'yes']
             queryset = queryset.filter(is_active=is_active)
         
+        # فیلتر بر اساس is_announcement و is_news
+        is_announcement_param = self.request.query_params.get('is_announcement')
+        is_news_param = self.request.query_params.get('is_news')
+        
+        if is_announcement_param is not None:
+            is_announcement = is_announcement_param.lower() in ['true', '1', 'yes']
+            queryset = queryset.filter(is_announcement=is_announcement)
+        if is_news_param is not None:
+            is_news = is_news_param.lower() in ['true', '1', 'yes']
+            queryset = queryset.filter(is_news=is_news)
+        
         return queryset.order_by('-publish_date')
 
     def perform_create(self, serializer):
-        """ایجاد اطلاعیه توسط کاربر فعلی"""
+        """ایجاد اطلاعیه یا خبر توسط کاربر فعلی"""
         user = self.request.user
-        # فقط HR و System Admin می‌توانند اطلاعیه ایجاد کنند
+        # فقط HR و System Admin می‌توانند اطلاعیه یا خبر ایجاد کنند
         if user.role not in ['hr', 'sys_admin']:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("فقط نیروی انسانی می‌تواند اطلاعیه ایجاد کند")
+            raise PermissionDenied("فقط نیروی انسانی می‌تواند اطلاعیه یا خبر ایجاد کند")
         
         # ادمین HR و System Admin می‌توانند برای هر مرکزی اطلاعیه ایجاد کنند
         announcement = serializer.save(created_by=user)
@@ -1271,8 +1339,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
 @extend_schema_view(
     get=extend_schema(
         operation_id='announcement_detail',
-        summary='Get Announcement Details',
-        description='Get details of a specific announcement',
+        summary='Get Announcement or News Details',
+        description='Get details of a specific announcement or news. Automatically marks as read for authenticated users.',
         tags=['HR'],
         responses={
             200: AnnouncementSerializer,
@@ -1281,8 +1349,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
     ),
     put=extend_schema(
         operation_id='announcement_update',
-        summary='Update Announcement',
-        description='Update announcement completely (only for HR and System Admin)',
+        summary='Update Announcement or News',
+        description='Update announcement or news completely (only for HR and System Admin)',
         tags=['HR'],
         request=AnnouncementCreateSerializer,
         responses={
@@ -1294,8 +1362,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
     ),
     patch=extend_schema(
         operation_id='announcement_partial_update',
-        summary='Partial Update Announcement',
-        description='Partially update announcement (only for HR and System Admin)',
+        summary='Partial Update Announcement or News',
+        description='Partially update announcement or news (only for HR and System Admin)',
         tags=['HR'],
         request=AnnouncementCreateSerializer,
         responses={
@@ -1307,8 +1375,8 @@ class AnnouncementListView(generics.ListCreateAPIView):
     ),
     delete=extend_schema(
         operation_id='announcement_delete',
-        summary='Delete Announcement',
-        description='Delete announcement (only for HR and System Admin)',
+        summary='Delete Announcement or News',
+        description='Delete announcement or news (only for HR and System Admin)',
         tags=['HR'],
         responses={
             204: {'description': 'Announcement deleted'},
@@ -1318,7 +1386,7 @@ class AnnouncementListView(generics.ListCreateAPIView):
     )
 )
 class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """جزئیات، ویرایش و حذف اطلاعیه"""
+    """جزئیات، ویرایش و حذف اطلاعیه‌ها و خبرها"""
     serializer_class = AnnouncementSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]  # پشتیبانی از JSON و form-data برای آپلود تصویر
@@ -1326,16 +1394,26 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         
-        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
+        # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها و خبرها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
             queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            # کاربران عادی فقط اطلاعیه‌ها و خبرها فعال مراکز خود را می‌بینند
+            # برای خبر (is_news=True): فقط بر اساس مراکز
+            # برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
             queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
             user_centers = user.centers.all()
-            queryset = queryset.filter(
+            
+            # فیلتر برای خبر (is_news=True): فقط بر اساس مراکز
+            news_filter = Q(is_news=True) & Q(centers__in=user_centers)
+            
+            # فیلتر برای اطلاعیه (is_announcement=True): بر اساس مراکز، send_to_all_users، یا target_users
+            announcement_filter = Q(is_announcement=True) & (
                 Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
-            ).distinct()
+            )
+            
+            # ترکیب فیلترها: خبر یا اطلاعیه
+            queryset = queryset.filter(news_filter | announcement_filter).distinct()
         
         return queryset
     
