@@ -2,20 +2,20 @@ from django.contrib import admin
 from django.utils.html import format_html
 from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali, date2jalali
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
+from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
 
 
 @admin.register(Announcement)
 class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = (
-        'title', 'get_centers_display', 'created_by', 'jalali_publish_date', 
-        'is_active', 'jalali_created_at', 'image_preview'
+        'title', 'get_centers_display', 'is_announcement', 'is_news', 'send_to_all_users', 'created_by', 
+        'jalali_publish_date', 'is_active', 'jalali_created_at', 'image_preview'
     )
-    list_filter = ('is_active', 'centers', 'created_by', 'publish_date', 'created_at')
+    list_filter = ('is_active', 'is_announcement', 'is_news', 'send_to_all_users', 'centers', 'created_by', 'publish_date', 'created_at')
     search_fields = ('title', 'lead', 'content', 'centers__name', 'created_by__username')
     ordering = ('-publish_date',)
     raw_id_fields = ('created_by',)
-    filter_horizontal = ('centers',)
+    filter_horizontal = ('centers', 'target_users')
     
     def jalali_publish_date(self, obj):
         if obj.publish_date:
@@ -33,7 +33,15 @@ class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     fieldsets = (
         ('اطلاعات اصلی', {
-            'fields': ('title', 'lead', 'content', 'image', 'centers')
+            'fields': ('title', 'lead', 'content', 'image')
+        }),
+        ('نوع انتشار', {
+            'fields': ('is_announcement', 'is_news'),
+            'description': 'حداقل یکی از گزینه‌ها باید انتخاب شود'
+        }),
+        ('ارسال به', {
+            'fields': ('centers', 'send_to_all_users', 'target_users'),
+            'description': 'برای خبر: فقط مراکز. برای اطلاعیه: مراکز و/یا ارسال به کل کاربران و/یا کاربران خاص'
         }),
         ('تنظیمات انتشار', {
             'fields': ('publish_date', 'is_active')
@@ -54,6 +62,16 @@ class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     
     readonly_fields = ('created_at', 'updated_at')
     
+    def get_type_display(self, obj):
+        """نمایش نوع (اطلاعیه/خبر)"""
+        types = []
+        if obj.is_announcement:
+            types.append('اطلاعیه')
+        if obj.is_news:
+            types.append('خبر')
+        return ', '.join(types) if types else 'تعریف نشده'
+    get_type_display.short_description = 'نوع'
+    
     def image_preview(self, obj):
         if obj.image:
             return format_html(
@@ -66,7 +84,55 @@ class AnnouncementAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not change:  # اگر در حال ایجاد است
             obj.created_by = request.user
+        # اعتبارسنجی: حداقل یکی از is_announcement یا is_news باید True باشد
+        if not obj.is_announcement and not obj.is_news:
+            from django.core.exceptions import ValidationError
+            raise ValidationError('حداقل یکی از "به عنوان اطلاعیه منتشر شود" یا "به عنوان خبر منتشر شود" باید انتخاب شود.')
         super().save_model(request, obj, form, change)
+
+
+@admin.register(AnnouncementReadStatus)
+class AnnouncementReadStatusAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = (
+        'announcement', 'user', 'is_read', 'read_at', 'jalali_read_at', 'jalali_created_at'
+    )
+    list_filter = ('read_at', 'created_at')
+    search_fields = ('announcement__title', 'user__username', 'user__first_name', 'user__last_name')
+    ordering = ('-created_at',)
+    raw_id_fields = ('announcement', 'user')
+    readonly_fields = ('created_at', 'read_at')
+    
+    fieldsets = (
+        ('اطلاعات', {
+            'fields': ('announcement', 'user', 'read_at')
+        }),
+        ('اطلاعات سیستم', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def is_read(self, obj):
+        """نمایش وضعیت خوانده شده"""
+        if obj.read_at:
+            return format_html('<span style="color: green;">✓ خوانده شده</span>')
+        return format_html('<span style="color: red;">✗ خوانده نشده</span>')
+    is_read.short_description = 'وضعیت'
+    is_read.boolean = True
+    
+    def jalali_read_at(self, obj):
+        if obj.read_at:
+            return datetime2jalali(obj.read_at).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_read_at.short_description = 'تاریخ خوانده شدن (شمسی)'
+    jalali_read_at.admin_order_field = 'read_at'
+    
+    def jalali_created_at(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
+        return '-'
+    jalali_created_at.short_description = 'تاریخ ایجاد (شمسی)'
+    jalali_created_at.admin_order_field = 'created_at'
 
 
 @admin.register(Feedback)

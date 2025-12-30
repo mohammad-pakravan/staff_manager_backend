@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
+from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
 from apps.centers.serializers import CenterSerializer
 from apps.accounts.serializers import UserSerializer
 # از jalali_date برای تبدیل تاریخ استفاده می‌کنیم
@@ -13,20 +13,28 @@ class AnnouncementSerializer(serializers.ModelSerializer):
     """Serializer for Announcement model"""
     centers_data = CenterSerializer(source='centers', many=True, read_only=True)
     centers_names = serializers.SerializerMethodField()
+    target_users_data = UserSerializer(source='target_users', many=True, read_only=True)
+    target_users_names = serializers.SerializerMethodField()
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     image_url = serializers.SerializerMethodField()
     jalali_publish_date = serializers.SerializerMethodField()
     jalali_created_at = serializers.SerializerMethodField()
+    is_read = serializers.SerializerMethodField()
+    read_at = serializers.SerializerMethodField()
     
     class Meta:
         model = Announcement
         fields = [
             'id', 'title', 'lead', 'content', 'image', 'image_url', 'publish_date', 
-            'centers', 'centers_data', 'centers_names', 'created_by', 'created_by_name',
-            'is_active', 'created_at', 'updated_at',
+            'centers', 'centers_data', 'centers_names', 
+            'send_to_all_users', 'target_users', 'target_users_data', 'target_users_names',
+            'is_announcement', 'is_news',
+            'created_by', 'created_by_name',
+            'is_active', 'is_read', 'read_at',
+            'created_at', 'updated_at',
             'jalali_publish_date', 'jalali_created_at'
         ]
-        read_only_fields = ['created_by', 'created_at', 'updated_at']
+        read_only_fields = ['created_by', 'created_at', 'updated_at', 'is_read', 'read_at']
     
     @extend_schema_field(serializers.CharField())
     def get_image_url(self, obj):
@@ -41,6 +49,10 @@ class AnnouncementSerializer(serializers.ModelSerializer):
     def get_centers_names(self, obj):
         """Get list of center names"""
         return [center.name for center in obj.centers.all()]
+    
+    def get_target_users_names(self, obj):
+        """Get list of target user names"""
+        return [f"{user.first_name} {user.last_name}".strip() or user.username for user in obj.target_users.all()]
 
     def get_jalali_publish_date(self, obj):
         """Get Jalali publish date"""
@@ -53,11 +65,47 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         if obj.created_at:
             return datetime2jalali(obj.created_at).strftime('%Y/%m/%d %H:%M')
         return None
+    
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_read(self, obj):
+        """بررسی اینکه آیا کاربر فعلی این اطلاعیه/خبر را خوانده است"""
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            read_status = AnnouncementReadStatus.objects.filter(
+                announcement=obj,
+                user=request.user
+            ).first()
+            return read_status.is_read if read_status else False
+        return False
+    
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
+    def get_read_at(self, obj):
+        """تاریخ خوانده شدن توسط کاربر فعلی"""
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            read_status = AnnouncementReadStatus.objects.filter(
+                announcement=obj,
+                user=request.user
+            ).first()
+            if read_status and read_status.read_at:
+                return datetime2jalali(read_status.read_at).strftime('%Y/%m/%d %H:%M')
+        return None
 
     def create(self, validated_data):
         """Create announcement with current user as creator"""
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
+    
+    def validate(self, data):
+        """اعتبارسنجی: حداقل یکی از is_announcement یا is_news باید True باشد"""
+        is_announcement = data.get('is_announcement', self.instance.is_announcement if self.instance else False)
+        is_news = data.get('is_news', self.instance.is_news if self.instance else False)
+        
+        if not is_announcement and not is_news:
+            raise serializers.ValidationError(
+                'حداقل یکی از "به عنوان اطلاعیه منتشر شود" یا "به عنوان خبر منتشر شود" باید انتخاب شود.'
+            )
+        return data
 
 
 class AnnouncementCreateSerializer(serializers.ModelSerializer):
@@ -65,16 +113,33 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Announcement
-        fields = ['title', 'lead', 'content', 'image', 'publish_date', 'centers', 'is_active']
+        fields = [
+            'title', 'lead', 'content', 'image', 'publish_date', 
+            'centers', 'send_to_all_users', 'target_users', 'is_announcement', 'is_news', 'is_active'
+        ]
 
     def create(self, validated_data):
         """Create announcement with current user as creator"""
         centers = validated_data.pop('centers', [])
+        target_users = validated_data.pop('target_users', [])
         validated_data['created_by'] = self.context['request'].user
         announcement = super().create(validated_data)
         if centers:
             announcement.centers.set(centers)
+        if target_users:
+            announcement.target_users.set(target_users)
         return announcement
+    
+    def validate(self, data):
+        """اعتبارسنجی: حداقل یکی از is_announcement یا is_news باید True باشد"""
+        is_announcement = data.get('is_announcement', False)
+        is_news = data.get('is_news', False)
+        
+        if not is_announcement and not is_news:
+            raise serializers.ValidationError(
+                'حداقل یکی از "به عنوان اطلاعیه منتشر شود" یا "به عنوان خبر منتشر شود" باید انتخاب شود.'
+            )
+        return data
 
 
 class AnnouncementListSerializer(serializers.ModelSerializer):
@@ -82,12 +147,14 @@ class AnnouncementListSerializer(serializers.ModelSerializer):
     centers_names = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
     jalali_publish_date = serializers.SerializerMethodField()
+    is_read = serializers.SerializerMethodField()
     
     class Meta:
         model = Announcement
         fields = [
             'id', 'title', 'lead', 'content', 'image', 'image_url', 'publish_date',
-            'centers_names', 'is_active', 'jalali_publish_date'
+            'centers_names', 'is_announcement', 'is_news', 'is_active', 
+            'is_read', 'jalali_publish_date'
         ]
     
     @extend_schema_field(serializers.CharField())
@@ -109,6 +176,18 @@ class AnnouncementListSerializer(serializers.ModelSerializer):
         if obj.publish_date:
             return datetime2jalali(obj.publish_date).strftime('%Y/%m/%d')
         return None
+    
+    @extend_schema_field(serializers.BooleanField())
+    def get_is_read(self, obj):
+        """بررسی اینکه آیا کاربر فعلی این اطلاعیه/خبر را خوانده است"""
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            read_status = AnnouncementReadStatus.objects.filter(
+                announcement=obj,
+                user=request.user
+            ).first()
+            return read_status.is_read if read_status else False
+        return False
 
 
 # ========== Feedback Serializers ==========

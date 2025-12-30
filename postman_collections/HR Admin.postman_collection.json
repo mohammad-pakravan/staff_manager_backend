@@ -166,7 +166,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"اطلاعیه ویرایش شده\",\n    \"lead\": \"لید خبر ویرایش شده\",\n    \"content\": \"متن کامل اطلاعیه ویرایش شده\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1, 2],\n    \"is_active\": true\n}",
+							"raw": "{\n    \"title\": \"اطلاعیه ویرایش شده\",\n    \"lead\": \"لید خبر ویرایش شده\",\n    \"content\": \"متن کامل اطلاعیه ویرایش شده\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1, 2],\n    \"send_to_all_users\": false,\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -206,7 +206,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"عنوان ویرایش شده\",\n    \"is_active\": false\n}",
+							"raw": "{\n    \"title\": \"عنوان ویرایش شده\",\n    \"send_to_all_users\": true,\n    \"is_active\": false\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -586,6 +586,123 @@
 							]
 						},
 						"description": "ایجاد اطلاعیه ساده با تصویر (بدون lead و publish_date)"
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه برای کل کاربران",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه عمومی - برای همه کاربران\",\n    \"lead\": \"اطلاعیه مهم برای همه\",\n    \"content\": \"به اطلاع همه همکاران عزیز می‌رساند که این اطلاعیه برای تمام کاربران سیستم ارسال شده است.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"send_to_all_users\": true,\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه برای کل کاربران (send_to_all_users=true). این اطلاعیه به همه کاربران سیستم ارسال می‌شود."
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه برای کاربران خاص",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه برای کاربران خاص\",\n    \"lead\": \"اطلاعیه مهم برای کاربران انتخاب شده\",\n    \"content\": \"این اطلاعیه فقط برای کاربران انتخاب شده ارسال می‌شود.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"target_users\": [1, 2, 3],\n    \"send_to_all_users\": false,\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه برای کاربران خاص (target_users). این اطلاعیه فقط به کاربران انتخاب شده ارسال می‌شود."
+					},
+					"response": []
+				},
+				{
+					"name": "ایجاد اطلاعیه ترکیبی (مراکز + کاربران خاص)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"اطلاعیه ترکیبی\",\n    \"lead\": \"اطلاعیه برای مراکز و کاربران خاص\",\n    \"content\": \"این اطلاعیه به کاربران مراکز انتخاب شده و همچنین کاربران خاص انتخاب شده ارسال می‌شود.\",\n    \"publish_date\": \"2025-01-20T08:00:00Z\",\n    \"centers\": [1, 2],\n    \"target_users\": [3, 4],\n    \"send_to_all_users\": false,\n    \"is_announcement\": true,\n    \"is_news\": false,\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/hr/announcements/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"hr",
+								"announcements",
+								""
+							]
+						},
+						"description": "ایجاد اطلاعیه ترکیبی: هم برای مراکز انتخاب شده و هم برای کاربران خاص انتخاب شده ارسال می‌شود."
 					},
 					"response": []
 				}

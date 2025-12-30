@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
+from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
 from .serializers import (
     AnnouncementSerializer, 
     AnnouncementCreateSerializer, 
@@ -64,14 +64,14 @@ class AnnouncementListView(generics.ListCreateAPIView):
         
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
-            queryset = Announcement.objects.all().prefetch_related('centers')
+            queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود را می‌بینند
-            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers')
-            if user.centers.exists():
-                queryset = queryset.filter(centers__in=user.centers.all()).distinct()
-            else:
-                queryset = queryset.none()
+            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود، اطلاعیه‌هایی که برای همه کاربران ارسال شده، یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
+            user_centers = user.centers.all()
+            queryset = queryset.filter(
+                Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+            ).distinct()
         
         # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
         center_id = self.request.query_params.get('center')
@@ -97,29 +97,47 @@ class AnnouncementListView(generics.ListCreateAPIView):
         # ادمین HR و System Admin می‌توانند برای هر مرکزی اطلاعیه ایجاد کنند
         announcement = serializer.save(created_by=user)
         
-        # اگر اطلاعیه با is_active=True ایجاد شد، نوتفیکیشن ارسال کن
-        if announcement.is_active:
+        # اگر اطلاعیه با is_active=True و is_announcement=True ایجاد شد، نوتفیکیشن ارسال کن
+        if announcement.is_active and announcement.is_announcement:
             from apps.notifications.services import send_push_notification_to_multiple_users
             from apps.accounts.models import User as UserModel
             
-            # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
-            announcement_centers = announcement.centers.all()
-            if announcement_centers.exists():
-                users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
-                if users.exists():
-                    # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
-                    notification_body = announcement.lead if announcement.lead else announcement.title
-                    send_push_notification_to_multiple_users(
-                        users=users,
-                        title=announcement.title,
-                        body=notification_body,
-                        data={
-                            'type': 'announcement_published',
-                            'announcement_id': announcement.id,
-                            'title': announcement.title,
-                        },
-                        url=f'/announcements/{announcement.id}/'
-                    )
+            # جمع‌آوری کاربران: از مراکز، کاربران خاص، یا همه کاربران
+            users = UserModel.objects.none()
+            
+            # اگر send_to_all_users فعال باشد، به همه کاربران ارسال کن
+            if announcement.send_to_all_users:
+                users = UserModel.objects.all()
+            else:
+                # کاربران مراکز انتخاب شده
+                announcement_centers = announcement.centers.all()
+                if announcement_centers.exists():
+                    center_users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
+                    users = users.union(center_users)
+                
+                # کاربران خاص انتخاب شده
+                target_users = announcement.target_users.all()
+                if target_users.exists():
+                    users = users.union(target_users)
+            
+            if users.exists():
+                # تبدیل به list برای distinct کردن
+                user_ids = list(set(users.values_list('id', flat=True)))
+                final_users = UserModel.objects.filter(id__in=user_ids)
+                
+                # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+                notification_body = announcement.lead if announcement.lead else announcement.title
+                send_push_notification_to_multiple_users(
+                    users=final_users,
+                    title=announcement.title,
+                    body=notification_body,
+                    data={
+                        'type': 'announcement_published',
+                        'announcement_id': announcement.id,
+                        'title': announcement.title,
+                    },
+                    url=f'/announcements/{announcement.id}/'
+                )
 
 
 @extend_schema_view(
@@ -182,16 +200,32 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
-            queryset = Announcement.objects.all().prefetch_related('centers')
+            queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود را می‌بینند
-            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers')
-            if user.centers.exists():
-                queryset = queryset.filter(centers__in=user.centers.all()).distinct()
-            else:
-                queryset = queryset.none()
+            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
+            user_centers = user.centers.all()
+            queryset = queryset.filter(
+                Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+            ).distinct()
         
         return queryset
+    
+    def retrieve(self, request, *args, **kwargs):
+        """نمایش جزئیات و علامت‌گذاری خودکار به عنوان خوانده شده"""
+        instance = self.get_object()
+        
+        # اگر کاربر احراز هویت شده است، به صورت خودکار به عنوان خوانده شده علامت‌گذاری کن
+        if request.user and request.user.is_authenticated:
+            read_status, created = AnnouncementReadStatus.objects.get_or_create(
+                announcement=instance,
+                user=request.user
+            )
+            if not read_status.read_at:
+                read_status.mark_as_read()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def perform_update(self, serializer):
         """ویرایش اطلاعیه"""
@@ -208,29 +242,47 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         # ادمین HR و System Admin می‌توانند همه اطلاعیه‌ها را ویرایش کنند
         announcement = serializer.save()
         
-        # اگر is_active از False به True تغییر کرد، نوتفیکیشن ارسال کن
-        if not was_active and announcement.is_active:
+        # اگر is_active از False به True تغییر کرد و is_announcement=True است، نوتفیکیشن ارسال کن
+        if not was_active and announcement.is_active and announcement.is_announcement:
             from apps.notifications.services import send_push_notification_to_multiple_users
             from apps.accounts.models import User as UserModel
             
-            # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
-            announcement_centers = announcement.centers.all()
-            if announcement_centers.exists():
-                users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
-                if users.exists():
-                    # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
-                    notification_body = announcement.lead if announcement.lead else announcement.title
-                    send_push_notification_to_multiple_users(
-                        users=users,
-                        title=announcement.title,
-                        body=notification_body,
-                        data={
-                            'type': 'announcement_published',
-                            'announcement_id': announcement.id,
-                            'title': announcement.title,
-                        },
-                        url=f'/announcements/{announcement.id}/'
-                    )
+            # جمع‌آوری کاربران: از مراکز، کاربران خاص، یا همه کاربران
+            users = UserModel.objects.none()
+            
+            # اگر send_to_all_users فعال باشد، به همه کاربران ارسال کن
+            if announcement.send_to_all_users:
+                users = UserModel.objects.all()
+            else:
+                # کاربران مراکز انتخاب شده
+                announcement_centers = announcement.centers.all()
+                if announcement_centers.exists():
+                    center_users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
+                    users = users.union(center_users)
+                
+                # کاربران خاص انتخاب شده
+                target_users = announcement.target_users.all()
+                if target_users.exists():
+                    users = users.union(target_users)
+            
+            if users.exists():
+                # تبدیل به list برای distinct کردن
+                user_ids = list(set(users.values_list('id', flat=True)))
+                final_users = UserModel.objects.filter(id__in=user_ids)
+                
+                # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+                notification_body = announcement.lead if announcement.lead else announcement.title
+                send_push_notification_to_multiple_users(
+                    users=final_users,
+                    title=announcement.title,
+                    body=notification_body,
+                    data={
+                        'type': 'announcement_published',
+                        'announcement_id': announcement.id,
+                        'title': announcement.title,
+                    },
+                    url=f'/announcements/{announcement.id}/'
+                )
 
     def perform_destroy(self, instance):
         """حذف اطلاعیه"""
@@ -242,6 +294,115 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # ادمین HR و System Admin می‌توانند همه اطلاعیه‌ها را حذف کنند
         instance.delete()
+
+
+@extend_schema(
+    operation_id='announcement_unread_count',
+    summary='Get Unread Announcements Count',
+    description='Get count of unread announcements for the authenticated user (only announcements, not news)',
+    tags=['HR'],
+    responses={
+        200: {
+            'description': 'Unread count',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'unread_count': {'type': 'integer'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def announcement_unread_count(request):
+    """تعداد اطلاعیه‌های خوانده نشده کاربر فعلی (فقط اطلاعیه‌ها، نه خبرها)"""
+    user = request.user
+    
+    # دریافت اطلاعیه‌های فعال که برای کاربر ارسال شده (از طریق مراکز یا کاربران خاص)
+    user_centers = user.centers.all()
+    announcements = Announcement.objects.filter(
+        is_active=True,
+        is_announcement=True,  # فقط اطلاعیه‌ها
+    ).filter(
+        Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+    ).distinct()
+    
+    # دریافت اطلاعیه‌های خوانده شده
+    read_announcement_ids = AnnouncementReadStatus.objects.filter(
+        user=user,
+        read_at__isnull=False
+    ).values_list('announcement_id', flat=True)
+    
+    # تعداد اطلاعیه‌های خوانده نشده
+    unread_count = announcements.exclude(id__in=read_announcement_ids).count()
+    
+    return Response({
+        'unread_count': unread_count
+    })
+
+
+@extend_schema(
+    operation_id='announcement_mark_as_read',
+    summary='Mark Announcement as Read',
+    description='Mark an announcement as read for the authenticated user',
+    tags=['HR'],
+    responses={
+        200: {
+            'description': 'Marked as read',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'message': {'type': 'string'},
+                            'read_at': {'type': 'string', 'format': 'date-time'}
+                        }
+                    }
+                }
+            }
+        },
+        404: {'description': 'Announcement not found'}
+    }
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def announcement_mark_as_read(request, pk):
+    """علامت‌گذاری یک اطلاعیه/خبر به عنوان خوانده شده"""
+    user = request.user
+    
+    # بررسی دسترسی کاربر به اطلاعیه
+    user_centers = user.centers.all()
+    announcement = Announcement.objects.filter(
+        Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+    ).filter(pk=pk).first()
+    
+    if not announcement:
+        return Response(
+            {'error': 'اطلاعیه یافت نشد یا شما دسترسی به آن ندارید'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # ایجاد یا به‌روزرسانی وضعیت خوانده شده
+    read_status, created = AnnouncementReadStatus.objects.get_or_create(
+        announcement=announcement,
+        user=user
+    )
+    
+    if not read_status.read_at:
+        read_status.mark_as_read()
+    
+    from jalali_date import datetime2jalali
+    read_at_jalali = datetime2jalali(read_status.read_at).strftime('%Y/%m/%d %H:%M') if read_status.read_at else None
+    
+    return Response({
+        'message': 'اطلاعیه به عنوان خوانده شده علامت‌گذاری شد',
+        'read_at': read_at_jalali
+    })
 
 
 @api_view(['GET'])
@@ -974,7 +1135,7 @@ from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
-from .models import Announcement, Feedback, InsuranceForm, PhoneBook, Story
+from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
 from .serializers import (
     AnnouncementSerializer, 
     AnnouncementCreateSerializer, 
@@ -1031,14 +1192,14 @@ class AnnouncementListView(generics.ListCreateAPIView):
         
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
-            queryset = Announcement.objects.all().prefetch_related('centers')
+            queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود را می‌بینند
-            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers')
-            if user.centers.exists():
-                queryset = queryset.filter(centers__in=user.centers.all()).distinct()
-            else:
-                queryset = queryset.none()
+            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود، اطلاعیه‌هایی که برای همه کاربران ارسال شده، یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
+            user_centers = user.centers.all()
+            queryset = queryset.filter(
+                Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+            ).distinct()
         
         # فیلتر بر اساس مرکز (فقط برای ادمین‌ها)
         center_id = self.request.query_params.get('center')
@@ -1064,29 +1225,47 @@ class AnnouncementListView(generics.ListCreateAPIView):
         # ادمین HR و System Admin می‌توانند برای هر مرکزی اطلاعیه ایجاد کنند
         announcement = serializer.save(created_by=user)
         
-        # اگر اطلاعیه با is_active=True ایجاد شد، نوتفیکیشن ارسال کن
-        if announcement.is_active:
+        # اگر اطلاعیه با is_active=True و is_announcement=True ایجاد شد، نوتفیکیشن ارسال کن
+        if announcement.is_active and announcement.is_announcement:
             from apps.notifications.services import send_push_notification_to_multiple_users
             from apps.accounts.models import User as UserModel
             
-            # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
-            announcement_centers = announcement.centers.all()
-            if announcement_centers.exists():
-                users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
-                if users.exists():
-                    # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
-                    notification_body = announcement.lead if announcement.lead else announcement.title
-                    send_push_notification_to_multiple_users(
-                        users=users,
-                        title=announcement.title,
-                        body=notification_body,
-                        data={
-                            'type': 'announcement_published',
-                            'announcement_id': announcement.id,
-                            'title': announcement.title,
-                        },
-                        url=f'/announcements/{announcement.id}/'
-                    )
+            # جمع‌آوری کاربران: از مراکز، کاربران خاص، یا همه کاربران
+            users = UserModel.objects.none()
+            
+            # اگر send_to_all_users فعال باشد، به همه کاربران ارسال کن
+            if announcement.send_to_all_users:
+                users = UserModel.objects.all()
+            else:
+                # کاربران مراکز انتخاب شده
+                announcement_centers = announcement.centers.all()
+                if announcement_centers.exists():
+                    center_users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
+                    users = users.union(center_users)
+                
+                # کاربران خاص انتخاب شده
+                target_users = announcement.target_users.all()
+                if target_users.exists():
+                    users = users.union(target_users)
+            
+            if users.exists():
+                # تبدیل به list برای distinct کردن
+                user_ids = list(set(users.values_list('id', flat=True)))
+                final_users = UserModel.objects.filter(id__in=user_ids)
+                
+                # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+                notification_body = announcement.lead if announcement.lead else announcement.title
+                send_push_notification_to_multiple_users(
+                    users=final_users,
+                    title=announcement.title,
+                    body=notification_body,
+                    data={
+                        'type': 'announcement_published',
+                        'announcement_id': announcement.id,
+                        'title': announcement.title,
+                    },
+                    url=f'/announcements/{announcement.id}/'
+                )
 
 
 @extend_schema_view(
@@ -1149,16 +1328,32 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # ادمین سیستم و ادمین HR می‌توانند همه اطلاعیه‌ها را ببینند (فعال و غیرفعال)
         if user.role in ['sys_admin', 'hr']:
-            queryset = Announcement.objects.all().prefetch_related('centers')
+            queryset = Announcement.objects.all().prefetch_related('centers', 'target_users')
         else:
-            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود را می‌بینند
-            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers')
-            if user.centers.exists():
-                queryset = queryset.filter(centers__in=user.centers.all()).distinct()
-            else:
-                queryset = queryset.none()
+            # کاربران عادی فقط اطلاعیه‌های فعال مراکز خود یا اطلاعیه‌هایی که برایشان ارسال شده را می‌بینند
+            queryset = Announcement.objects.filter(is_active=True).prefetch_related('centers', 'target_users')
+            user_centers = user.centers.all()
+            queryset = queryset.filter(
+                Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+            ).distinct()
         
         return queryset
+    
+    def retrieve(self, request, *args, **kwargs):
+        """نمایش جزئیات و علامت‌گذاری خودکار به عنوان خوانده شده"""
+        instance = self.get_object()
+        
+        # اگر کاربر احراز هویت شده است، به صورت خودکار به عنوان خوانده شده علامت‌گذاری کن
+        if request.user and request.user.is_authenticated:
+            read_status, created = AnnouncementReadStatus.objects.get_or_create(
+                announcement=instance,
+                user=request.user
+            )
+            if not read_status.read_at:
+                read_status.mark_as_read()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def perform_update(self, serializer):
         """ویرایش اطلاعیه"""
@@ -1175,29 +1370,47 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         # ادمین HR و System Admin می‌توانند همه اطلاعیه‌ها را ویرایش کنند
         announcement = serializer.save()
         
-        # اگر is_active از False به True تغییر کرد، نوتفیکیشن ارسال کن
-        if not was_active and announcement.is_active:
+        # اگر is_active از False به True تغییر کرد و is_announcement=True است، نوتفیکیشن ارسال کن
+        if not was_active and announcement.is_active and announcement.is_announcement:
             from apps.notifications.services import send_push_notification_to_multiple_users
             from apps.accounts.models import User as UserModel
             
-            # دریافت کاربرانی که در مراکز مرتبط با اطلاعیه هستند
-            announcement_centers = announcement.centers.all()
-            if announcement_centers.exists():
-                users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
-                if users.exists():
-                    # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
-                    notification_body = announcement.lead if announcement.lead else announcement.title
-                    send_push_notification_to_multiple_users(
-                        users=users,
-                        title=announcement.title,
-                        body=notification_body,
-                        data={
-                            'type': 'announcement_published',
-                            'announcement_id': announcement.id,
-                            'title': announcement.title,
-                        },
-                        url=f'/announcements/{announcement.id}/'
-                    )
+            # جمع‌آوری کاربران: از مراکز، کاربران خاص، یا همه کاربران
+            users = UserModel.objects.none()
+            
+            # اگر send_to_all_users فعال باشد، به همه کاربران ارسال کن
+            if announcement.send_to_all_users:
+                users = UserModel.objects.all()
+            else:
+                # کاربران مراکز انتخاب شده
+                announcement_centers = announcement.centers.all()
+                if announcement_centers.exists():
+                    center_users = UserModel.objects.filter(centers__in=announcement_centers).distinct()
+                    users = users.union(center_users)
+                
+                # کاربران خاص انتخاب شده
+                target_users = announcement.target_users.all()
+                if target_users.exists():
+                    users = users.union(target_users)
+            
+            if users.exists():
+                # تبدیل به list برای distinct کردن
+                user_ids = list(set(users.values_list('id', flat=True)))
+                final_users = UserModel.objects.filter(id__in=user_ids)
+                
+                # استفاده از lead به عنوان body، اگر موجود نبود از title استفاده می‌کنیم
+                notification_body = announcement.lead if announcement.lead else announcement.title
+                send_push_notification_to_multiple_users(
+                    users=final_users,
+                    title=announcement.title,
+                    body=notification_body,
+                    data={
+                        'type': 'announcement_published',
+                        'announcement_id': announcement.id,
+                        'title': announcement.title,
+                    },
+                    url=f'/announcements/{announcement.id}/'
+                )
 
     def perform_destroy(self, instance):
         """حذف اطلاعیه"""
@@ -1209,6 +1422,115 @@ class AnnouncementDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         # ادمین HR و System Admin می‌توانند همه اطلاعیه‌ها را حذف کنند
         instance.delete()
+
+
+@extend_schema(
+    operation_id='announcement_unread_count',
+    summary='Get Unread Announcements Count',
+    description='Get count of unread announcements for the authenticated user (only announcements, not news)',
+    tags=['HR'],
+    responses={
+        200: {
+            'description': 'Unread count',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'unread_count': {'type': 'integer'}
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def announcement_unread_count(request):
+    """تعداد اطلاعیه‌های خوانده نشده کاربر فعلی (فقط اطلاعیه‌ها، نه خبرها)"""
+    user = request.user
+    
+    # دریافت اطلاعیه‌های فعال که برای کاربر ارسال شده (از طریق مراکز یا کاربران خاص)
+    user_centers = user.centers.all()
+    announcements = Announcement.objects.filter(
+        is_active=True,
+        is_announcement=True,  # فقط اطلاعیه‌ها
+    ).filter(
+        Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+    ).distinct()
+    
+    # دریافت اطلاعیه‌های خوانده شده
+    read_announcement_ids = AnnouncementReadStatus.objects.filter(
+        user=user,
+        read_at__isnull=False
+    ).values_list('announcement_id', flat=True)
+    
+    # تعداد اطلاعیه‌های خوانده نشده
+    unread_count = announcements.exclude(id__in=read_announcement_ids).count()
+    
+    return Response({
+        'unread_count': unread_count
+    })
+
+
+@extend_schema(
+    operation_id='announcement_mark_as_read',
+    summary='Mark Announcement as Read',
+    description='Mark an announcement as read for the authenticated user',
+    tags=['HR'],
+    responses={
+        200: {
+            'description': 'Marked as read',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'message': {'type': 'string'},
+                            'read_at': {'type': 'string', 'format': 'date-time'}
+                        }
+                    }
+                }
+            }
+        },
+        404: {'description': 'Announcement not found'}
+    }
+)
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def announcement_mark_as_read(request, pk):
+    """علامت‌گذاری یک اطلاعیه/خبر به عنوان خوانده شده"""
+    user = request.user
+    
+    # بررسی دسترسی کاربر به اطلاعیه
+    user_centers = user.centers.all()
+    announcement = Announcement.objects.filter(
+        Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+    ).filter(pk=pk).first()
+    
+    if not announcement:
+        return Response(
+            {'error': 'اطلاعیه یافت نشد یا شما دسترسی به آن ندارید'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # ایجاد یا به‌روزرسانی وضعیت خوانده شده
+    read_status, created = AnnouncementReadStatus.objects.get_or_create(
+        announcement=announcement,
+        user=user
+    )
+    
+    if not read_status.read_at:
+        read_status.mark_as_read()
+    
+    from jalali_date import datetime2jalali
+    read_at_jalali = datetime2jalali(read_status.read_at).strftime('%Y/%m/%d %H:%M') if read_status.read_at else None
+    
+    return Response({
+        'message': 'اطلاعیه به عنوان خوانده شده علامت‌گذاری شد',
+        'read_at': read_at_jalali
+    })
 
 
 @api_view(['GET'])

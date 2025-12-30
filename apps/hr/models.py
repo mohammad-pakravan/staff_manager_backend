@@ -9,13 +9,17 @@ logger = logging.getLogger(__name__)
 
 
 class Announcement(models.Model):
-    """اطلاعیه"""
+    """اطلاعیه و خبر"""
     title = models.CharField(max_length=200, verbose_name='عنوان')
     lead = models.TextField(max_length=500, verbose_name='لید خبر (توضیحات کوتاه)', blank=True, null=True, help_text='توضیحات کوتاه که در ابتدای خبر نمایش داده می‌شود')
     content = models.TextField(verbose_name='متن')
     image = models.ImageField(upload_to='announcements/', blank=True, null=True, verbose_name='تصویر')
     publish_date = models.DateTimeField(verbose_name='تاریخ انتشار', default=timezone.now)
-    centers = models.ManyToManyField(Center, verbose_name='مراکز', related_name='announcements')
+    centers = models.ManyToManyField(Center, verbose_name='مراکز', related_name='announcements', blank=True, help_text='برای خبر و اطلاعیه: انتخاب یک یا چند مرکز')
+    send_to_all_users = models.BooleanField(default=False, verbose_name='ارسال به کل کاربران', help_text='فقط برای اطلاعیه: اگر فعال باشد، به همه کاربران ارسال می‌شود')
+    target_users = models.ManyToManyField(User, verbose_name='کاربران خاص', related_name='targeted_announcements', blank=True, help_text='فقط برای اطلاعیه: انتخاب یک یا چند کاربر خاص (در صورت عدم انتخاب send_to_all_users)')
+    is_announcement = models.BooleanField(default=False, verbose_name='به عنوان اطلاعیه منتشر شود')
+    is_news = models.BooleanField(default=False, verbose_name='به عنوان خبر منتشر شود')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='ایجاد شده توسط')
     is_active = models.BooleanField(default=True, verbose_name='فعال')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
@@ -43,6 +47,40 @@ class Announcement(models.Model):
         if not self.pk:  # اگر اطلاعیه جدید است
             self.created_by = self.created_by or User.objects.first()  # Default user
         super().save(*args, **kwargs)
+    
+    def clean(self):
+        """اعتبارسنجی: حداقل یکی از is_announcement یا is_news باید True باشد"""
+        from django.core.exceptions import ValidationError
+        if not self.is_announcement and not self.is_news:
+            raise ValidationError('حداقل یکی از "به عنوان اطلاعیه منتشر شود" یا "به عنوان خبر منتشر شود" باید انتخاب شود.')
+
+
+class AnnouncementReadStatus(models.Model):
+    """وضعیت خوانده شده/نشده اطلاعیه‌ها و خبرها برای هر کاربر"""
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, verbose_name='اطلاعیه/خبر', related_name='read_statuses')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='کاربر', related_name='announcement_read_statuses')
+    read_at = models.DateTimeField(blank=True, null=True, verbose_name='تاریخ خوانده شدن')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    
+    class Meta:
+        verbose_name = 'وضعیت خوانده شده اطلاعیه'
+        verbose_name_plural = 'وضعیت‌های خوانده شده اطلاعیه‌ها'
+        unique_together = ['announcement', 'user']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.announcement.title[:50]}"
+    
+    @property
+    def is_read(self):
+        """بررسی اینکه آیا خوانده شده است یا نه"""
+        return self.read_at is not None
+    
+    def mark_as_read(self):
+        """علامت‌گذاری به عنوان خوانده شده"""
+        if not self.read_at:
+            self.read_at = timezone.now()
+            self.save(update_fields=['read_at'])
 
 
 class Feedback(models.Model):
