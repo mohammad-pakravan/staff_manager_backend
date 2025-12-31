@@ -280,8 +280,19 @@ class UserListCreateView(generics.ListCreateAPIView):
             raise PermissionDenied('Only System Admin can manage users.')
 
     def get_queryset(self):
-        self._ensure_sys_admin(self.request.user)
-        return User.objects.all().prefetch_related('centers')
+        user = self.request.user
+        
+        if user.role == 'sys_admin':
+            return User.objects.all().prefetch_related('centers')
+        
+        if user.role in ['hr', 'admin_food']:
+            user_centers = user.centers.all()
+            return User.objects.filter(
+                centers__in=user_centers,
+                is_active=True
+            ).distinct().prefetch_related('centers')
+        
+        raise PermissionDenied('دسترسی ندارید')
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
