@@ -1,6 +1,6 @@
-# Generated manually - Add thumbnail_image column if it doesn't exist
+# Generated manually - thumbnail_image already exists in 0005_story
 
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -10,10 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='story',
-            name='thumbnail_image',
-            field=models.ImageField(blank=True, null=True, upload_to='stories/', verbose_name='تصویر شاخص'),
-        ),
+        # فیلد thumbnail_image از قبل در migration 0005 ایجاد شده است
+        # این migration را برای حفظ ترتیب نگه می‌داریم
     ]
 

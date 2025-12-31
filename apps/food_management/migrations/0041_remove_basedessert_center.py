@@ -10,8 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='basedessert',
-            name='center',
-        ),
+        # این migration الان خالی است چون center field در migration 0040 حذف شده است
+        # برای حفظ ترتیب migration ها این فایل را نگه می‌داریم
     ]
