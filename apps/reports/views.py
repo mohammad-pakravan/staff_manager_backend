@@ -2072,7 +2072,8 @@ def comprehensive_report(request):
     cancelled_amount = Decimal('0')
     
     for reservation in reservations:
-        amount = Decimal(str(reservation.amount or 0))
+        quantity = reservation.quantity or 1
+        amount = Decimal(str(reservation.amount or 0)) * Decimal(str(quantity))
         total_amount += amount
         if reservation.status == 'reserved':
             reserved_amount += amount
@@ -2171,17 +2172,18 @@ def comprehensive_report(request):
             }
         
         data = meal_options_data[meal_option_id]
-        data['total_reservations'] += 1
-        amount = Decimal(str(reservation.amount or 0))
+        quantity = reservation.quantity or 1
+        data['total_reservations'] += quantity
+        amount = Decimal(str(reservation.amount or 0)) * Decimal(str(quantity))
         data['total_amount'] += amount
-        
+
         if reservation.status == 'reserved':
-            data['reserved_count'] += 1
+            data['reserved_count'] += quantity
             data['reserved_amount'] += amount
         elif reservation.status == 'cancelled':
-            data['cancelled_count'] += 1
+            data['cancelled_count'] += quantity
         elif reservation.status == 'served':
-            data['served_count'] += 1
+            data['served_count'] += quantity
             data['served_amount'] += amount
     
     # اضافه کردن رزروهای مهمان غذا به گزارش MealOption
@@ -2289,16 +2291,17 @@ def comprehensive_report(request):
             meal_options_by_base_meal[base_meal_id] = {}
         
         data = base_meals_data[base_meal_id]
-        data['total_reservations'] += 1
-        amount = Decimal(str(reservation.amount or 0))
+        quantity = reservation.quantity or 1
+        data['total_reservations'] += quantity
+        amount = Decimal(str(reservation.amount or 0)) * Decimal(str(quantity))
         data['total_amount'] += amount
-        
+
         if reservation.status == 'reserved':
-            data['reserved_count'] += 1
+            data['reserved_count'] += quantity
         elif reservation.status == 'cancelled':
-            data['cancelled_count'] += 1
+            data['cancelled_count'] += quantity
         elif reservation.status == 'served':
-            data['served_count'] += 1
+            data['served_count'] += quantity
         
         if meal_option_id not in meal_options_by_base_meal[base_meal_id]:
             meal_options_by_base_meal[base_meal_id][meal_option_id] = {
@@ -2320,16 +2323,16 @@ def comprehensive_report(request):
             data['meal_options_count'] += 1
         
         meal_option_data = meal_options_by_base_meal[base_meal_id][meal_option_id]
-        meal_option_data['total_reservations'] += 1
+        meal_option_data['total_reservations'] += quantity
         meal_option_data['total_amount'] += amount
-        
+
         if reservation.status == 'reserved':
-            meal_option_data['reserved_count'] += 1
+            meal_option_data['reserved_count'] += quantity
             meal_option_data['reserved_amount'] += amount
         elif reservation.status == 'cancelled':
-            meal_option_data['cancelled_count'] += 1
+            meal_option_data['cancelled_count'] += quantity
         elif reservation.status == 'served':
-            meal_option_data['served_count'] += 1
+            meal_option_data['served_count'] += quantity
             meal_option_data['served_amount'] += amount
     
     # اضافه کردن رزروهای مهمان غذا به گزارش BaseMeal
@@ -2657,17 +2660,18 @@ def comprehensive_report(request):
             }
         
         data = users_data[user_id]
-        data['total_reservations'] += 1
-        amount = Decimal(str(reservation.amount or 0))
+        quantity = reservation.quantity or 1
+        data['total_reservations'] += quantity
+        amount = Decimal(str(reservation.amount or 0)) * Decimal(str(quantity))
         data['total_amount'] += amount
-        
+
         if reservation.status == 'reserved':
-            data['reserved_count'] += 1
+            data['reserved_count'] += quantity
             data['reserved_amount'] += amount
         elif reservation.status == 'cancelled':
-            data['cancelled_count'] += 1
+            data['cancelled_count'] += quantity
         elif reservation.status == 'served':
-            data['served_count'] += 1
+            data['served_count'] += quantity
     
     for guest_reservation in guest_reservations:
         user_id = guest_reservation.host_user.id
@@ -2791,10 +2795,11 @@ def comprehensive_report(request):
             }
         
         data = dates_data[date]
-        data['total_reservations'] += 1
-        amount = Decimal(str(reservation.amount or 0))
+        quantity = reservation.quantity or 1
+        data['total_reservations'] += quantity
+        amount = Decimal(str(reservation.amount or 0)) * Decimal(str(quantity))
         data['total_amount'] += amount
-        
+
         center_name = ', '.join([c.name for c in reservation.daily_menu.restaurant.centers.all()]) if reservation.daily_menu and reservation.daily_menu.restaurant and reservation.daily_menu.restaurant.centers.exists() else 'نامشخص'
         if center_name not in data['centers']:
             data['centers'][center_name] = {
@@ -2802,17 +2807,17 @@ def comprehensive_report(request):
                 'total_reservations': 0,
                 'total_amount': Decimal('0'),
             }
-        
-        data['centers'][center_name]['total_reservations'] += 1
+
+        data['centers'][center_name]['total_reservations'] += quantity
         data['centers'][center_name]['total_amount'] += amount
-        
+
         if reservation.status == 'reserved':
-            data['reserved_count'] += 1
+            data['reserved_count'] += quantity
             data['reserved_amount'] += amount
         elif reservation.status == 'cancelled':
-            data['cancelled_count'] += 1
+            data['cancelled_count'] += quantity
         elif reservation.status == 'served':
-            data['served_count'] += 1
+            data['served_count'] += quantity
     
     for guest_reservation in guest_reservations:
         if not guest_reservation.daily_menu:
