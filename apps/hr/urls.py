@@ -6,6 +6,7 @@ app_name = 'hr'
 urlpatterns = [
     # Announcement URLs
     path('announcements/', views.AnnouncementListView.as_view(), name='announcement-list'),
+    path('announcements/my/', views.MyAnnouncementsView.as_view(), name='my-announcements'),
     path('announcements/<int:pk>/', views.AnnouncementDetailView.as_view(), name='announcement-detail'),
     path('announcements/unread-count/', views.announcement_unread_count, name='announcement-unread-count'),
     path('announcements/<int:pk>/mark-as-read/', views.announcement_mark_as_read, name='announcement-mark-as-read'),

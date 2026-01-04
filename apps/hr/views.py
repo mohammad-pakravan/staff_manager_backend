@@ -2327,7 +2327,19 @@ class StoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         return super().destroy(request, *args, **kwargs)
 
 
-
-
-
-
+class MyAnnouncementsView(generics.ListAPIView):
+    """اطلاعیه‌های شخصی کاربر فعلی"""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AnnouncementListSerializer
+    pagination_class = CustomPageNumberPagination
+    
+    def get_queryset(self):
+        user = self.request.user
+        user_centers = user.centers.all()
+        
+        return Announcement.objects.filter(
+            is_active=True,
+            is_announcement=True
+        ).filter(
+            Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
+        ).distinct().order_by('-publish_date')
