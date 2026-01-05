@@ -152,22 +152,20 @@ def unsubscribe_by_endpoint(request):
     }
 )
 @api_view(['GET'])
-@permission_classes([permissions.AllowAny])  # VAPID public key یک اطلاعات عمومی است
+@permission_classes([permissions.AllowAny])
 def get_vapid_public_key(request):
-    """دریافت VAPID Public Key"""
-    from django.conf import settings
+    from decouple import config
     
-    webpush_settings = getattr(settings, 'WEBPUSH_SETTINGS', {})
-    vapid_public_key = webpush_settings.get('VAPID_PUBLIC_KEY', '')
+    vapid_key = config('VAPID_PUBLIC_KEY', default=None)
     
-    if not vapid_public_key:
+    if not vapid_key:
         return Response(
-            {'error': 'VAPID Public Key تنظیم نشده است'},
+            {'error': 'VAPID key not configured'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
     return Response({
-        'public_key': vapid_public_key
+        'vapid_key': str(vapid_key)
     })
 
 
