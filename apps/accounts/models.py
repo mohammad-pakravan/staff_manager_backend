@@ -34,6 +34,7 @@ class User(AbstractUser):
     manager = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='مدیر', related_name='subordinates')
     centers = models.ManyToManyField('centers.Center', blank=True, verbose_name='مراکز', related_name='users')
     phone_number = models.CharField(max_length=15, verbose_name='شماره تلفن')
+    national_id = models.CharField(max_length=10, blank=True, null=True, unique=True, verbose_name='کد ملی')
     profile_image = models.ImageField(upload_to='profiles/', blank=True, null=True, verbose_name='تصویر پروفایل')
     max_reservations_per_day = models.PositiveIntegerField(default=1, verbose_name='حداکثر رزرو در روز')
     max_guest_reservations_per_day = models.PositiveIntegerField(default=1, verbose_name='حداکثر رزرو مهمان در روز')

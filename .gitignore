@@ -133,6 +133,10 @@ staticfiles/
 media/
 logs/
 
+# Django migrations (keep __init__.py files)
+apps/*/migrations/*.py
+!apps/*/migrations/__init__.py
+
 # Docker
 .dockerignore
 
