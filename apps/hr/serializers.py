@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
+from .models import Announcement, AnnouncementReadStatus, Feedback, FirstPageImage, InsuranceForm, PhoneBook, Story
 from apps.centers.serializers import CenterSerializer
 from apps.accounts.serializers import UserSerializer
 # از jalali_date برای تبدیل تاریخ استفاده می‌کنیم
@@ -513,3 +513,8 @@ class StoryListSerializer(serializers.ModelSerializer):
     def get_is_expired(self, obj):
         """بررسی منقضی شدن استوری"""
         return obj.is_expired
+
+class FirstPageImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FirstPageImage
+        fields = ("id", "name", "image")

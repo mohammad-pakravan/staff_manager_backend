@@ -15,6 +15,7 @@ from .serializers import (
     FeedbackSerializer,
     FeedbackCreateSerializer,
     FeedbackUpdateSerializer,
+    FirstPageImageSerializer,
     InsuranceFormSerializer,
     InsuranceFormCreateSerializer,
     InsuranceFormUpdateSerializer,
@@ -26,6 +27,11 @@ from .serializers import (
 from .permissions import HRPermission, HRUpdatePermission
 # from apps.core.utils import get_jalali_now  # Not needed anymore
 from apps.core.pagination import CustomPageNumberPagination
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import FirstPageImage
+from .serializers import FirstPageImageSerializer
 
 
 @extend_schema_view(
@@ -2343,3 +2349,31 @@ class MyAnnouncementsView(generics.ListAPIView):
         ).filter(
             Q(centers__in=user_centers) | Q(send_to_all_users=True) | Q(target_users=user)
         ).distinct().order_by('-publish_date')
+
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["First Page Image"],
+        summary="Get first page image",
+        description="Returns the single image used for the first page (singleton resource).",
+        responses={
+            200: FirstPageImageSerializer,
+            404: None,
+        },
+    )
+)
+class FirstPageImageView(APIView):
+    permission_classes = []
+
+    def get(self, request):
+        obj = FirstPageImage.objects.first()
+
+        if not obj:
+            return Response(
+                {"detail": "No image found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = FirstPageImageSerializer(obj, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

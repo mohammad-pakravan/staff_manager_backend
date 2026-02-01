@@ -31,6 +31,10 @@ urlpatterns = [
     # Story URLs
     path('stories/', views.StoryListView.as_view(), name='story-list'),
     path('stories/<int:pk>/', views.StoryDetailView.as_view(), name='story-detail'),
+
+    #Image URL 
+    path("first-page-image/", views.FirstPageImageView.as_view(), name="first-page-image"),
+
 ]
 
 

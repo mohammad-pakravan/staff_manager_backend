@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali, date2jalali
-from .models import Announcement, AnnouncementReadStatus, Feedback, InsuranceForm, PhoneBook, Story
+from .models import Announcement, AnnouncementReadStatus, Feedback, FirstPageImage, InsuranceForm, PhoneBook, Story
 
 
 @admin.register(Announcement)
@@ -368,3 +368,6 @@ class StoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
+@admin.register(FirstPageImage)
+class FirstPageImageAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")

@@ -11,7 +11,7 @@ class CenterAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'logo')
+            'fields': ('name','english_name', 'logo')
         }),
         ('Status', {
             'fields': ('is_active',)

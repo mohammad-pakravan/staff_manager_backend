@@ -307,3 +307,20 @@ class Story(models.Model):
         self.save(update_fields=['thumbnail_image', 'content_file'])
 
 
+
+class FirstPageImage(models.Model):
+    name = models.CharField(max_length=200, verbose_name='عنوان')
+    image = models.ImageField(upload_to="first-page-image")
+
+    class Meta:
+        verbose_name = ("firstpageimage")
+        verbose_name_plural = ("firstpageimages")
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        # keep only one object in table
+        if not self.pk and FirstPageImage.objects.exists():
+            FirstPageImage.objects.all().delete()
+        super().save(*args, **kwargs)
