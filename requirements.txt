@@ -9,6 +9,7 @@ Pillow
 openpyxl
 reportlab
 pandas
+requests
 # Persian Date Support
 jdatetime
 django-jalali-date
