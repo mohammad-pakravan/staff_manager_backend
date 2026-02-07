@@ -4,7 +4,8 @@ Views for meals app
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view , OpenApiParameter, OpenApiResponse
+from drf_spectacular.types import OpenApiTypes
 from django.utils import timezone
 from datetime import timedelta
 from apps.food_management.permissions import (
@@ -12,11 +13,14 @@ from apps.food_management.permissions import (
     FoodManagementPermission
 )
 from apps.food_management.models import (
-    Restaurant, BaseMeal, DailyMenu, DailyMenuMealOption,
+    DailyMenuDessertOption, DessertReservation, FoodReservation, Restaurant, BaseMeal, DailyMenu, DailyMenuMealOption,
     Dessert
 )
 from apps.food_management.utils import parse_date_filter
 from apps.core.pagination import CustomPageNumberPagination
+ 
+from apps.reservations.serializers import FoodReservationSerializer, SimpleFoodReservationSerializer
+
 # برای سازگاری با کدهای قبلی
 Meal = BaseMeal
 from apps.meals.serializers import (
@@ -26,6 +30,8 @@ from apps.meals.serializers import (
     DessertSerializer, SimpleDessertSerializer
 )
 
+
+from apps.accounts.models import User
 
 # ========== Meal Management ==========
 
@@ -1367,3 +1373,231 @@ def admin_food_remove_dessert_from_menu(request):
         'daily_menu': serializer.data
     }, status=status.HTTP_200_OK)
 
+
+
+
+@extend_schema(
+    operation_id='admin_food_forget_reservations',
+    summary='Manage forget reservations for employees',
+    description='''
+    Food admin can create and view forget reservations for employees.
+    A forget reservation is created when an employee forgets to reserve their meal.
+    This endpoint allows:
+    1. GET: List all forget reservations for a specific employee with filtering options
+    2. POST: Create a new forget reservation for an employee
+    
+    Validations:
+    - Only food admin can access this endpoint
+    - User cannot have existing reservations (food or dessert) for the same daily menu
+    - All required fields must be provided
+    - Daily menu and options must exist
+    ''',
+    tags=[' forget reservation - Food Admin'],
+    parameters=[
+        OpenApiParameter(
+            name='pk',
+            description='Employee user ID',
+            required=True,
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH
+        ),
+        OpenApiParameter(
+            name='date',
+            description='Filter reservations by date (format: YYYY-MM-DD)',
+            required=False,
+            type=OpenApiTypes.DATE,
+            location=OpenApiParameter.QUERY
+        ),
+        OpenApiParameter(
+            name='status',
+            description='Filter reservations by status',
+            required=False,
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            enum=['reserved', 'delivered', 'forgotten', 'cancelled']
+        )
+    ],
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'daily_menu': {'type': 'integer', 'description': 'Daily menu ID'},
+                'meal_option': {'type': 'integer', 'description': 'Meal option ID'},
+                'quantity': {'type': 'integer', 'description': 'Number of meals'},
+                'base_dessert': {'type': 'boolean', 'description': 'Include base dessert'},
+                'dessert_option': {'type': 'integer', 'description': 'Dessert option ID (if base_dessert is true)'}
+            },
+            'required': ['daily_menu', 'meal_option', 'quantity']
+        }
+    },
+    responses={
+        200: OpenApiResponse(
+            description='List of forget reservations',
+            response=SimpleFoodReservationSerializer(many=True)
+        ),
+        201: OpenApiResponse(
+            description='Forget reservation created successfully',
+            response=SimpleFoodReservationSerializer
+        ),
+        400: OpenApiResponse(
+            description='Validation error or user already has reservation'
+        ),
+        403: OpenApiResponse(
+            description='Permission denied - only food admin can access'
+        ),
+        404: OpenApiResponse(
+            description='User, daily menu, or option not found'
+        ),
+        500: OpenApiResponse(
+            description='Internal server error'
+        )
+    }
+)
+@api_view(['GET', 'POST'])
+@permission_classes([IsFoodAdminOrSystemAdmin])
+def admin_food_forget_reservations(request, pk):
+    """ثبت رزرو فراموشی از منوی روزانه - فقط ادمین غذا"""
+    user = request.user
+    
+    # فقط ادمین غذا می‌تواند رزرو فراموشی انجام دهد
+    if user.role != 'admin_food':
+        return Response({
+            'error': 'فقط ادمین غذا می‌تواند رزرو فراموشی انجام دهد'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        employee = User.objects.get(pk=pk)
+    except User.DoesNotExist:
+        return Response({
+            'error': 'کاربر مورد نظر یافت نشد'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        # لیست رزروها
+        reservations = FoodReservation.objects.filter(user=employee).order_by('-reservation_date')
+        
+        # فیلتر بر اساس تاریخ
+        date = request.query_params.get('date')
+        if date:
+            parsed_date = parse_date_filter(date)
+            if parsed_date:
+                reservations = reservations.filter(daily_menu__date=parsed_date)
+        
+        # فیلتر بر اساس وضعیت
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            reservations = reservations.filter(status=status_filter)
+        
+        serializer = SimpleFoodReservationSerializer(reservations, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == "POST":
+        try:
+            data = request.data
+            
+            # اعتبارسنجی فیلدهای اجباری
+            required_fields = ['daily_menu', 'meal_option', 'quantity']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return Response({
+                        'error': f'فیلد {field} الزامی است'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # دریافت داده‌ها
+            daily_menu_id = data.get('daily_menu')
+            meal_option_id = data.get('meal_option')
+            quantity = data.get('quantity')
+            base_dessert = data.get('base_dessert')
+            dessert_option_id = data.get('dessert_option')
+     
+            
+            # بررسی موجودیت DailyMenu
+            try:
+                daily_menu = DailyMenu.objects.get(id=daily_menu_id)
+            except DailyMenu.DoesNotExist:
+                return Response({
+                    'error': 'منوی روزانه مورد نظر یافت نشد'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # بررسی موجودیت MealOption
+            try:
+                meal_option = DailyMenuMealOption.objects.get(id=meal_option_id)
+            except DailyMenuMealOption.DoesNotExist:
+                return Response({
+                    'error': 'گزینه غذایی مورد نظر یافت نشد'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # بررسی DessertOption اگر وجود داشته باشد
+            dessert_option = None
+            if dessert_option_id:
+                try:
+                    dessert_option = DailyMenuDessertOption.objects.get(id=dessert_option_id)
+                except DailyMenuDessertOption.DoesNotExist:
+                    return Response({
+                        'error': 'گزینه دسر مورد نظر یافت نشد'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            # بررسی اینکه آیا کاربر قبلاً برای این منو رزرو داشته یا نه
+            existing_reservation = FoodReservation.objects.filter(
+                user=employee,
+                daily_menu=daily_menu,
+                status__in=['reserved', 'delivered', 'forgotten']
+            ).first()
+            
+            if existing_reservation:
+                return Response({
+                    'error': 'این کاربر قبلاً برای این منو رزرو داشته است',
+                    'existing_reservation': SimpleFoodReservationSerializer(existing_reservation).data
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # محاسبه مبلغ
+            try:
+                meal_price = meal_option.price
+                dessert_price = dessert_option.price if dessert_option else 0
+                amount = (meal_price + dessert_price) * int(quantity)
+            except (ValueError, AttributeError) as e:
+                return Response({
+                    'error': 'خطا در محاسبه مبلغ'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # ایجاد رزرو فراموشی
+            reservation = FoodReservation.objects.create(
+                user=employee,
+                daily_menu=daily_menu,
+                meal_option=meal_option,
+                quantity=int(quantity),
+                amount=amount,
+                status='forgotten',  # وضعیت فراموشی
+ 
+ 
+                 
+            )
+            dessert_reservation = DessertReservation.objects.create(
+                user=employee,
+                daily_menu=daily_menu,
+                dessert_option=dessert_option,
+                quantity=int(quantity),
+                amount=dessert_option.price,
+                status='forgotten',  # وضعیت فراموشی
+ 
+            )
+            
+            
+ 
+            
+            serializer = FoodReservationSerializer(reservation)
+            return Response({
+                'message': 'رزرو فراموشی با موفقیت ثبت شد',
+                'data': serializer.data
+            }, status=status.HTTP_201_CREATED)
+            
+        except ValueError as e:
+            return Response({
+                'error': 'مقادیر ورودی نامعتبر است'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                'error': f'خطا در ثبت رزرو: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+      

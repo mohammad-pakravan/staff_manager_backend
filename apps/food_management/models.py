@@ -198,6 +198,7 @@ class FoodReservation(models.Model):
             ('reserved', 'رزرو شده'),
             ('cancelled', 'لغو شده'),
             ('served', 'سرو شده'),
+            ('forgotten', 'فراموشی'),
         ],
         default='reserved',
         verbose_name='وضعیت'
@@ -314,6 +315,7 @@ class GuestReservation(models.Model):
             ('reserved', 'رزرو شده'),
             ('cancelled', 'لغو شده'),
             ('served', 'سرو شده'),
+           
         ],
         default='reserved',
         verbose_name='وضعیت'
@@ -430,6 +432,7 @@ class DessertReservation(models.Model):
             ('reserved', 'رزرو شده'),
             ('cancelled', 'لغو شده'),
             ('served', 'سرو شده'),
+            ('forgotten', 'فراموشی'),
         ],
         default='reserved',
         verbose_name='وضعیت'

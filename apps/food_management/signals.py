@@ -6,6 +6,9 @@ from django.db.models.signals import post_delete, pre_delete, pre_save, post_sav
 from django.dispatch import receiver
 from django.utils import timezone
 from .models import FoodReservation, GuestReservation, DessertReservation, DailyMenu, DailyMenuMealOption, DailyMenuDessertOption
+from django.db import models
+from django.db import transaction
+from django.db.models import F
 
 
 # ذخیره وضعیت قبلی رزروها برای تشخیص تغییر
@@ -16,28 +19,35 @@ _meal_option_previous_state = {}
 _dessert_option_previous_state = {}
 
 
+def safe_decrement_reserved_quantity(meal_option_id, decrement_by):
+    """
+    کاهش ایمن مقدار reserved_quantity
+    """
+    with transaction.atomic():
+        # قفل کردن ردیف برای جلوگیری از race condition
+        from apps.food_management.models import DailyMenuMealOption
+        meal_option = DailyMenuMealOption.objects.select_for_update().get(id=meal_option_id)
+        
+        # محاسبه مقدار جدید با اطمینان از عدم منفی شدن
+        new_value = max(0, meal_option.reserved_quantity - decrement_by)
+        
+        if new_value != meal_option.reserved_quantity:
+            meal_option.reserved_quantity = new_value
+            meal_option.save()
+
+
 @receiver(post_delete, sender=FoodReservation)
 def update_meal_option_on_reservation_delete(sender, instance, **kwargs):
     """به‌روزرسانی تعداد رزرو شده هنگام حذف رزرو"""
     if instance.meal_option:
-        # به‌روزرسانی reserved_quantity در DailyMenuMealOption
-        from django.db.models import F
-        DailyMenuMealOption.objects.filter(id=instance.meal_option.id).update(
-            reserved_quantity=F('reserved_quantity') - instance.quantity
-        )
+        safe_decrement_reserved_quantity(instance.meal_option.id, instance.quantity)
 
 
 @receiver(post_delete, sender=GuestReservation)
 def update_meal_option_on_guest_reservation_delete(sender, instance, **kwargs):
     """به‌روزرسانی تعداد رزرو شده هنگام حذف رزرو مهمان"""
     if instance.meal_option:
-        # به‌روزرسانی reserved_quantity در DailyMenuMealOption
-        from django.db.models import F
-        DailyMenuMealOption.objects.filter(id=instance.meal_option.id).update(
-            reserved_quantity=F('reserved_quantity') - 1
-        )
-
-
+        safe_decrement_reserved_quantity(instance.meal_option.id, 1)
 @receiver(pre_delete, sender=DailyMenu)
 def save_daily_menu_info_before_delete(sender, instance, **kwargs):
     """ذخیره اطلاعات منو در رزروها قبل از حذف"""

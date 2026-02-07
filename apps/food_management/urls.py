@@ -67,5 +67,10 @@ urlpatterns = [
     path('employee/guest-reservations/', reservations_views.employee_create_guest_reservation, name='employee-create-guest-reservation'),
     path('employee/guest-reservations/<int:guest_reservation_id>/', reservations_views.employee_update_guest_reservation, name='employee-update-guest-reservation'),
     path('employee/guest-reservations/<int:guest_reservation_id>/cancel/', reservations_views.employee_cancel_guest_reservation, name='employee-cancel-guest-reservation'),
+
+
+
+    # Food Admin Forget  Reservations
+    path("forget/reservations/<int:pk>" , meals_views.admin_food_forget_reservations , name= "admin-food-forget-eservations")
 ]
 
