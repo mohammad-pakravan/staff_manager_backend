@@ -928,7 +928,6 @@ class CombinedGuestReservationResponseSerializer(serializers.Serializer):
             'type': 'meal',
             'guest_name': f"{meal_reservation.guest_first_name} {meal_reservation.guest_last_name}",
             'meal_option': meal_reservation.meal_option.title if meal_reservation.meal_option else None,
-            'quantity': meal_reservation.meal_option.reserved_quantity if meal_reservation.meal_option else None,
             'amount': str(meal_reservation.amount),
         }
     
@@ -942,7 +941,6 @@ class CombinedGuestReservationResponseSerializer(serializers.Serializer):
             'type': 'dessert',
             'guest_name': f"{dessert_reservation.guest_first_name} {dessert_reservation.guest_last_name}",
             'dessert_option': dessert_reservation.dessert_option.title if dessert_reservation.dessert_option else None,
-            'quantity': dessert_reservation.dessert_option.reserved_quantity if dessert_reservation.dessert_option else None,
             'amount': str(dessert_reservation.amount),
         }
 
