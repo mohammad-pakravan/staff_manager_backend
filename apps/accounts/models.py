@@ -33,6 +33,7 @@ class User(AbstractUser):
     position = models.ForeignKey('Position', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='سمت', related_name='users')
     manager = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='مدیر', related_name='subordinates')
     centers = models.ManyToManyField('centers.Center', blank=True, verbose_name='مراکز', related_name='users')
+    
     phone_number = models.CharField(max_length=15, verbose_name='شماره تلفن')
     national_id = models.CharField(max_length=10, blank=True, null=True, unique=True, verbose_name='کد ملی')
     profile_image = models.ImageField(upload_to='profiles/', blank=True, null=True, verbose_name='تصویر پروفایل')
@@ -71,3 +72,22 @@ class User(AbstractUser):
         if center is None:
             return False
         return self.centers.filter(id=center.id).exists()
+
+
+class Gathering(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='کاربر')
+    name = models.CharField(max_length=100, verbose_name='نام')
+    last_name = models.CharField(max_length=100, verbose_name='نام خانوادگی')
+    personal_code = models.CharField(max_length=100, verbose_name='کد ملی')
+    center = models.CharField(max_length=100, verbose_name='مرکز')
+    family_members_count = models.IntegerField(verbose_name='تعداد اعضای خانواده')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'گردهمایی'
+        verbose_name_plural = 'گردهماییها'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name

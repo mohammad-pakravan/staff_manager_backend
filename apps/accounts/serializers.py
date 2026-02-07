@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from drf_spectacular.utils import extend_schema_field
-from .models import User
+from ..centers.models import Center
+from .models import Gathering, User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -157,3 +158,59 @@ class LoginResponseSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+
+class GatheringSerializer(serializers.ModelSerializer):
+    # For read operations (GET)
+    user = serializers.StringRelatedField(read_only=True)
+    center = serializers.StringRelatedField(read_only=True)
+    
+    # For write operations (POST, PUT, PATCH)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), 
+        write_only=True,
+        source='user'
+    )
+    center_id = serializers.PrimaryKeyRelatedField(
+        queryset=Center.objects.all(),
+        write_only=True,
+        source='center'
+    )
+    
+    class Meta:
+        model = Gathering
+        fields = [
+            'id',
+            'user', 'user_id',
+            'name', 'last_name',
+            'personal_code',
+            'center', 'center_id',
+            'family_members_count',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_personal_code(self, value):
+        """Validate national code (کد ملی)"""
+        # Add your validation logic for Iranian national code
+        if len(value) != 10:
+            raise serializers.ValidationError("کد ملی باید ۱۰ رقمی باشد.")
+        # Add more validation as needed
+        return value
+    
+    def validate_family_members_count(self, value):
+        """Validate family members count"""
+        if value < 1:
+            raise serializers.ValidationError("تعداد اعضای خانواده باید حداقل ۱ باشد.")
+        if value > 20:  # Adjust maximum as needed
+            raise serializers.ValidationError("تعداد اعضای خانواده نباید از ۲۰ بیشتر باشد.")
+        return value
+    
+    def create(self, validated_data):
+        """Override create to add any custom logic"""
+        # You can add additional logic here before creation
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        """Override update to add any custom logic"""
+        # You can add additional logic here before update
+        return super().update(instance, validated_data)

@@ -1,7 +1,24 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import User, Position
+from .models import User, Position , Gathering
+
+@admin.register(Gathering)
+class GatheringAdmin(admin.ModelAdmin):
+    """Admin interface for Gathering model"""
+    
+    # Display fields in list view
+    list_display = [
+        'name',
+        'last_name',
+        'personal_code', 
+        'center', 
+        'family_members_count', 
+ 
+ 
+ 
+    ]
+    
 
 
 @admin.register(Position)

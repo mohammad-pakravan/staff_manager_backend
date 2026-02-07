@@ -8,7 +8,7 @@ python-decouple
 Pillow
 openpyxl
 reportlab
-
+pandas
 # Persian Date Support
 jdatetime
 django-jalali-date

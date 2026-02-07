@@ -292,3 +292,15 @@ class UserReportPermission(permissions.BasePermission):
         # اگر user_id ارسال نشده باشد، گزارش برای کاربر لاگین شده است که مجاز است
         return True
 
+class UserHumanResourcesPermission(permissions.BasePermission):
+    """دسترسی برای endpoint های Human Resources"""
+    
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False    
+        user = request.user
+        if user.role == 'hr':
+            return True
+        if user.role == 'sys_admin':
+            return True
+        return False

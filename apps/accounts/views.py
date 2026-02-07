@@ -6,8 +6,22 @@ from django.contrib.auth import authenticate
 from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
-from .models import User
-from .serializers import UserSerializer, UserRegistrationSerializer, LoginSerializer, LoginResponseSerializer
+from  ..food_management.permissions import UserHumanResourcesPermission
+from .models import Gathering, User
+from .serializers import GatheringSerializer, UserSerializer, UserRegistrationSerializer, LoginSerializer, LoginResponseSerializer
+from rest_framework.views import APIView
+from datetime import datetime
+from rest_framework import filters
+
+import pandas as pd
+from django.http import HttpResponse
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from io import BytesIO
+import openpyxl
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, Alignment, PatternFill
+from django.utils.encoding import iri_to_uri
 
 
 @extend_schema(
@@ -307,3 +321,232 @@ class UserListCreateView(generics.ListCreateAPIView):
         output_serializer = UserSerializer(user, context=self.get_serializer_context())
         headers = self.get_success_headers(output_serializer.data)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary='List Gatherings',
+        description='لیست گردهمایی‌ها',
+        tags=['Gatherings'],
+        responses={200: GatheringSerializer(many=True)}
+    ),
+    post=extend_schema(
+        summary='Create Gathering',
+        description='ایجاد گردهمایی جدید',
+        tags=['Gatherings'],
+        request=GatheringSerializer,
+        responses={
+            201: GatheringSerializer,
+            400: {'description': 'Validation error'}
+        }
+    )
+)
+class GatheringListCreateView(generics.ListCreateAPIView):
+    """
+    View for listing and creating gatherings
+    """
+  
+    serializer_class = GatheringSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [ filters.SearchFilter]
+    filterset_fields = ['user', 'center']
+    search_fields = ['name', 'last_name', 'personal_code']
+    def get_queryset(self):
+        """
+        Return only the current user's gatherings
+        """
+        return Gathering.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        Save the gathering with the current user if not provided
+        """
+        # If user is not provided in request, use current user
+        if 'user' not in serializer.validated_data:
+            serializer.save(user=self.request.user)
+        else:
+            serializer.save()
+
+
+
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary='Export All Gatherings to Excel',
+        description='خروجی اکسل از تمامی گردهمایی‌ها',
+        tags=['Gatherings'],
+        responses={
+            200: {'description': 'Excel file'},
+            404: {'description': 'Not found'}
+        }
+    )
+)
+class ExportAllGatheringsView(APIView):
+    """Export all gatherings to Excel"""
+    permission_classes = [UserHumanResourcesPermission]
+    
+    def get(self, request):
+        gatherings = Gathering.objects.all().select_related('user')
+        
+        if not gatherings.exists():
+            return Response(
+                {'error': 'هیچ گردهمایی یافت نشد'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Prepare data for DataFrame
+        data = []
+        for gathering in gatherings:
+            data.append({
+                'نام': gathering.name,
+                'نام خانوادگی': gathering.last_name,
+                'کد ملی': gathering.personal_code,
+                'مرکز': gathering.center,
+                'تعداد اعضای خانواده': gathering.family_members_count,
+                'کاربر ایجاد کننده': gathering.user.username,
+                'تاریخ ایجاد': gathering.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'تاریخ آخرین ویرایش': gathering.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        df = pd.DataFrame(data)
+        
+        # Create Excel file in memory
+        output = BytesIO()
+        
+        # Create Excel writer
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='گردهمایی‌ها', index=False)
+            
+            # Access the workbook and worksheet
+            workbook = writer.book
+            worksheet = writer.sheets['گردهمایی‌ها']
+            
+            # Style the header row (Persian/RTL support)
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_font = Font(color="FFFFFF", bold=True)
+            header_alignment = Alignment(horizontal="center", vertical="center")
+            
+            for col_num, column_title in enumerate(df.columns, 1):
+                cell = worksheet.cell(row=1, column=col_num)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+                
+                # Auto-adjust column width
+                column_letter = get_column_letter(col_num)
+                max_length = 0
+                for idx, value in enumerate(df[column_title]):
+                    max_length = max(max_length, len(str(value)))
+                max_length = max(max_length, len(column_title))
+                worksheet.column_dimensions[column_letter].width = min(max_length + 10, 50)
+            
+            # Style data rows
+            for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+                for cell in row:
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+        
+        # Prepare the response
+        output.seek(0)
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+        filename = f"all_gatherings_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        encoded_filename = iri_to_uri(filename)
+        response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+        
+        return response
+    """
+    View for retrieving, updating and deleting a gathering
+    """
+    queryset = Gathering.objects.all()
+    serializer_class = GatheringSerializer
+    permission_classes = [UserHumanResourcesPermission]
+
+    @extend_schema(
+        summary='Export Gathering to Excel',
+        description='خروجی اکسل از اطلاعات گردهمایی',
+        tags=['Gatherings'],
+        responses={
+            200: {'description': 'Excel file'},
+            404: {'description': 'Not found'}
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='export-excel')
+    def export_excel(self, request, pk=None):
+        """Export a single gathering to Excel"""
+        try:
+            gathering = self.get_object()
+            
+            # Create a DataFrame from the gathering data
+            data = {
+                'نام': [gathering.name],
+                'نام خانوادگی': [gathering.last_name],
+                'کد ملی': [gathering.personal_code],
+                'مرکز': [gathering.center],
+                'تعداد اعضای خانواده': [gathering.family_members_count],
+                'کاربر ایجاد کننده': [gathering.user.username],
+                'تاریخ ایجاد': [gathering.created_at.strftime('%Y-%m-%d %H:%M:%S')],
+                'تاریخ آخرین ویرایش': [gathering.updated_at.strftime('%Y-%m-%d %H:%M:%S')]
+            }
+            
+            df = pd.DataFrame(data)
+            
+            # Create Excel file in memory
+            output = BytesIO()
+            
+            # Create Excel writer
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='گردهمایی', index=False)
+                
+                # Access the workbook and worksheet
+                workbook = writer.book
+                worksheet = writer.sheets['گردهمایی']
+                
+                # Style the header row
+                header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                header_font = Font(color="FFFFFF", bold=True)
+                header_alignment = Alignment(horizontal="center", vertical="center")
+                
+                for col_num, column_title in enumerate(df.columns, 1):
+                    cell = worksheet.cell(row=1, column=col_num)
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = header_alignment
+                    
+                    # Auto-adjust column width
+                    column_letter = get_column_letter(col_num)
+                    max_length = max(
+                        df[column_title].astype(str).apply(len).max(),
+                        len(column_title)
+                    )
+                    worksheet.column_dimensions[column_letter].width = min(max_length + 10, 50)
+                
+                # Style data rows
+                for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+                    for cell in row:
+                        cell.alignment = Alignment(horizontal="right", vertical="center")
+            
+            # Prepare the response
+            output.seek(0)
+            response = HttpResponse(
+                output.read(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            
+            # Create filename with gathering info
+            filename = f"gathering_{gathering.personal_code}_{gathering.name}_{gathering.last_name}.xlsx"
+            encoded_filename = iri_to_uri(filename)
+            response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"'
+            
+            return response
+            
+        except Gathering.DoesNotExist:
+            return Response(
+                {'error': 'گردهمایی یافت نشد'},
+                status=status.HTTP_404_NOT_FOUND
+            )
