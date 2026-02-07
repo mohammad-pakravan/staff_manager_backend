@@ -17,7 +17,7 @@ from apps.food_management.models import (
 from apps.food_management.utils import parse_date_filter
 from apps.core.pagination import CustomPageNumberPagination
 from apps.reservations.serializers import (
-    FoodReservationSerializer, FoodReservationCreateSerializer,
+    CombinedGuestReservationCreateSerializer, CombinedGuestReservationResponseSerializer, FoodReservationSerializer, FoodReservationCreateSerializer,
     SimpleFoodReservationSerializer, GuestReservationSerializer,
     GuestReservationCreateSerializer, SimpleGuestReservationSerializer,
     DessertReservationSerializer, DessertReservationCreateSerializer,
@@ -1149,6 +1149,62 @@ def cancel_dessert_reservation(request, reservation_id):
         }, status=status.HTTP_404_NOT_FOUND)
 
 
+
+
+# ========== Combined Guest Reservation View ==========
+
+@extend_schema(
+    operation_id='combined_guest_reservation_create',
+    summary='Create Combined Food and Dessert Reservation',
+    description='Create food and/or dessert reservation in a single request. At least one of meal_option or dessert_option must be provided.',
+    tags=['Reservations'],
+    request=CombinedReservationCreateSerializer,
+    responses={
+        201: {
+            'description': 'Reservations created successfully',
+            'content': {
+                'application/json': {
+                    'schema': {
+                        'type': 'object',
+                        'properties': {
+                            'meal_reservation': {'type': 'object', 'nullable': True},
+                            'dessert_reservation': {'type': 'object', 'nullable': True}
+                        }
+                    }
+                }
+            }
+        },
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'}
+    }
+)
+@api_view(['POST'])
+@permission_classes([FoodManagementPermission])
+def combined_guest_reservation_create(request):
+    """ایجاد رزرو یکپارچه غذا و دسر"""
+    serializer = CombinedGuestReservationCreateSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        # بررسی اینکه daily_menu متعلق به یکی از مراکز کاربر است
+        daily_menu = serializer.validated_data['daily_menu']
+        restaurant_centers = daily_menu.restaurant.centers.all() if daily_menu.restaurant else []
+        
+        if not any(request.user.has_center(center) for center in restaurant_centers):
+            return Response(
+                {'error': 'شما نمی‌توانید برای این مرکز رزرو کنید'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # ایجاد رزروها
+        results = serializer.save()
+        
+    
+        # استفاده از Serializer برای response
+        response_serializer = CombinedGuestReservationResponseSerializer(results)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 # ========== Combined Reservation View ==========
 
 @extend_schema(
@@ -1552,6 +1608,156 @@ def combined_reservation_delete(request):
         'cancelled_meal': cancelled_meal,
         'cancelled_dessert': cancelled_dessert
     }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    operation_id='combined_guest_reservation_delete',
+    summary='Cancel Combined Food and Dessert Reservation (Employee)',
+    description='Cancel food and/or dessert reservation. At least one of meal_reservation_id or dessert_reservation_id must be provided. (only own reservations)',
+    tags=['Reservations'],
+    parameters=[
+        {
+            'name': 'meal_reservation_id',
+            'in': 'query',
+            'description': 'ID of meal reservation to cancel',
+            'required': False,
+            'schema': {'type': 'integer'}
+        },
+        {
+            'name': 'dessert_reservation_id',
+            'in': 'query',
+            'description': 'ID of dessert reservation to cancel',
+            'required': False,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    responses={
+        200: {'description': 'Reservations cancelled successfully'},
+        400: {'description': 'Validation error'},
+        403: {'description': 'Permission denied'},
+        404: {'description': 'Reservation not found'}
+    }
+)
+@api_view(['DELETE'])
+@permission_classes([FoodManagementPermission])
+def combined_guest_reservation_delete(request):
+    """لغو رزرو یکپارچه غذا و دسر برای کارمند"""
+    from django.utils import timezone
+    user = request.user
+    
+    meal_reservation_id = request.query_params.get('meal_reservation_id')
+    dessert_reservation_id = request.query_params.get('dessert_reservation_id')
+    
+    # حداقل یکی از reservation_id ها باید وجود داشته باشد
+    if not meal_reservation_id and not dessert_reservation_id:
+        return Response(
+            {'error': 'حداقل یکی از meal_reservation_id یا dessert_reservation_id باید ارسال شود'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    cancelled_meal = False
+    cancelled_dessert = False
+    
+    # لغو رزرو غذا
+    if meal_reservation_id:
+        try:
+            meal_reservation_id = int(meal_reservation_id)
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'meal_reservation_id باید عدد باشد'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            meal_reservation = GuestReservation.objects.get(id=meal_reservation_id)
+        except FoodReservation.DoesNotExist:
+            return Response(
+                {'error': 'رزرو غذا یافت نشد'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # بررسی اینکه رزرو متعلق به کاربر است
+        if meal_reservation.user != user:
+            return Response(
+                {'error': 'شما دسترسی به این رزرو ندارید'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # بررسی اینکه رزرو قابل لغو است
+        if meal_reservation.status != 'reserved':
+            return Response(
+                {'error': 'فقط رزروهای فعال قابل لغو هستند'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بازگرداندن موجودی
+        meal_option = meal_reservation.meal_option
+        if meal_option:
+            meal_option.reserved_quantity = max(0, meal_option.reserved_quantity - meal_reservation.quantity)
+            meal_option.save()
+        
+        # لغو رزرو (تغییر وضعیت به cancelled)
+        meal_reservation.status = 'cancelled'
+        meal_reservation.cancelled_at = timezone.now()
+        meal_reservation.save()
+        cancelled_meal = True
+    
+    # لغو رزرو دسر
+    if dessert_reservation_id:
+        try:
+            dessert_reservation_id = int(dessert_reservation_id)
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'dessert_reservation_id باید عدد باشد'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            dessert_reservation = GuestDessertReservation.objects.get(id=dessert_reservation_id)
+        except GuestDessertReservation.DoesNotExist:
+            return Response(
+                {'error': 'رزرو دسر یافت نشد'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # بررسی اینکه رزرو متعلق به کاربر است
+        if dessert_reservation.host_user != user:
+            return Response(
+                {'error': 'شما دسترسی به این رزرو ندارید'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # بررسی اینکه رزرو قابل لغو است
+        if dessert_reservation.status != 'reserved':
+            return Response(
+                {'error': 'فقط رزروهای فعال قابل لغو هستند'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # بازگرداندن موجودی
+        dessert_option = dessert_reservation.dessert_option
+        if dessert_option:
+            dessert_option.reserved_quantity = max(0, dessert_option.reserved_quantity - dessert_reservation.quantity)
+            dessert_option.save()
+        
+        # لغو رزرو (تغییر وضعیت به cancelled)
+        dessert_reservation.status = 'cancelled'
+        dessert_reservation.cancelled_at = timezone.now()
+        dessert_reservation.save()
+        cancelled_dessert = True
+    
+    message_parts = []
+    if cancelled_meal:
+        message_parts.append('رزرو غذا')
+    if cancelled_dessert:
+        message_parts.append('رزرو دسر')
+    
+    return Response({
+        'message': f"{' و '.join(message_parts)} با موفقیت لغو شد",
+        'cancelled_meal': cancelled_meal,
+        'cancelled_dessert': cancelled_dessert
+    }, status=status.HTTP_200_OK)
+
 
 
 # ========== Guest Dessert Reservation Views ==========

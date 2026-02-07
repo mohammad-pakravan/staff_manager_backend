@@ -763,6 +763,189 @@ class CombinedReservationCreateSerializer(serializers.Serializer):
         return results
 
 
+class CombinedGuestReservationCreateSerializer(serializers.Serializer):
+    """سریالایزر یکپارچه برای رزرو غذا و دسر"""
+    daily_menu = serializers.PrimaryKeyRelatedField(
+        queryset=DailyMenu.objects.all(),
+        required=True
+    )
+    guest_first_name = serializers.CharField(
+        required=True,
+        max_length=100,
+        help_text="نام میهمان"
+    )
+    guest_last_name = serializers.CharField(
+        required=True,
+        max_length=100,
+        help_text="نام خانوادگی میهمان"
+    )
+    base_meal = serializers.IntegerField(required=False, allow_null=True)
+    meal_option = serializers.PrimaryKeyRelatedField(
+        queryset=DailyMenuMealOption.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    meal_quantity = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    dessert = serializers.IntegerField(required=False, allow_null=True)
+    dessert_option = serializers.PrimaryKeyRelatedField(
+        queryset=DailyMenuDessertOption.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    dessert_quantity = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    quantity = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="توضیحات اضافی برای رزرو"
+    )
+
+    def validate(self, data):
+        daily_menu = data.get('daily_menu')
+        meal_option = data.get('meal_option')
+        dessert_option = data.get('dessert_option')
+
+        # map کردن quantity به meal_quantity یا dessert_quantity
+        quantity = data.get('quantity')
+        if quantity is not None:
+            if meal_option and not data.get('meal_quantity'):
+                data['meal_quantity'] = quantity
+            if dessert_option and not data.get('dessert_quantity'):
+                data['dessert_quantity'] = quantity
+
+        meal_quantity = data.get('meal_quantity', 1)
+        dessert_quantity = data.get('dessert_quantity', 1)
+        
+        # حداقل یکی از meal_option یا dessert_option باید وجود داشته باشد
+        if not meal_option and not dessert_option:
+            raise serializers.ValidationError({
+                'error': 'حداقل یکی از meal_option یا dessert_option باید انتخاب شود'
+            })
+        
+        # بررسی meal_option
+        if meal_option:
+            if meal_option.daily_menu != daily_menu:
+                raise serializers.ValidationError({
+                    'meal_option': 'گزینه غذا باید متعلق به منوی روزانه انتخاب شده باشد'
+                })
+            
+            if meal_option.price <= 0:
+                raise serializers.ValidationError({
+                    'meal_option': 'قیمت غذا باید بیشتر از صفر باشد'
+                })
+            
+            available_quantity = meal_option.available_quantity
+            if available_quantity < meal_quantity:
+                raise serializers.ValidationError({
+                    'meal_quantity': f'موجودی کافی نیست. موجودی: {available_quantity}'
+                })
+        
+        # بررسی dessert_option
+        if dessert_option:
+            if dessert_option.daily_menu != daily_menu:
+                raise serializers.ValidationError({
+                    'dessert_option': 'گزینه دسر باید متعلق به منوی روزانه انتخاب شده باشد'
+                })
+            
+            if dessert_option.price <= 0:
+                raise serializers.ValidationError({
+                    'dessert_option': 'قیمت دسر باید بیشتر از صفر باشد'
+                })
+            
+            available_quantity = dessert_option.available_quantity
+            if available_quantity < dessert_quantity:
+                raise serializers.ValidationError({
+                    'dessert_quantity': f'موجودی کافی نیست. موجودی: {available_quantity}'
+                })
+        
+        return data
+    
+    def create(self, validated_data):
+        user = self.context['request'].user
+        
+        # استخراج اطلاعات میهمان از validated_data
+        guest_first_name = validated_data.pop('guest_first_name')
+        guest_last_name = validated_data.pop('guest_last_name')
+        description = validated_data.pop('description', None)
+        
+        daily_menu = validated_data['daily_menu']
+        meal_option = validated_data.get('meal_option')
+        dessert_option = validated_data.get('dessert_option')
+        meal_quantity = validated_data.get('meal_quantity', 1)
+        dessert_quantity = validated_data.get('dessert_quantity', 1)
+        
+        results = {
+            'meal_reservation': None,
+            'dessert_reservation': None
+        }
+        
+        # ایجاد رزرو غذا
+        if meal_option:
+            amount = meal_option.price * meal_quantity
+            meal_reservation = GuestReservation.objects.create(
+                host_user=user,
+                guest_first_name=guest_first_name,
+                guest_last_name=guest_last_name,
+                daily_menu=daily_menu,
+                meal_option=meal_option,
+                amount=amount,
+                description=description
+            )
+            meal_option.reserved_quantity += meal_quantity
+            meal_option.save()
+            results['meal_reservation'] = meal_reservation
+        
+        # ایجاد رزرو دسر
+        if dessert_option:
+            amount = dessert_option.price * dessert_quantity
+            dessert_reservation = GuestDessertReservation.objects.create(
+                host_user=user,
+                guest_first_name=guest_first_name,
+                guest_last_name=guest_last_name,
+                daily_menu=daily_menu,
+                dessert_option=dessert_option,
+                amount=amount
+            )
+            dessert_option.reserved_quantity += dessert_quantity
+            dessert_option.save()
+            results['dessert_reservation'] = dessert_reservation
+        
+        return results
+
+class CombinedGuestReservationResponseSerializer(serializers.Serializer):
+    message = serializers.CharField(default='رزرو با موفقیت ایجاد شد')
+    meal_reservation = serializers.SerializerMethodField()
+    dessert_reservation = serializers.SerializerMethodField()
+    
+    def get_meal_reservation(self, obj):
+        meal_reservation = obj.get('meal_reservation')
+        if not meal_reservation:
+            return None
+        
+        return {
+            'id': meal_reservation.id,
+            'type': 'meal',
+            'guest_name': f"{meal_reservation.guest_first_name} {meal_reservation.guest_last_name}",
+            'meal_option': meal_reservation.meal_option.title if meal_reservation.meal_option else None,
+            'quantity': meal_reservation.meal_option.reserved_quantity if meal_reservation.meal_option else None,
+            'amount': str(meal_reservation.amount),
+        }
+    
+    def get_dessert_reservation(self, obj):
+        dessert_reservation = obj.get('dessert_reservation')
+        if not dessert_reservation:
+            return None
+        
+        return {
+            'id': dessert_reservation.id,
+            'type': 'dessert',
+            'guest_name': f"{dessert_reservation.guest_first_name} {dessert_reservation.guest_last_name}",
+            'dessert_option': dessert_reservation.dessert_option.title if dessert_reservation.dessert_option else None,
+            'quantity': dessert_reservation.dessert_option.reserved_quantity if dessert_reservation.dessert_option else None,
+            'amount': str(dessert_reservation.amount),
+        }
+
 class CombinedReservationUpdateSerializer(serializers.Serializer):
     """سریالایزر برای به‌روزرسانی رزرو یکپارچه غذا و دسر"""
     meal_reservation_id = serializers.IntegerField(required=False, allow_null=True)

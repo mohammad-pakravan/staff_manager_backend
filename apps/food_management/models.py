@@ -300,8 +300,8 @@ class FoodReservation(models.Model):
 class GuestReservation(models.Model):
     """رزرو غذا برای مهمان"""
     host_user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='کاربر میزبان')
-    guest_first_name = models.CharField(max_length=150, verbose_name='نام مهمان')
-    guest_last_name = models.CharField(max_length=150, verbose_name='نام خانوادگی مهمان')
+    guest_first_name = models.CharField(max_length=150,blank=False, verbose_name='نام مهمان')
+    guest_last_name = models.CharField(max_length=150, blank=False, verbose_name='نام خانوادگی مهمان')
     daily_menu = models.ForeignKey(DailyMenu, on_delete=models.SET_NULL, verbose_name='منوی روزانه', null=True, blank=True)
     meal_option = models.ForeignKey('DailyMenuMealOption', on_delete=models.SET_NULL, verbose_name='گزینه غذا', null=True, blank=True)
     description = models.TextField(blank=True, null=True, verbose_name='توضیحات')
