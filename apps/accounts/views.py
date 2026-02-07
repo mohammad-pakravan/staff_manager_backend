@@ -22,6 +22,56 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill
 from django.utils.encoding import iri_to_uri
+from django.conf import settings
+import requests
+
+
+
+def send_to_external_api(phone_number,request_type):
+    """Helper function to send phone number to external API"""
+    try:
+        external_url = getattr(settings, 'EXTERNAL_API_URL', f'https://auth.metafa.ir/auth/service/{request_type}')
+        
+        payload = {
+            'phone': str(phone_number)
+        }
+        
+        headers = {
+            "accept":"application/json",
+            "x-service-secret" : "BackEndSecretKey",
+            "Content-Type" : "application/json"
+        }
+        
+        # Add timeout from settings or use default
+        timeout = getattr(settings, 'EXTERNAL_API_TIMEOUT', 10)
+        
+        response = requests.post(
+            external_url,
+            json=payload,
+            headers=headers,
+            timeout=timeout
+        )
+
+
+        # Try to parse JSON response
+        if response.headers.get('Content-Type', '').startswith('application/json'):
+            return response.json()
+        else:
+            return {
+                'status_code': response.status_code,
+                'content': response.text[:500]  # Limit content length
+            }
+            
+    except requests.exceptions.Timeout:
+        return {'error': 'Request timeout', 'details': 'External API did not respond in time'}
+    except requests.exceptions.ConnectionError:
+        return {'error': 'Connection error', 'details': 'Could not connect to external API'}
+    except requests.exceptions.RequestException as e:
+        return {'error': 'Request failed', 'details': str(e)}
+    except ValueError as e:  # JSON parsing error
+        return {'error': 'Invalid response', 'details': 'Could not parse JSON response'}
+    except Exception as e:
+        return {'error': 'Unexpected error', 'details': str(e)}
 
 
 @extend_schema(
@@ -152,16 +202,22 @@ def login_view(request):
     if serializer.is_valid():
         user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
+        # ارسال درخواست به متافا برای ورود
+        phone_number = getattr(user, 'phone_number', None)
         
+        if phone_number:
+            metfa_response = send_to_external_api(phone_number,request_type="login")
+        else:
+            metfa_response = {'error': 'Phone number not found for user'}
         # ساخت Response - توکن‌ها در cookies هستند، نه در response body
         response = Response({
             'user': LoginResponseSerializer(user).data,
             'message': 'لاگین با موفقیت انجام شد',
-            'note': 'Tokens are stored in HttpOnly cookies and sent automatically with each request'
+            'note': 'Tokens are stored in HttpOnly cookies and sent automatically with each request',
+            'metfa_response': metfa_response
         })
         
         # تنظیم access token در HttpOnly cookie
-        from django.conf import settings
         is_development = settings.DEBUG
         
         # در development، از Lax استفاده می‌کنیم (برای proxy)
